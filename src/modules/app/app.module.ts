@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { envSchema } from './config/env.schema';
-import { HealthModule } from './modules/health/health.module';
+import { envSchema } from '../../config/env.schema';
+import { HealthModule } from '../health/health.module';
 
 @Module({
   imports: [

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envSchema } from './config/env.schema';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { envSchema } from './config/env.schema';
         return parsed.data;
       },
     }),
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

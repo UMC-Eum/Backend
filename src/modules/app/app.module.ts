@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
 import { HealthModule } from '../health/health.module';
+import { PrismaModule } from 'src/infra/prisma/prisma.module';
 
 @Module({
   imports: [

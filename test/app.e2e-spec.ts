@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/modules/app/app.module';
+import type { ApiSuccessResponse } from '../src/common/dto/api-response.dto';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -16,10 +17,15 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('/api/v1 (GET)', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1').expect(200);
+
+    const body = res.body as ApiSuccessResponse<{ message: string }>;
+
+    expect(body.success).toBe(true);
+    expect(body.error).toBeNull();
+    expect(body.path).toBe('/api/v1');
+    expect(body.data).toEqual({ message: 'Hello World!' });
+    expect(typeof body.timestamp).toBe('string');
   });
 });

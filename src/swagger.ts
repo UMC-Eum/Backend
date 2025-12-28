@@ -7,7 +7,13 @@ export function setupSwagger(app: INestApplication) {
     .setDescription('EUM backend API documentation')
     .setVersion('1.0.0')
     .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', name: 'Authorization', in: 'header' },
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        in: 'header',
+      },
       'access-token',
     )
     .build();

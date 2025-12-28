@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
 import { HealthModule } from '../health/health.module';
+import { PrismaModule } from 'src/infra/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -14,12 +15,15 @@ import { HealthModule } from '../health/health.module';
         const parsed = envSchema.safeParse(config);
         if (!parsed.success) {
           const formatted = parsed.error.flatten().fieldErrors;
-          throw new Error(`Invalid environment variables: ${JSON.stringify(formatted)}`);
+          throw new Error(
+            `Invalid environment variables: ${JSON.stringify(formatted)}`,
+          );
         }
         return parsed.data;
       },
     }),
     HealthModule,
+    PrismaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

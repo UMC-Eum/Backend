@@ -185,7 +185,59 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 * 개발 환경 DB는 docker-compose 기준으로 `DATABASE_URL`이 `3307`을 사용합니다.
 * CI 환경에서는 MySQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `3306/6379`입니다.
 
+형님, 일단 README에는 **`Notes` 바로 아래(혹은 Notes 안 마지막)**에 “API Response Convention” 섹션을 넣는 게 제일 자연스러워예. 아래처럼 그대로 추가하면 됩니다.
+
 ---
+
+## ✅ README에 자연스럽게 끼워넣은 추가본 (붙여넣기용)
+
+`## 🧑‍💻 Notes` 섹션 **아래에** 이 블록을 추가해주이소:
+
+````md
+---
+
+## 📦 API Response Convention
+
+모든 API 응답은 공통 래퍼 형태를 사용합니다.
+
+### ✅ Success Response
+
+- `data`는 **항상 객체(Object)** 로 반환합니다.
+- 문자열/숫자/배열을 반환해야 하는 경우에도 객체로 감싸서 반환합니다.
+
+예시:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Hello World!"
+  },
+  "error": null,
+  "timestamp": "2025-12-28T04:23:05.883Z",
+  "path": "/api/v1"
+}
+````
+
+### ❗ Error Response
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "COMMON_BAD_REQUEST",
+    "message": "Validation failed",
+    "details": []
+  },
+  "timestamp": "2025-12-28T04:19:07.272Z",
+  "path": "/api/v1/health"
+}
+```
+
+> `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.
+
+````
 
 ## 📌 Scripts
 

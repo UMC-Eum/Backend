@@ -12,14 +12,21 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigin = configService.get<string>(
+    'CORS_ORIGIN',
+    'http://localhost:3000',
+  );
 
-  app.setGlobalPrefix('api/v1'); 
+  app.setGlobalPrefix('api/v1');
 
   app.enableCors({ origin: corsOrigin, credentials: true });
 
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
   );
 
   const logger = createPinoLogger();
@@ -34,4 +41,8 @@ async function bootstrap() {
 
   await app.listen(port);
 }
-bootstrap();
+
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

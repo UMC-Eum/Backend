@@ -15,12 +15,15 @@ import { PrismaModule } from 'src/infra/prisma/prisma.module';
         const parsed = envSchema.safeParse(config);
         if (!parsed.success) {
           const formatted = parsed.error.flatten().fieldErrors;
-          throw new Error(`Invalid environment variables: ${JSON.stringify(formatted)}`);
+          throw new Error(
+            `Invalid environment variables: ${JSON.stringify(formatted)}`,
+          );
         }
         return parsed.data;
       },
     }),
     HealthModule,
+    PrismaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

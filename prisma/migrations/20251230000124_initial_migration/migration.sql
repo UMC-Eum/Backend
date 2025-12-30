@@ -145,7 +145,7 @@ CREATE TABLE `Chat_room` (
                              `status` ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE'
 );
 
-CREATE TABLE `Pesonal_information` (
+CREATE TABLE `Personal_information` (
                                        `id` bigint NOT NULL,
                                        `body` varchar(255) NOT NULL
 );
@@ -188,7 +188,7 @@ CREATE TABLE `Notification` (
         'HEART',
         'PROFILE',
         'REMIND',
-        'UPDATE',
+        'UPDATE'
     ) NOT NULL DEFAULT 'CHAT',
                                 `is_read` boolean NOT NULL DEFAULT FALSE,
                                 `created_at` datetime(6) NOT NULL,
@@ -250,8 +250,8 @@ ALTER TABLE `Chat_media`
 ALTER TABLE `Chat_room`
     ADD CONSTRAINT `PK_CHAT_ROOM` PRIMARY KEY (`id`);
 
-ALTER TABLE `Pesonal_information`
-    ADD CONSTRAINT `PK_PESONAL_INFORMATION` PRIMARY KEY (`id`);
+ALTER TABLE `Personal_information`
+    ADD CONSTRAINT `PK_PERSONAL_INFORMATION` PRIMARY KEY (`id`);
 
 ALTER TABLE `Marketing_agreement`
     ADD CONSTRAINT `PK_MARKETING_AGREEMENT` PRIMARY KEY (

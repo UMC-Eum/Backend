@@ -16,3 +16,172 @@ datasource db {
 generator dbml {
   provider = "prisma-dbml-generator"
 }
+
+enum AddressLevel {
+  SIDO
+  SIGUNGU
+  EMD
+  RI
+}
+
+enum BlockStatus {
+  BLOCKED
+  UNBLOCKED
+}
+
+enum ChatMediaType {
+  AUDIO
+  PHOTO
+  VIDEO
+  TEXT
+}
+
+enum ChatRoomStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum NotificationType {
+  RECOMMEND
+  CHAT
+  HEART
+  PROFILE
+  REMIND
+  UPDATE
+}
+
+model Address {
+  code        String       @id @db.Char(10)
+  sidoCode    String       @db.Char(2)
+  sigunguCode String       @db.Char(3)
+  emdCode     String       @db.Char(3)
+  riCode      String       @db.Char(2)
+  fullName    String       @db.VarChar(200)
+  sidoName    String       @db.VarChar(50)
+  sigunguName String       @db.VarChar(50)
+  emdName     String       @db.VarChar(50)
+  riName      String?      @db.VarChar(50)
+  level       AddressLevel @default(SIGUNGU)
+  parentCode  String       @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..
+
+  parent Address? @relation("AddressToParent", fields: [parentCode], references: [code])
+
+  parents Address[] @relation("AddressToParent")
+}
+
+model Block {
+  id          BigInt      @id @default(autoincrement()) @db.BigInt
+  blockedById BigInt      @db.BigInt
+  blockedId   BigInt      @db.BigInt
+  blockedAt   DateTime    @db.DateTime(6)
+  reason      String      @db.VarChar(100)
+  status      BlockStatus @default(BLOCKED)
+  deletedAt   DateTime?   @db.DateTime(6)
+
+  blockedBy User @relation("UserBlocksBy", fields: [blockedById], references: [id])
+  blocked   User @relation("UserBlocks", fields: [blockedId], references: [id])
+
+  @@unique([blockedById], [blockedId])
+}
+
+model Report {
+  id           BigInt    @id @default(autoincrement()) @db.BigInt
+  reportedById BigInt    @db.BigInt
+  reportedId   BigInt    @db.BigInt
+  reportedAt   DateTime  @db.DateTime(6)
+  reason       String    @db.VarChar(100)
+  deletedAt    DateTime? @db.DateTime(6)
+
+  reportedBy User @relation("UserReportsBy", fields: [reportedById], references: [id])
+  reported   User @relation("UserReports", fields: [reportedId], references: [id])
+
+  @@unique([reportedById], [reportedId])
+}
+
+model Notification {
+  id        BigInt           @id @default(autoincrement()) @db.BigInt
+  userId    BigInt           @db.BigInt // unique 제약은 걸어주지 않습니다. 한사람에게 여러개의 알람이 존재하니..
+  type      NotificationType @default(CHAT)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @db.DateTime(6)
+  deletedAt DateTime?        @db.DateTime(6)
+  title     String           @db.VarChar(50)
+  body      String           @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ChatRoom {
+  id           BigInt            @id @default(autoincrement()) @db.BigInt
+  userId       BigInt            @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
+  startedAt    DateTime          @db.DateTime(6)
+  endedAt      DateTime?         @db.DateTime(6)
+  status       ChatRoomStatus    @default(ACTIVE)
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ChatParticipant {
+  id       BigInt    @id @default(autoincrement()) @db.BigInt
+  joinedAt DateTime  @db.DateTime(6)
+  userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
+  roomId   BigInt    @db.BigInt
+  endedAt  DateTime? @db.DateTime(6)
+  room     ChatRoom  @relation(fields: [roomId], references: [id])
+
+  user      User     @relation(fields: [userId], references: [id])
+  rommOwner ChatRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
+model ChatMessage {
+  id        BigInt      @id @default(autoincrement()) @db.BigInt
+  sentAt    DateTime    @db.DateTime(6)
+  updatedAt DateTime?   @db.DateTime(6)
+  readAt    DateTime?   @db.DateTime(6)
+  deletedAt DateTime?   @db.DateTime(6)
+  sentById  BigInt      @db.BigInt // 일대일 채팅이므로 모두 유니크 제약이 필요
+  sentToId  BigInt      @db.BigInt
+  roomId    BigInt      @db.BigInt
+  media     ChatMedia[]
+
+  room   ChatRoom @relation(fields: [roomId], references: [id])
+  sentBy User     @relation("ChatMessagesSentBy", fields: [sentById], references: [id])
+  sentTo User     @relation("ChatMessagesSentTo", fields: [sentToId], references: [id])
+
+  @@unique([roomId, sentById, sentToId])
+}
+
+model ChatMedia {
+  id        BigInt        @id @default(autoincrement()) @db.BigInt
+  messageId BigInt        @db.BigInt
+  url       String?       @db.VarChar(512)
+  type      ChatMediaType @default(TEXT)
+  text      String?       @db.VarChar(512)
+  message   ChatMessage   @relation(fields: [messageId], references: [id])
+
+  @@unique([messageId])
+}
+
+model UserMarketingAgreement {
+  id                  BigInt               @id @default(autoincrement()) @db.BigInt
+  body                String               @db.VarChar(255)
+  marketingAgreements MarketingAgreement[]
+}
+
+model MarketingAgreement {
+  id                   BigInt    @id @default(autoincrement()) @db.BigInt
+  marketingAgreementId BigInt    @db.BigInt
+  userId               BigInt    @db.BigInt
+  agreedAt             DateTime  @db.DateTime(6)
+  isAgreed             Boolean   @default(true)
+  deletedAt            DateTime? @db.DateTime(6)
+
+  user                   User                   @relation(fields: [userId], references: [id])
+  userMarketingAgreement UserMarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+
+  @@unique([marketingAgreementId, userId])
+}

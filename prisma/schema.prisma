@@ -11,3 +11,141 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+model User {
+  id                BigInt                  @id @default(autoincrement())
+  birthdate         DateTime                @db.DateTime(6)
+  email             String                  @db.VarChar(255) @unique
+  sex               Sex                     @default(M)
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+  nickname          String                  @db.VarChar(20)
+  updatedAt         DateTime                @db.DateTime(6) @updatedAt
+  deletedAt         DateTime?               @db.DateTime(6)
+  idealVoiceUrl     String?                 @db.VarChar(512)
+  introVoiceUrl     String                  @db.VarChar(512)
+  introText         String                  @db.VarChar(255)
+  profileImageUrl   String                  @db.VarChar(512)
+  status            ActiveStatus            @default(ACTIVE)
+  code              String                  @db.Char(10)
+
+  address Address @relation (
+    fields: [code],
+    references: [code]
+  )
+
+  sentHearts     Heart[] @relation("SentBy")
+  receivedHearts Heart[] @relation("SentTo")
+  
+}
+
+enum Sex {
+  M
+  F
+}
+
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model UserPhoto {
+  id                BigInt                  @id @default(autoincrement())
+  userId            BigInt
+  url               String                  @db.VarChar(512)
+  deletedAt         DateTime?               @db.DateTime(6)
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+
+  user User @relation (
+    fields: [userId],
+    references: [id]
+  )
+        
+}
+
+model Heart { 
+  id                BigInt                  @id @default(autoincrement())
+  sentById          BigInt
+  sentToId          BigInt
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+  deletedAt         DateTime?               @db.DateTime(6)
+  status            ActiveStatus            @default(ACTIVE)
+
+  sentBy User @relation("SentBy", fields: [sentById], references: [id])
+  sentTo User @relation("SentTo", fields: [sentToId], references: [id])
+
+  @@unique([sentById, sentToId])
+}
+
+model Interest {
+  id                BigInt                  @id @default(autoincrement())
+  body              String                  @db.VarChar(50) @unique
+}
+
+model UserInterest {
+  id                BigInt                  @default(autoincrement())
+  interestId        BigInt
+  userId            BigInt
+  deletedAt         DateTime?               @db.DateTime(6)
+  updatedAt         DateTime                @db.DateTime(6) @updatedAt
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+  vibeVector        Unsupported("vector")
+
+  interest Interest @relation (
+    fields: [interestId],
+    references: [id]
+  )
+
+  user User @relation (
+    fields: [userId],
+    references: [id]
+  )
+
+  @@unique([interestId, userId])
+}
+
+model Personality {
+  id                BigInt                  @id @default(autoincrement())
+  body              String                  @db.VarChar(50) @unique
+}
+
+model UserIdealPersonality {
+  id                BigInt                  @default(autoincrement())
+  userId            BigInt
+  personalityId     BigInt
+  deletedAt         DateTime?               @db.DateTime(6)
+  updatedAt         DateTime                @db.DateTime(6) @updatedAt
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+  vibeVector        Unsupported("vector")
+
+  user User @relation (
+    fields: [userId],
+    references: [id]
+  )   
+  personality Personality @relation (
+    fields: [personalityId],
+    references: [id]
+  )
+
+  @@unique([userId, personalityId])
+}
+
+model UserPersonality {
+  id                BigInt                  @default(autoincrement())
+  userId            BigInt
+  personalityId     BigInt
+  deletedAt         DateTime?               @db.DateTime(6)
+  updatedAt         DateTime                @db.DateTime(6) @updatedAt
+  createdAt         DateTime                @db.DateTime(6) @default(now())
+  vibeVector        Unsupported("vector")
+
+  user User @relation (
+    fields: [userId],
+    references: [id]
+  )   
+  personality Personality @relation (
+    fields: [personalityId],
+    references: [id]
+  )
+
+  @@unique([userId, personalityId])
+}

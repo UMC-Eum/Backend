@@ -144,7 +144,7 @@ model UserInterest {
   deletedAt  DateTime?             @db.DateTime(6)
   updatedAt  DateTime              @updatedAt @db.DateTime(6)
   createdAt  DateTime              @default(now()) @db.DateTime(6)
-  vibeVector Unsupported("vector")
+  vibeVector Json
 
   interest Interest @relation(fields: [interestId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
@@ -168,7 +168,7 @@ model UserIdealPersonality {
   deletedAt     DateTime?             @db.DateTime(6)
   updatedAt     DateTime              @updatedAt @db.DateTime(6)
   createdAt     DateTime              @default(now()) @db.DateTime(6)
-  vibeVector    Unsupported("vector")
+  vibeVector    Json
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -184,7 +184,7 @@ model UserPersonality {
   deletedAt     DateTime?             @db.DateTime(6)
   updatedAt     DateTime              @updatedAt @db.DateTime(6)
   createdAt     DateTime              @default(now()) @db.DateTime(6)
-  vibeVector    Unsupported("vector")
+  vibeVector    Json
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -257,7 +257,7 @@ model Notification {
   userId    BigInt           @db.BigInt // unique 제약은 걸어주지 않습니다. 한사람에게 여러개의 알람이 존재하니..
   type      NotificationType @default(CHAT)
   isRead    Boolean          @default(false)
-  createdAt DateTime         @db.DateTime(6)
+  createdAt DateTime         @db.DateTime(6) @default(now())
   deletedAt DateTime?        @db.DateTime(6)
   title     String           @db.VarChar(50)
   body      String           @db.VarChar(100)
@@ -271,7 +271,7 @@ model Notification {
 model ChatRoom {
   id           BigInt            @id @default(autoincrement()) @db.BigInt
   userId       BigInt            @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
-  startedAt    DateTime          @db.DateTime(6)
+  startedAt    DateTime          @db.DateTime(6) @default(now())
   endedAt      DateTime?         @db.DateTime(6)
   status       ChatRoomStatus    @default(ACTIVE)
   participants ChatParticipant[]
@@ -286,7 +286,7 @@ model ChatRoom {
 
 model ChatParticipant {
   id       BigInt    @id @default(autoincrement()) @db.BigInt
-  joinedAt DateTime  @db.DateTime(6)
+  joinedAt DateTime  @db.DateTime(6) @default(now())
   userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
   roomId   BigInt    @db.BigInt
   endedAt  DateTime? @db.DateTime(6)
@@ -300,8 +300,8 @@ model ChatParticipant {
 
 model ChatMessage {
   id        BigInt    @id @default(autoincrement()) @db.BigInt
-  sentAt    DateTime  @db.DateTime(6)
-  updatedAt DateTime? @db.DateTime(6)
+  sentAt    DateTime  @db.DateTime(6) @default(now())
+  updatedAt DateTime  @db.DateTime(6) @updatedAt
   readAt    DateTime? @db.DateTime(6)
   deletedAt DateTime? @db.DateTime(6)
   sentById  BigInt    @db.BigInt
@@ -313,10 +313,10 @@ model ChatMessage {
   sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id])
   chatMedia ChatMedia[]
 
-  @@index([roomId])
   @@index([sentById])
   @@index([sentToId])
   @@index([sentAt])
+  @@index([roomId, sentAt])
 }
 
 model ChatMedia {
@@ -341,7 +341,7 @@ model MarketingAgreement {
   id                   BigInt    @id @default(autoincrement()) @db.BigInt
   marketingAgreementId BigInt    @db.BigInt
   userId               BigInt    @db.BigInt
-  agreedAt             DateTime  @db.DateTime(6)
+  agreedAt             DateTime  @db.DateTime(6) @default(now())
   isAgreed             Boolean   @default(true)
   deletedAt            DateTime? @db.DateTime(6)
 

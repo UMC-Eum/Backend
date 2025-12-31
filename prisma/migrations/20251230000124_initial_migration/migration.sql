@@ -62,7 +62,7 @@ CREATE TABLE `address` (
         'EMD',
         'RI'
     ) NOT NULL DEFAULT 'SIGUNGU' COMMENT 'DEFAULT = SIGUNGU',
-                           `parent_code` char(10) NOT NULL
+                           `parent_code` char(10) NULL
 );
 
 CREATE TABLE `Heart` (
@@ -297,3 +297,44 @@ ALTER TABLE `Marketing_agreement`
 
 ALTER TABLE `Marketing_agreement`
     ADD CONSTRAINT `FK_User_TO_Marketing_agreement_1` FOREIGN KEY (`user_id`) REFERENCES `User` (`id`);
+
+ALTER TABLE `User`
+    ADD CONSTRAINT `FK_address_TO_User_1` FOREIGN KEY (`code`) REFERENCES `address` (`code`);
+
+CREATE INDEX `IDX_User_status` ON `User` (`status`);
+CREATE INDEX `IDX_User_created_at` ON `User` (`created_at`);
+CREATE INDEX `IDX_User_deleted_at` ON `User` (`deleted_at`);
+CREATE INDEX `IDX_User_sex_status` ON `User` (`sex`, `status`);
+CREATE INDEX `IDX_User_photo_user_id` ON `User_photo` (`user_id`);
+CREATE INDEX `IDX_User_photo_created_at` ON `User_photo` (`created_at`);
+CREATE INDEX `IDX_Heart_sent_by_id` ON `Heart` (`sent_by_id`);
+CREATE INDEX `IDX_Heart_sent_to_id` ON `Heart` (`sent_to_id`);
+CREATE INDEX `IDX_Heart_created_at` ON `Heart` (`created_at`);
+CREATE INDEX `IDX_Heart_status` ON `Heart` (`status`);
+CREATE INDEX `IDX_User_interest_user_id` ON `User_interest` (`user_id`);
+CREATE INDEX `IDX_User_ideal_personality_user_id` ON `User_ideal_personality` (`user_id`);
+CREATE INDEX `IDX_User_personality_user_id` ON `User_personality` (`user_id`);
+CREATE INDEX `IDX_address_parent_code` ON `address` (`parent_code`);
+CREATE INDEX `IDX_address_level` ON `address` (`level`);
+CREATE INDEX `IDX_address_region` ON `address` (`sido_code`, `sigungu_code`, `emd_code`);
+CREATE INDEX `IDX_Block_blocked_by_id` ON `Block` (`blocked_by_id`);
+CREATE INDEX `IDX_Block_blocked_id` ON `Block` (`blocked_id`);
+CREATE INDEX `IDX_Block_blocked_at` ON `Block` (`blocked_at`);
+CREATE INDEX `IDX_Block_status` ON `Block` (`status`);
+CREATE INDEX `IDX_Report_reported_by_id` ON `Report` (`reported_by_id`);
+CREATE INDEX `IDX_Report_reported_id` ON `Report` (`reported_id`);
+CREATE INDEX `IDX_Report_reported_at` ON `Report` (`reported_at`);
+CREATE INDEX `IDX_Notification_user_is_read` ON `Notification` (`user_id`, `is_read`);
+CREATE INDEX `IDX_Notification_created_at` ON `Notification` (`created_at`);
+CREATE INDEX `IDX_Chat_room_user_id` ON `Chat_room` (`user_id`);
+CREATE INDEX `IDX_Chat_room_status` ON `Chat_room` (`status`);
+CREATE INDEX `IDX_Chat_room_started_at` ON `Chat_room` (`started_at`);
+CREATE INDEX `IDX_Chat_participant_user_id` ON `Chat_participant` (`user_id`);
+CREATE INDEX `IDX_Chat_message_room_id` ON `Chat_message` (`room_id`);
+CREATE INDEX `IDX_Chat_message_sent_by_id` ON `Chat_message` (`sent_by_id`);
+CREATE INDEX `IDX_Chat_message_sent_to_id` ON `Chat_message` (`sent_to_id`);
+CREATE INDEX `IDX_Chat_message_sent_at` ON `Chat_message` (`sent_at`);
+CREATE INDEX `IDX_Chat_media_message_id` ON `Chat_media` (`message_id`);
+CREATE INDEX `IDX_Marketing_agreement_user_id` ON `Marketing_agreement` (`user_id`);
+CREATE INDEX `IDX_Marketing_agreement_agreed_at` ON `Marketing_agreement` (`agreed_at`);
+CREATE INDEX `IDX_Marketing_agreement_is_agreed` ON `Marketing_agreement` (`is_agreed`);

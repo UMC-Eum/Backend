@@ -10,11 +10,20 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 generator dbml {
   provider = "prisma-dbml-generator"
+}
+
+enum Sex {
+  M
+  F
+}
+
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum AddressLevel {
@@ -50,6 +59,140 @@ enum NotificationType {
   UPDATE
 }
 
+model User {
+  id              BigInt       @id @default(autoincrement())
+  birthdate       DateTime     @db.DateTime(6)
+  email           String       @unique @db.VarChar(255)
+  sex             Sex          @default(M)
+  createdAt       DateTime     @default(now()) @db.DateTime(6)
+  nickname        String       @db.VarChar(20)
+  updatedAt       DateTime     @updatedAt @db.DateTime(6)
+  deletedAt       DateTime?    @db.DateTime(6)
+  idealVoiceUrl   String?      @db.VarChar(512)
+  introVoiceUrl   String       @db.VarChar(512)
+  introText       String       @db.VarChar(255)
+  profileImageUrl String       @db.VarChar(512)
+  status          ActiveStatus @default(ACTIVE)
+  code            String       @db.Char(10)
+
+  address             Address                @relation(fields: [code], references: [code])
+  sentHearts          Heart[]                @relation("SentBy")
+  receivedHearts      Heart[]                @relation("SentTo")
+  photos              UserPhoto[]
+  interests           UserInterest[]
+  idealPersonalities  UserIdealPersonality[]
+  personalities       UserPersonality[]
+  notifications       Notification[]
+  chatRooms           ChatRoom[]
+  chatParticipations  ChatParticipant[]
+  sentMessages        ChatMessage[]          @relation("ChatMessagesSentBy")
+  receivedMessages    ChatMessage[]          @relation("ChatMessagesSentTo")
+  marketingAgreements MarketingAgreement[]
+  blocksInitiated     Block[]                @relation("UserBlocksBy")
+  blocksReceived      Block[]                @relation("UserBlocks")
+  reportsFiled        Report[]               @relation("UserReportsBy")
+  reportsReceived     Report[]               @relation("UserReports")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([sex, status])
+}
+
+model UserPhoto {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt
+  url       String    @db.VarChar(512)
+  deletedAt DateTime? @db.DateTime(6)
+  createdAt DateTime  @default(now()) @db.DateTime(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Heart {
+  id        BigInt       @id @default(autoincrement())
+  sentById  BigInt
+  sentToId  BigInt
+  createdAt DateTime     @default(now()) @db.DateTime(6)
+  deletedAt DateTime?    @db.DateTime(6)
+  status    ActiveStatus @default(ACTIVE)
+
+  sentBy User @relation(name: "SentBy", fields: [sentById], references: [id])
+  sentTo User @relation(name: "SentTo", fields: [sentToId], references: [id])
+
+  @@unique([sentById, sentToId])
+  @@index([sentById])
+  @@index([sentToId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Interest {
+  id   BigInt @id @default(autoincrement())
+  body String @unique @db.VarChar(50)
+
+  userInterests UserInterest[]
+}
+
+model UserInterest {
+  id         BigInt                @id @default(autoincrement())
+  interestId BigInt
+  userId     BigInt
+  deletedAt  DateTime?             @db.DateTime(6)
+  updatedAt  DateTime              @updatedAt @db.DateTime(6)
+  createdAt  DateTime              @default(now()) @db.DateTime(6)
+  vibeVector Unsupported("vector")
+
+  interest Interest @relation(fields: [interestId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([interestId, userId])
+  @@index([userId])
+}
+
+model Personality {
+  id   BigInt @id @default(autoincrement())
+  body String @unique @db.VarChar(50)
+
+  userIdealPersonalities UserIdealPersonality[]
+  userPersonalities      UserPersonality[]
+}
+
+model UserIdealPersonality {
+  id            BigInt                @id @default(autoincrement())
+  userId        BigInt
+  personalityId BigInt
+  deletedAt     DateTime?             @db.DateTime(6)
+  updatedAt     DateTime              @updatedAt @db.DateTime(6)
+  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  vibeVector    Unsupported("vector")
+
+  user        User        @relation(fields: [userId], references: [id])
+  personality Personality @relation(fields: [personalityId], references: [id])
+
+  @@unique([userId, personalityId])
+  @@index([userId])
+}
+
+model UserPersonality {
+  id            BigInt                @id @default(autoincrement())
+  userId        BigInt
+  personalityId BigInt
+  deletedAt     DateTime?             @db.DateTime(6)
+  updatedAt     DateTime              @updatedAt @db.DateTime(6)
+  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  vibeVector    Unsupported("vector")
+
+  user        User        @relation(fields: [userId], references: [id])
+  personality Personality @relation(fields: [personalityId], references: [id])
+
+  @@unique([userId, personalityId])
+  @@index([userId])
+}
+
 model Address {
   code        String       @id @db.Char(10)
   sidoCode    String       @db.Char(2)
@@ -62,11 +205,15 @@ model Address {
   emdName     String       @db.VarChar(50)
   riName      String?      @db.VarChar(50)
   level       AddressLevel @default(SIGUNGU)
-  parentCode  String       @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..
+  parentCode  String?      @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..
 
-  parent Address? @relation("AddressToParent", fields: [parentCode], references: [code])
+  parent  Address?  @relation(name: "AddressToParent", fields: [parentCode], references: [code])
+  parents Address[] @relation(name: "AddressToParent")
+  users   User[]
 
-  parents Address[] @relation("AddressToParent")
+  @@index([parentCode])
+  @@index([level])
+  @@index([sidoCode, sigunguCode, emdCode])
 }
 
 model Block {
@@ -78,10 +225,14 @@ model Block {
   status      BlockStatus @default(BLOCKED)
   deletedAt   DateTime?   @db.DateTime(6)
 
-  blockedBy User @relation("UserBlocksBy", fields: [blockedById], references: [id])
-  blocked   User @relation("UserBlocks", fields: [blockedId], references: [id])
+  blockedBy User @relation(name: "UserBlocksBy", fields: [blockedById], references: [id])
+  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id])
 
-  @@unique([blockedById], [blockedId])
+  @@unique([blockedById, blockedId])
+  @@index([blockedById])
+  @@index([blockedId])
+  @@index([blockedAt])
+  @@index([status])
 }
 
 model Report {
@@ -92,10 +243,13 @@ model Report {
   reason       String    @db.VarChar(100)
   deletedAt    DateTime? @db.DateTime(6)
 
-  reportedBy User @relation("UserReportsBy", fields: [reportedById], references: [id])
-  reported   User @relation("UserReports", fields: [reportedId], references: [id])
+  reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id])
+  reported   User @relation(name: "UserReports", fields: [reportedId], references: [id])
 
-  @@unique([reportedById], [reportedId])
+  @@unique([reportedById, reportedId])
+  @@index([reportedById])
+  @@index([reportedId])
+  @@index([reportedAt])
 }
 
 model Notification {
@@ -109,6 +263,9 @@ model Notification {
   body      String           @db.VarChar(100)
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }
 
 model ChatRoom {
@@ -121,6 +278,10 @@ model ChatRoom {
   messages     ChatMessage[]
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
 }
 
 model ChatParticipant {
@@ -129,30 +290,33 @@ model ChatParticipant {
   userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
   roomId   BigInt    @db.BigInt
   endedAt  DateTime? @db.DateTime(6)
-  room     ChatRoom  @relation(fields: [roomId], references: [id])
 
-  user      User     @relation(fields: [userId], references: [id])
-  rommOwner ChatRoom @relation(fields: [roomId], references: [id])
+  room ChatRoom @relation(fields: [roomId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
+  @@index([userId])
 }
 
 model ChatMessage {
-  id        BigInt      @id @default(autoincrement()) @db.BigInt
-  sentAt    DateTime    @db.DateTime(6)
-  updatedAt DateTime?   @db.DateTime(6)
-  readAt    DateTime?   @db.DateTime(6)
-  deletedAt DateTime?   @db.DateTime(6)
-  sentById  BigInt      @db.BigInt // 일대일 채팅이므로 모두 유니크 제약이 필요
-  sentToId  BigInt      @db.BigInt
-  roomId    BigInt      @db.BigInt
-  media     ChatMedia[]
+  id        BigInt    @id @default(autoincrement()) @db.BigInt
+  sentAt    DateTime  @db.DateTime(6)
+  updatedAt DateTime? @db.DateTime(6)
+  readAt    DateTime? @db.DateTime(6)
+  deletedAt DateTime? @db.DateTime(6)
+  sentById  BigInt    @db.BigInt
+  sentToId  BigInt    @db.BigInt
+  roomId    BigInt    @db.BigInt
 
-  room   ChatRoom @relation(fields: [roomId], references: [id])
-  sentBy User     @relation("ChatMessagesSentBy", fields: [sentById], references: [id])
-  sentTo User     @relation("ChatMessagesSentTo", fields: [sentToId], references: [id])
+  room      ChatRoom    @relation(fields: [roomId], references: [id])
+  sentBy    User        @relation(name: "ChatMessagesSentBy", fields: [sentById], references: [id])
+  sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id])
+  chatMedia ChatMedia[]
 
-  @@unique([roomId, sentById, sentToId])
+  @@index([roomId])
+  @@index([sentById])
+  @@index([sentToId])
+  @@index([sentAt])
 }
 
 model ChatMedia {
@@ -161,9 +325,10 @@ model ChatMedia {
   url       String?       @db.VarChar(512)
   type      ChatMediaType @default(TEXT)
   text      String?       @db.VarChar(512)
-  message   ChatMessage   @relation(fields: [messageId], references: [id])
 
-  @@unique([messageId])
+  message ChatMessage @relation(fields: [messageId], references: [id])
+
+  @@index([messageId])
 }
 
 model UserMarketingAgreement {
@@ -184,4 +349,7 @@ model MarketingAgreement {
   userMarketingAgreement UserMarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
 
   @@unique([marketingAgreementId, userId])
+  @@index([userId])
+  @@index([agreedAt])
+  @@index([isAgreed])
 }

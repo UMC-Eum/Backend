@@ -201,8 +201,8 @@ model Address {
   riCode      String       @db.Char(2)
   fullName    String       @db.VarChar(200)
   sidoName    String       @db.VarChar(50)
-  sigunguName String       @db.VarChar(50)
-  emdName     String       @db.VarChar(50)
+  sigunguName String?      @db.VarChar(50)
+  emdName     String?      @db.VarChar(50)
   riName      String?      @db.VarChar(50)
   level       AddressLevel @default(SIGUNGU)
   parentCode  String?      @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..

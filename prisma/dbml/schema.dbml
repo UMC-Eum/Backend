@@ -1,0 +1,346 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id BigInt [pk, increment]
+  birthdate DateTime [not null]
+  email String [unique, not null]
+  sex Sex [not null, default: 'M']
+  createdAt DateTime [default: `now()`, not null]
+  nickname String [not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  idealVoiceUrl String
+  introVoiceUrl String [not null]
+  introText String [not null]
+  profileImageUrl String [not null]
+  status ActiveStatus [not null, default: 'ACTIVE']
+  code String [not null]
+  address Address [not null]
+  sentHearts Heart [not null]
+  receivedHearts Heart [not null]
+  photos UserPhoto [not null]
+  interests UserInterest [not null]
+  idealPersonalities UserIdealPersonality [not null]
+  personalities UserPersonality [not null]
+  notifications Notification [not null]
+  chatRooms ChatRoom [not null]
+  chatParticipations ChatParticipant [not null]
+  sentMessages ChatMessage [not null]
+  receivedMessages ChatMessage [not null]
+  marketingAgreements MarketingAgreement [not null]
+  blocksInitiated Block [not null]
+  blocksReceived Block [not null]
+  reportsFiled Report [not null]
+  reportsReceived Report [not null]
+}
+
+Table UserPhoto {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  url String [not null]
+  deletedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  user User [not null]
+}
+
+Table Heart {
+  id BigInt [pk, increment]
+  sentById BigInt [not null]
+  sentToId BigInt [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  status ActiveStatus [not null, default: 'ACTIVE']
+  sentBy User [not null]
+  sentTo User [not null]
+
+  indexes {
+    (sentById, sentToId) [unique]
+  }
+}
+
+Table Interest {
+  id BigInt [pk, increment]
+  body String [unique, not null]
+  userInterests UserInterest [not null]
+}
+
+Table UserInterest {
+  id BigInt [pk, increment]
+  interestId BigInt [not null]
+  userId BigInt [not null]
+  deletedAt DateTime
+  updatedAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  vibeVector Json [not null]
+  interest Interest [not null]
+  user User [not null]
+
+  indexes {
+    (interestId, userId) [unique]
+  }
+}
+
+Table Personality {
+  id BigInt [pk, increment]
+  body String [unique, not null]
+  userIdealPersonalities UserIdealPersonality [not null]
+  userPersonalities UserPersonality [not null]
+}
+
+Table UserIdealPersonality {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  personalityId BigInt [not null]
+  deletedAt DateTime
+  updatedAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  vibeVector Json [not null]
+  user User [not null]
+  personality Personality [not null]
+
+  indexes {
+    (userId, personalityId) [unique]
+  }
+}
+
+Table UserPersonality {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  personalityId BigInt [not null]
+  deletedAt DateTime
+  updatedAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  vibeVector Json [not null]
+  user User [not null]
+  personality Personality [not null]
+
+  indexes {
+    (userId, personalityId) [unique]
+  }
+}
+
+Table Address {
+  code String [pk]
+  sidoCode String [not null]
+  sigunguCode String [not null]
+  emdCode String [not null]
+  riCode String [not null]
+  fullName String [not null]
+  sidoName String [not null]
+  sigunguName String [not null]
+  emdName String [not null]
+  riName String
+  level AddressLevel [not null, default: 'SIGUNGU']
+  parentCode String
+  parent Address
+  parents Address [not null]
+  users User [not null]
+}
+
+Table Block {
+  id BigInt [pk, increment]
+  blockedById BigInt [not null]
+  blockedId BigInt [not null]
+  blockedAt DateTime [not null]
+  reason String [not null]
+  status BlockStatus [not null, default: 'BLOCKED']
+  deletedAt DateTime
+  blockedBy User [not null]
+  blocked User [not null]
+
+  indexes {
+    (blockedById, blockedId) [unique]
+  }
+}
+
+Table Report {
+  id BigInt [pk, increment]
+  reportedById BigInt [not null]
+  reportedId BigInt [not null]
+  reportedAt DateTime [not null]
+  reason String [not null]
+  deletedAt DateTime
+  reportedBy User [not null]
+  reported User [not null]
+
+  indexes {
+    (reportedById, reportedId) [unique]
+  }
+}
+
+Table Notification {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  type NotificationType [not null, default: 'CHAT']
+  isRead Boolean [not null, default: false]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  title String [not null]
+  body String [not null]
+  user User [not null]
+}
+
+Table ChatRoom {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  startedAt DateTime [default: `now()`, not null]
+  endedAt DateTime
+  status ChatRoomStatus [not null, default: 'ACTIVE']
+  participants ChatParticipant [not null]
+  messages ChatMessage [not null]
+  user User [not null]
+}
+
+Table ChatParticipant {
+  id BigInt [pk, increment]
+  joinedAt DateTime [default: `now()`, not null]
+  userId BigInt [not null]
+  roomId BigInt [not null]
+  endedAt DateTime
+  room ChatRoom [not null]
+  user User [not null]
+
+  indexes {
+    (roomId, userId) [unique]
+  }
+}
+
+Table ChatMessage {
+  id BigInt [pk, increment]
+  sentAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  readAt DateTime
+  deletedAt DateTime
+  sentById BigInt [not null]
+  sentToId BigInt [not null]
+  roomId BigInt [not null]
+  room ChatRoom [not null]
+  sentBy User [not null]
+  sentTo User [not null]
+  chatMedia ChatMedia [not null]
+}
+
+Table ChatMedia {
+  id BigInt [pk, increment]
+  messageId BigInt [not null]
+  url String
+  type ChatMediaType [not null, default: 'TEXT']
+  text String
+  message ChatMessage [not null]
+}
+
+Table UserMarketingAgreement {
+  id BigInt [pk, increment]
+  body String [not null]
+  marketingAgreements MarketingAgreement [not null]
+}
+
+Table MarketingAgreement {
+  id BigInt [pk, increment]
+  marketingAgreementId BigInt [not null]
+  userId BigInt [not null]
+  agreedAt DateTime [default: `now()`, not null]
+  isAgreed Boolean [not null, default: true]
+  deletedAt DateTime
+  user User [not null]
+  userMarketingAgreement UserMarketingAgreement [not null]
+
+  indexes {
+    (marketingAgreementId, userId) [unique]
+  }
+}
+
+Enum Sex {
+  M
+  F
+}
+
+Enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+}
+
+Enum AddressLevel {
+  SIDO
+  SIGUNGU
+  EMD
+  RI
+}
+
+Enum BlockStatus {
+  BLOCKED
+  UNBLOCKED
+}
+
+Enum ChatMediaType {
+  AUDIO
+  PHOTO
+  VIDEO
+  TEXT
+}
+
+Enum ChatRoomStatus {
+  ACTIVE
+  INACTIVE
+}
+
+Enum NotificationType {
+  RECOMMEND
+  CHAT
+  HEART
+  PROFILE
+  REMIND
+  UPDATE
+}
+
+Ref: User.code > Address.code
+
+Ref: UserPhoto.userId > User.id
+
+Ref: Heart.sentById > User.id
+
+Ref: Heart.sentToId > User.id
+
+Ref: UserInterest.interestId > Interest.id
+
+Ref: UserInterest.userId > User.id
+
+Ref: UserIdealPersonality.userId > User.id
+
+Ref: UserIdealPersonality.personalityId > Personality.id
+
+Ref: UserPersonality.userId > User.id
+
+Ref: UserPersonality.personalityId > Personality.id
+
+Ref: Address.parentCode - Address.code
+
+Ref: Block.blockedById > User.id
+
+Ref: Block.blockedId > User.id
+
+Ref: Report.reportedById > User.id
+
+Ref: Report.reportedId > User.id
+
+Ref: Notification.userId > User.id
+
+Ref: ChatRoom.userId > User.id
+
+Ref: ChatParticipant.roomId > ChatRoom.id
+
+Ref: ChatParticipant.userId > User.id
+
+Ref: ChatMessage.roomId > ChatRoom.id
+
+Ref: ChatMessage.sentById > User.id
+
+Ref: ChatMessage.sentToId > User.id
+
+Ref: ChatMedia.messageId > ChatMessage.id
+
+Ref: MarketingAgreement.userId > User.id
+
+Ref: MarketingAgreement.marketingAgreementId > UserMarketingAgreement.id

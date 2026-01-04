@@ -11,3 +11,345 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+generator dbml {
+  provider = "prisma-dbml-generator"
+}
+
+enum Sex {
+  M
+  F
+}
+
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AddressLevel {
+  SIDO
+  SIGUNGU
+  EMD
+  RI
+}
+
+enum BlockStatus {
+  BLOCKED
+  UNBLOCKED
+}
+
+enum ChatMediaType {
+  AUDIO
+  PHOTO
+  VIDEO
+  TEXT
+}
+
+enum ChatRoomStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum NotificationType {
+  RECOMMEND
+  CHAT
+  HEART
+  PROFILE
+  REMIND
+  UPDATE
+}
+
+model User {
+  id              BigInt       @id @default(autoincrement())
+  birthdate       DateTime     @db.DateTime(6)
+  email           String       @unique @db.VarChar(255)
+  sex             Sex          @default(M)
+  createdAt       DateTime     @default(now()) @db.DateTime(6)
+  nickname        String       @db.VarChar(20)
+  updatedAt       DateTime     @updatedAt @db.DateTime(6)
+  deletedAt       DateTime?    @db.DateTime(6)
+  idealVoiceUrl   String?      @db.VarChar(512)
+  introVoiceUrl   String       @db.VarChar(512)
+  introText       String       @db.VarChar(255)
+  profileImageUrl String       @db.VarChar(512)
+  status          ActiveStatus @default(ACTIVE)
+  code            String       @db.Char(10)
+
+  address             Address                @relation(fields: [code], references: [code])
+  sentHearts          Heart[]                @relation("SentBy")
+  receivedHearts      Heart[]                @relation("SentTo")
+  photos              UserPhoto[]
+  interests           UserInterest[]
+  idealPersonalities  UserIdealPersonality[]
+  personalities       UserPersonality[]
+  notifications       Notification[]
+  chatRooms           ChatRoom[]
+  chatParticipations  ChatParticipant[]
+  sentMessages        ChatMessage[]          @relation("ChatMessagesSentBy")
+  receivedMessages    ChatMessage[]          @relation("ChatMessagesSentTo")
+  marketingAgreements MarketingAgreement[]
+  blocksInitiated     Block[]                @relation("UserBlocksBy")
+  blocksReceived      Block[]                @relation("UserBlocks")
+  reportsFiled        Report[]               @relation("UserReportsBy")
+  reportsReceived     Report[]               @relation("UserReports")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([sex, status])
+}
+
+model UserPhoto {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt
+  url       String    @db.VarChar(512)
+  deletedAt DateTime? @db.DateTime(6)
+  createdAt DateTime  @default(now()) @db.DateTime(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Heart {
+  id        BigInt       @id @default(autoincrement())
+  sentById  BigInt
+  sentToId  BigInt
+  createdAt DateTime     @default(now()) @db.DateTime(6)
+  deletedAt DateTime?    @db.DateTime(6)
+  status    ActiveStatus @default(ACTIVE)
+
+  sentBy User @relation(name: "SentBy", fields: [sentById], references: [id])
+  sentTo User @relation(name: "SentTo", fields: [sentToId], references: [id])
+
+  @@unique([sentById, sentToId])
+  @@index([sentById])
+  @@index([sentToId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model Interest {
+  id   BigInt @id @default(autoincrement())
+  body String @unique @db.VarChar(50)
+
+  userInterests UserInterest[]
+}
+
+model UserInterest {
+  id         BigInt                @id @default(autoincrement())
+  interestId BigInt
+  userId     BigInt
+  deletedAt  DateTime?             @db.DateTime(6)
+  updatedAt  DateTime              @updatedAt @db.DateTime(6)
+  createdAt  DateTime              @default(now()) @db.DateTime(6)
+  vibeVector Json
+
+  interest Interest @relation(fields: [interestId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([interestId, userId])
+  @@index([userId])
+}
+
+model Personality {
+  id   BigInt @id @default(autoincrement())
+  body String @unique @db.VarChar(50)
+
+  userIdealPersonalities UserIdealPersonality[]
+  userPersonalities      UserPersonality[]
+}
+
+model UserIdealPersonality {
+  id            BigInt                @id @default(autoincrement())
+  userId        BigInt
+  personalityId BigInt
+  deletedAt     DateTime?             @db.DateTime(6)
+  updatedAt     DateTime              @updatedAt @db.DateTime(6)
+  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  vibeVector    Json
+
+  user        User        @relation(fields: [userId], references: [id])
+  personality Personality @relation(fields: [personalityId], references: [id])
+
+  @@unique([userId, personalityId])
+  @@index([userId])
+}
+
+model UserPersonality {
+  id            BigInt                @id @default(autoincrement())
+  userId        BigInt
+  personalityId BigInt
+  deletedAt     DateTime?             @db.DateTime(6)
+  updatedAt     DateTime              @updatedAt @db.DateTime(6)
+  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  vibeVector    Json
+
+  user        User        @relation(fields: [userId], references: [id])
+  personality Personality @relation(fields: [personalityId], references: [id])
+
+  @@unique([userId, personalityId])
+  @@index([userId])
+}
+
+model Address {
+  code        String       @id @db.Char(10)
+  sidoCode    String       @db.Char(2)
+  sigunguCode String       @db.Char(3)
+  emdCode     String       @db.Char(3)
+  riCode      String       @db.Char(2)
+  fullName    String       @db.VarChar(200)
+  sidoName    String       @db.VarChar(50)
+  sigunguName String?      @db.VarChar(50)
+  emdName     String?      @db.VarChar(50)
+  riName      String?      @db.VarChar(50)
+  level       AddressLevel @default(SIGUNGU)
+  parentCode  String?      @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..
+
+  parent  Address?  @relation(name: "AddressToParent", fields: [parentCode], references: [code])
+  parents Address[] @relation(name: "AddressToParent")
+  users   User[]
+
+  @@index([parentCode])
+  @@index([level])
+  @@index([sidoCode, sigunguCode, emdCode])
+}
+
+model Block {
+  id          BigInt      @id @default(autoincrement()) @db.BigInt
+  blockedById BigInt      @db.BigInt
+  blockedId   BigInt      @db.BigInt
+  blockedAt   DateTime    @db.DateTime(6)
+  reason      String      @db.VarChar(100)
+  status      BlockStatus @default(BLOCKED)
+  deletedAt   DateTime?   @db.DateTime(6)
+
+  blockedBy User @relation(name: "UserBlocksBy", fields: [blockedById], references: [id])
+  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id])
+
+  @@unique([blockedById, blockedId])
+  @@index([blockedById])
+  @@index([blockedId])
+  @@index([blockedAt])
+  @@index([status])
+}
+
+model Report {
+  id           BigInt    @id @default(autoincrement()) @db.BigInt
+  reportedById BigInt    @db.BigInt
+  reportedId   BigInt    @db.BigInt
+  reportedAt   DateTime  @db.DateTime(6)
+  reason       String    @db.VarChar(100)
+  deletedAt    DateTime? @db.DateTime(6)
+
+  reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id])
+  reported   User @relation(name: "UserReports", fields: [reportedId], references: [id])
+
+  @@unique([reportedById, reportedId])
+  @@index([reportedById])
+  @@index([reportedId])
+  @@index([reportedAt])
+}
+
+model Notification {
+  id        BigInt           @id @default(autoincrement()) @db.BigInt
+  userId    BigInt           @db.BigInt // unique 제약은 걸어주지 않습니다. 한사람에게 여러개의 알람이 존재하니..
+  type      NotificationType @default(CHAT)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @db.DateTime(6) @default(now())
+  deletedAt DateTime?        @db.DateTime(6)
+  title     String           @db.VarChar(50)
+  body      String           @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model ChatRoom {
+  id           BigInt            @id @default(autoincrement()) @db.BigInt
+  userId       BigInt            @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
+  startedAt    DateTime          @db.DateTime(6) @default(now())
+  endedAt      DateTime?         @db.DateTime(6)
+  status       ChatRoomStatus    @default(ACTIVE)
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model ChatParticipant {
+  id       BigInt    @id @default(autoincrement()) @db.BigInt
+  joinedAt DateTime  @db.DateTime(6) @default(now())
+  userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
+  roomId   BigInt    @db.BigInt
+  endedAt  DateTime? @db.DateTime(6)
+
+  room ChatRoom @relation(fields: [roomId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        BigInt    @id @default(autoincrement()) @db.BigInt
+  sentAt    DateTime  @db.DateTime(6) @default(now())
+  updatedAt DateTime  @db.DateTime(6) @updatedAt
+  readAt    DateTime? @db.DateTime(6)
+  deletedAt DateTime? @db.DateTime(6)
+  sentById  BigInt    @db.BigInt
+  sentToId  BigInt    @db.BigInt
+  roomId    BigInt    @db.BigInt
+
+  room      ChatRoom    @relation(fields: [roomId], references: [id])
+  sentBy    User        @relation(name: "ChatMessagesSentBy", fields: [sentById], references: [id])
+  sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id])
+  chatMedia ChatMedia[]
+
+  @@index([sentById])
+  @@index([sentToId])
+  @@index([sentAt])
+  @@index([roomId, sentAt])
+}
+
+model ChatMedia {
+  id        BigInt        @id @default(autoincrement()) @db.BigInt
+  messageId BigInt        @db.BigInt
+  url       String?       @db.VarChar(512)
+  type      ChatMediaType @default(TEXT)
+  text      String?       @db.VarChar(512)
+
+  message ChatMessage @relation(fields: [messageId], references: [id])
+
+  @@index([messageId])
+}
+
+model UserMarketingAgreement {
+  id                  BigInt               @id @default(autoincrement()) @db.BigInt
+  body                String               @db.VarChar(255)
+  marketingAgreements MarketingAgreement[]
+}
+
+model MarketingAgreement {
+  id                   BigInt    @id @default(autoincrement()) @db.BigInt
+  marketingAgreementId BigInt    @db.BigInt
+  userId               BigInt    @db.BigInt
+  agreedAt             DateTime  @db.DateTime(6) @default(now())
+  isAgreed             Boolean   @default(true)
+  deletedAt            DateTime? @db.DateTime(6)
+
+  user                   User                   @relation(fields: [userId], references: [id])
+  userMarketingAgreement UserMarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+
+  @@unique([marketingAgreementId, userId])
+  @@index([userId])
+  @@index([agreedAt])
+  @@index([isAgreed])
+}

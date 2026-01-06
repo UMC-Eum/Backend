@@ -48,7 +48,11 @@ export class HeartRepository {
     this.logger.debug(
       `postHeart sentById=${payload.sentById} sentToId=${payload.sentToId}`,
     );
-    return this.prisma.heart.create({ data: payload });
+    const response = await this.prisma.heart.create({ data: payload });
+    return {
+      heartId: Number(response.id),
+      createdAt: response.createdAt.toISOString(),
+    };
   }
 
   async patchHeart(
@@ -67,12 +71,17 @@ export class HeartRepository {
       `patchHeart sentById=${where.sentById_sentToId.sentById} sentToId=${where.sentById_sentToId.sentToId} status=${status}`,
     );
 
-    return this.prisma.heart.update({
+    const updated = await this.prisma.heart.update({
       where,
       data: {
         status,
       },
     });
+
+    return {
+      heartId: Number(updated.id),
+      createdAt: updated.createdAt.toISOString(),
+    };
   }
 
   private async findHeartsWithCursor(params: {

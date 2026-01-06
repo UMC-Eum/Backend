@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   HttpStatus,
+  Post,
   Query,
 } from '@nestjs/common';
 import { HeartService } from '../../services/heart/heart.service';
@@ -18,6 +19,24 @@ import { ERROR_CODE } from '../../../../common/errors/error-codes';
 @Controller('hearts')
 export class HeartController {
   public constructor(private readonly heartService: HeartService) {}
+
+  @Post(':targetUserId')
+  public async postHeart(
+    @Query('userId') userIdQuery?: string,
+    @Query('targetUserId') targetUserId?: string,
+  ) {
+    if (!userIdQuery)
+      throw new AppException(HttpStatus.BAD_REQUEST, {
+        code: ERROR_CODE.COMMON_BAD_REQUEST,
+        message: 'userId query parameter is required',
+      });
+    if (!targetUserId)
+      throw new AppException(HttpStatus.BAD_REQUEST, {
+        code: ERROR_CODE.COMMON_BAD_REQUEST,
+        message: 'targetUserId query parameter is required',
+      });
+    return this.heartService.heart(userIdQuery, targetUserId);
+  }
 
   @Get('received')
   public async getReceived(

@@ -3,36 +3,18 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { ZodError } from 'zod';
 import type { Logger as PinoLogger } from 'pino';
-import { ERROR_CODE, type ErrorCode } from '../errors/error-codes';
-import type { ApiErrorResponse } from '../dto/api-response.dto';
 import { AppException } from '../errors/app.exception';
+import {
+  DEFAULT_ERROR,
+  type ExternalErrorCode,
+} from '../errors/error-codes';
+import type { ApiFailResponse } from '../dto/api-response.dto';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
-}
-
-function pickDefaultCode(status: number): ErrorCode {
-  switch (status) {
-    case 400:
-      return ERROR_CODE.COMMON_BAD_REQUEST;
-    case 401:
-      return ERROR_CODE.COMMON_UNAUTHORIZED;
-    case 403:
-      return ERROR_CODE.COMMON_FORBIDDEN;
-    case 404:
-      return ERROR_CODE.COMMON_NOT_FOUND;
-    case 409:
-      return ERROR_CODE.COMMON_CONFLICT;
-    case 429:
-      return ERROR_CODE.COMMON_TOO_MANY_REQUESTS;
-    default:
-      return ERROR_CODE.COMMON_INTERNAL_ERROR;
-  }
 }
 
 @Catch()
@@ -47,85 +29,49 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const timestamp = new Date().toISOString();
     const path = req.originalUrl || req.url;
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code: ErrorCode = ERROR_CODE.COMMON_INTERNAL_ERROR;
-    let message = 'Internal server error';
-    let details: unknown;
+    // 기본값(예상 못한 에러)
+    let status = 503;
+    let code: ExternalErrorCode | string = 'SYS-001';
+    let message = '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
+    let detailsForLog: unknown;
 
-    // 1) AppException (우리 커스텀)
+    // 1) AppException (우리 표준)
     if (exception instanceof AppException) {
       status = exception.getStatus();
-      code = pickDefaultCode(status);
 
       const body = exception.getResponse();
       if (isRecord(body)) {
-        const bodyCode = body.code;
-        const bodyMessage = body.message;
-        const bodyDetails = body.details;
-
-        if (typeof bodyCode === 'string') code = bodyCode as ErrorCode;
-        if (typeof bodyMessage === 'string') message = bodyMessage;
-        if (bodyDetails !== undefined) details = bodyDetails;
-      } else if (typeof body === 'string') {
-        message = body;
+        if (typeof body.code === 'string') code = body.code;
+        if (typeof body.message === 'string') message = body.message;
+        if (body.details !== undefined) detailsForLog = body.details;
+      } else {
+        // 혹시 string으로 오면
+        message = String(body);
+        detailsForLog = body;
       }
     }
-    // 2) Nest HttpException
+    // 2) Nest HttpException (ValidationPipe 등)
     else if (exception instanceof HttpException) {
       status = exception.getStatus();
-      code = pickDefaultCode(status);
-
       const body = exception.getResponse();
-      if (typeof body === 'string') {
-        message = body;
-      } else if (isRecord(body)) {
-        // Nest 기본 에러 형태: { statusCode, message, error }
-        const bodyMessage = body.message;
-        const bodyError = body.error;
+      detailsForLog = body;
 
-        if (typeof bodyMessage === 'string') {
-          message = bodyMessage;
-        } else if (Array.isArray(bodyMessage)) {
-          // ValidationPipe 에러는 message가 string[]로 오는 경우가 많음
-          message = 'Validation failed';
-          details = bodyMessage;
-          code = ERROR_CODE.COMMON_VALIDATION_ERROR;
-        }
-
-        if (details === undefined && bodyError !== undefined) {
-          details = bodyError;
-        }
-      } else {
-        message = exception.message;
-      }
+      // 여기서도 포맷은 고정 (SYS-001로 통일 or 필요시 분기 가능)
+      // 형님 표에 없는 케이스는 기본값으로 처리
     }
-    // 3) ZodError (zod validation)
-    else if (exception instanceof ZodError) {
-      status = HttpStatus.BAD_REQUEST;
-      code = ERROR_CODE.COMMON_VALIDATION_ERROR;
-      message = 'Validation failed';
-      details = exception.flatten();
-    }
-    // 4) Unknown
+    // 3) 일반 Error
     else if (exception instanceof Error) {
-      message = exception.message || message;
-      details =
+      detailsForLog =
         process.env.NODE_ENV === 'production' ? undefined : exception.stack;
     }
 
-    const body: ApiErrorResponse = {
-      success: false,
-      data: null,
-      error: {
-        code,
-        message,
-        details,
-      },
-      timestamp,
-      path,
+    const responseBody: ApiFailResponse = {
+      resultType: 'FAIL',
+      success: null,
+      error: { code, message },
+      meta: { timestamp, path },
     };
 
-    // 로깅 (pino 있으면 그걸로)
     if (this.logger) {
       this.logger.error(
         {
@@ -133,12 +79,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           code,
           path,
           method: req.method,
-          details,
+          details: detailsForLog,
         },
         message,
       );
     }
 
-    res.status(status).json(body);
+    res.status(status).json(responseBody);
   }
 }

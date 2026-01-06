@@ -8,10 +8,9 @@ import { map, type Observable } from 'rxjs';
 import type { ApiSuccessResponse } from '../dto/api-response.dto';
 
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<
-  T,
-  ApiSuccessResponse<T>
-> {
+export class ResponseInterceptor<T>
+  implements NestInterceptor<T, ApiSuccessResponse<T>>
+{
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,
@@ -22,11 +21,13 @@ export class ResponseInterceptor<T> implements NestInterceptor<
 
     return next.handle().pipe(
       map((data) => ({
-        success: true,
-        data,
+        resultType: 'SUCCESS',
+        success: { data: (data === undefined ? ({} as any) : data) },
         error: null,
-        timestamp: new Date().toISOString(),
-        path: req?.originalUrl ?? req?.url ?? '',
+        meta: {
+          timestamp: new Date().toISOString(),
+          path: req?.originalUrl ?? req?.url ?? '',
+        },
       })),
     );
   }

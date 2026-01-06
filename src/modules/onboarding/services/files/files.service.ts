@@ -24,27 +24,28 @@ export class FileUploadService {
         this.bucket = process.env.AWS_S3_BUCKET!;
     }
 
+    
     async generatePresignedUrl(dto: PresignFileDto) {
-        const { fileName, contentType } = dto;
-
-        // 업로드 명령 객체
-        const command = new PutObjectCommand({
-            Bucket: this.bucket,
-            Key: fileName,
-            ContentType: contentType,
-        });
-
-        // 명령 기반 presigned url 발급
-        const uploadUrl = await getSignedUrl(this.s3, command, {
-            expiresIn: 60 * 5, 
-          });
-          // 업로드 완료 후 접근할 주소 
-          const fileUrl = `https://${this.bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-        
-        return {
-            uploadUrl,
-            fileUrl,
-            expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        };
-    }
+      const { fileName, contentType } = dto;
+  
+      // 임시 ID 설정 (로그인 구현 전까지만 사용!!!)
+      const tempUserId = 1; 
+  
+      const key = `voice-profiles/${tempUserId}/${Date.now()}_${fileName}`;
+  
+      const command = new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          ContentType: contentType,
+      });
+  
+      const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 300 });
+      const fileUrl = `https://${this.bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+      
+      return {
+          uploadUrl,
+          fileUrl,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      };
+  }
 }

@@ -29,13 +29,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const timestamp = new Date().toISOString();
     const path = req.originalUrl || req.url;
 
-    // 기본값(예상 못한 에러)
+    // 기본값
     let status = 503;
     let code: ExternalErrorCode | string = 'SYS-001';
     let message = '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
     let detailsForLog: unknown;
 
-    // 1) AppException (우리 표준)
+    // 1) AppException 
     if (exception instanceof AppException) {
       status = exception.getStatus();
 
@@ -50,14 +50,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         detailsForLog = body;
       }
     }
-    // 2) Nest HttpException (ValidationPipe 등)
+    // 2) Nest HttpException 
     else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const body = exception.getResponse();
       detailsForLog = body;
 
       // 여기서도 포맷은 고정 (SYS-001로 통일 or 필요시 분기 가능)
-      // 형님 표에 없는 케이스는 기본값으로 처리
     }
     // 3) 일반 Error
     else if (exception instanceof Error) {

@@ -12,7 +12,6 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { AppException } from './common/errors/app.exception';
 
 function isRequiredError(errors: any[]): boolean {
-  // class-validator에서 required 류 흔한 키워드
   const requiredKeys = new Set(['isNotEmpty', 'isDefined', 'isNotNull']);
   return errors.some((e) => {
     const constraints = e?.constraints ?? {};
@@ -33,7 +32,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
   app.enableCors({ origin: corsOrigin, credentials: true });
 
-  // ✅ Validation을 422로 통일 + 노션 코드(VALID-001/002) 매핑
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

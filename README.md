@@ -188,43 +188,6 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 
 ---
 
-## 📦 API Response Convention
-
-모든 API 응답은 공통 래퍼 형태를 사용합니다.
-
-### ✅ Success Response
-
-- `data`는 **항상 객체(Object)** 로 반환합니다.
-- 문자열/숫자/배열을 반환해야 하는 경우에도 객체로 감싸서 반환합니다.
-
-예시:
-
-```json
-{
-  "success": true,
-  "data": {
-    "message": "Hello World!"
-  },
-  "error": null,
-  "timestamp": "2025-12-28T04:23:05.883Z",
-  "path": "/api/v1"
-}
-````
-
-### ❗ Error Response
-
-```json
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "COMMON_BAD_REQUEST",
-    "message": "Validation failed",
-    "details": []
-  },
-  "timestamp": "2025-12-28T04:19:07.272Z",
-  "path": "/api/v1/health"
-}
 ```
 
 > `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.

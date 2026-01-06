@@ -129,8 +129,8 @@ Table Address {
   riCode String [not null]
   fullName String [not null]
   sidoName String [not null]
-  sigunguName String [not null]
-  emdName String [not null]
+  sigunguName String
+  emdName String
   riName String
   level AddressLevel [not null, default: 'SIGUNGU']
   parentCode String

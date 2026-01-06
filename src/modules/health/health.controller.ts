@@ -6,6 +6,6 @@ import { ApiTags } from '@nestjs/swagger';
 export class HealthController {
   @Get()
   ping() {
-    return { status: 'ok' };
+    return {};
   }
 }

@@ -1,8 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import {
-  type InternalErrorCode,
-  getErrorDefinition,
-} from './error-codes';
+import { getErrorDefinition, type InternalErrorCode } from './error-codes';
 
 export class AppException extends HttpException {
   readonly internalCode: InternalErrorCode;

@@ -123,13 +123,13 @@ Table UserPersonality {
 Table Address {
   code String [pk]
   sidoCode String [not null]
-  sigunguName String [not null]
-  emdName String [not null]
+  sigunguCode String [not null]
+  emdCode String [not null]
   riCode String [not null]
   fullName String [not null]
   sidoName String [not null]
-  sigunguName String
-  emdName String
+  sigunguName String [not null]
+  emdName String [not null]
   riName String
   level AddressLevel [not null, default: 'SIGUNGU']
   parentCode String

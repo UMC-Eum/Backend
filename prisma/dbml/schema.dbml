@@ -17,6 +17,7 @@ Table User {
   profileImageUrl String [not null]
   status ActiveStatus [not null, default: 'ACTIVE']
   code String [not null]
+  vibeVector Json [not null]
   address Address [not null]
   sentHearts Heart [not null]
   receivedHearts Heart [not null]
@@ -96,7 +97,6 @@ Table UserIdealPersonality {
   deletedAt DateTime
   updatedAt DateTime [not null]
   createdAt DateTime [default: `now()`, not null]
-  vibeVector Json [not null]
   user User [not null]
   personality Personality [not null]
 
@@ -112,7 +112,6 @@ Table UserPersonality {
   deletedAt DateTime
   updatedAt DateTime [not null]
   createdAt DateTime [default: `now()`, not null]
-  vibeVector Json [not null]
   user User [not null]
   personality Personality [not null]
 

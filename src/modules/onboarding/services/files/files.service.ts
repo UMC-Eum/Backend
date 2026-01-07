@@ -28,7 +28,7 @@ export class FileUploadService {
     async generatePresignedUrl(dto: PresignFileDto) {
       const { fileName, contentType } = dto;
   
-      // 임시 ID 설정 (로그인 구현 전까지만 사용!!!)
+      // TODO: 실제 userId 받기
       const tempUserId = 1; 
   
       const key = `voice-profiles/${tempUserId}/${Date.now()}_${fileName}`;

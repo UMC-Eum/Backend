@@ -22,10 +22,12 @@ describe('AppController (e2e)', () => {
 
     const body = res.body as ApiSuccessResponse<{ message: string }>;
 
-    expect(body.success).toBe(true);
+    expect(body.resultType).toBe('SUCCESS');
     expect(body.error).toBeNull();
-    expect(body.path).toBe('/api/v1');
-    expect(body.data).toEqual({ message: 'Hello World!' });
-    expect(typeof body.timestamp).toBe('string');
+
+    expect(body.success.data).toEqual({ message: 'Hello World!' });
+
+    expect(body.meta.path).toBe('/api/v1');
+    expect(typeof body.meta.timestamp).toBe('string');
   });
 });

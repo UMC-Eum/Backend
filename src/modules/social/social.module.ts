@@ -5,9 +5,10 @@ import { ReportController } from './controllers/report/report.controller';
 import { BlockService } from './services/block/block.service';
 import { HeartService } from './services/heart/heart.service';
 import { ReportService } from './services/report/report.service';
+import { HeartRepository } from './repositories/heart.repository';
 
 @Module({
   controllers: [HeartController, BlockController, ReportController],
-  providers: [BlockService, HeartService, ReportService],
+  providers: [BlockService, HeartService, ReportService, HeartRepository],
 })
 export class SocialModule {}

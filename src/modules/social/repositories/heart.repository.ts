@@ -55,26 +55,11 @@ export class HeartRepository {
     };
   }
 
-  async patchHeart(
-    sentById: string | number | bigint,
-    sentToId: string | number | bigint,
-    status: ActiveStatus = ActiveStatus.INACTIVE,
-  ) {
-    const where = {
-      sentById_sentToId: {
-        sentById: this.toBigInt(sentById),
-        sentToId: this.toBigInt(sentToId),
-      },
-    } satisfies Prisma.HeartWhereUniqueInput;
-
-    this.logger.debug(
-      `patchHeart sentById=${where.sentById_sentToId.sentById} sentToId=${where.sentById_sentToId.sentToId} status=${status}`,
-    );
-
+  async patchHeart(heartId: number) {
     const updated = await this.prisma.heart.update({
-      where,
+      where: { id: BigInt(heartId) },
       data: {
-        status,
+        status: ActiveStatus.INACTIVE,
       },
     });
 

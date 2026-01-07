@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ActiveStatus } from '@prisma/client';
 import { HeartRepository } from '../../repositories/heart.repository';
 import {
   HeartReceivedItem,
   HeartSentItem,
   HeartListPayload,
+  HeartItemBase,
 } from '../../dtos/heart.dto';
 
 interface PaginationParams {
@@ -20,16 +20,12 @@ export class HeartService {
 
   constructor(private readonly heartRepository: HeartRepository) {}
 
-  async heart(userId: string, targetUserId: string) {
+  async heart(userId: string, targetUserId: string): Promise<HeartItemBase> {
     return this.heartRepository.postHeart(userId, targetUserId);
   }
 
-  async patchHeart(
-    sentById: string,
-    sentToId: string,
-    status: ActiveStatus = ActiveStatus.INACTIVE,
-  ) {
-    return this.heartRepository.patchHeart(sentById, sentToId, status);
+  async patchHeart(heartId: number): Promise<HeartItemBase> {
+    return this.heartRepository.patchHeart(heartId);
   }
 
   async getReceivedHearts(

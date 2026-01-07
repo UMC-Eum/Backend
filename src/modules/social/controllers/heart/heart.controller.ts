@@ -4,6 +4,9 @@ import {
   Get,
   Headers,
   HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -20,7 +23,7 @@ import { ERROR_CODE } from '../../../../common/errors/error-codes';
 export class HeartController {
   public constructor(private readonly heartService: HeartService) {}
 
-  @Post(':targetUserId')
+  @Post()
   public async postHeart(
     @Query('userId') userIdQuery?: string,
     @Query('targetUserId') targetUserId?: string,
@@ -36,6 +39,13 @@ export class HeartController {
         message: 'targetUserId query parameter is required',
       });
     return this.heartService.heart(userIdQuery, targetUserId);
+  }
+
+  @Patch(':heartId')
+  public async unActivateHeart(
+    @Param('heartId', ParseIntPipe) heartId: number,
+  ) {
+    return this.heartService.patchHeart(heartId);
   }
 
   @Get('received')

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
-import { UpdateNotificationDto } from '../dtos/notification.dto';
+import {
+  CreateNotificationDto,
+  UpdateNotificationDto,
+} from '../dtos/notification.dto';
 
 @Injectable()
 export class NotificationService {
@@ -8,7 +11,7 @@ export class NotificationService {
     private readonly notificationRepository: NotificationRepository,
   ) {}
 
-  create(dto: any) {
+  create(dto: CreateNotificationDto) {
     return this.notificationRepository.create(dto);
   }
 
@@ -19,6 +22,7 @@ export class NotificationService {
   findAll() {
     return this.notificationRepository.findAll();
   }
+
   update(dto: UpdateNotificationDto) {
     return this.notificationRepository.update(dto);
   }

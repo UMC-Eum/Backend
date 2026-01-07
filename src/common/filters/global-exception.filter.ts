@@ -7,10 +7,7 @@ import {
 import type { Request, Response } from 'express';
 import type { Logger as PinoLogger } from 'pino';
 import { AppException } from '../errors/app.exception';
-import {
-  DEFAULT_ERROR,
-  type ExternalErrorCode,
-} from '../errors/error-codes';
+import type { ExternalErrorCode } from '../errors/error-codes';
 import type { ApiFailResponse } from '../dto/api-response.dto';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -31,37 +28,52 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // 기본값
     let status = 503;
-    let code: ExternalErrorCode | string = 'SYS-001';
+    let code: ExternalErrorCode = 'SYS-001';
     let message = '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
     let detailsForLog: unknown;
 
-    // 1) AppException 
+    // 1) AppException
     if (exception instanceof AppException) {
       status = exception.getStatus();
 
       const body = exception.getResponse();
       if (isRecord(body)) {
-        if (typeof body.code === 'string') code = body.code;
-        if (typeof body.message === 'string') message = body.message;
-        if (body.details !== undefined) detailsForLog = body.details;
+        if (typeof body.code === 'string') {
+          code = body.code as ExternalErrorCode;
+        }
+        if (typeof body.message === 'string') {
+          message = body.message;
+        }
+        if (body.details !== undefined) {
+          detailsForLog = body.details;
+        }
+      } else if (typeof body === 'string') {
+        message = body;
       } else {
-        // 혹시 string으로 오면
-        message = String(body);
         detailsForLog = body;
       }
     }
-    // 2) Nest HttpException 
+    // 2) Nest HttpException
     else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const body = exception.getResponse();
       detailsForLog = body;
 
-      // 여기서도 포맷은 고정 (SYS-001로 통일 or 필요시 분기 가능)
+      // message는 객체 stringify로 깨질 수 있으니 기본 유지
+      if (typeof body === 'string') {
+        message = body;
+      } else if (exception.message) {
+        message = exception.message;
+      }
     }
     // 3) 일반 Error
     else if (exception instanceof Error) {
       detailsForLog =
         process.env.NODE_ENV === 'production' ? undefined : exception.stack;
+
+      if (process.env.NODE_ENV !== 'production' && exception.message) {
+        message = exception.message;
+      }
     }
 
     const responseBody: ApiFailResponse = {

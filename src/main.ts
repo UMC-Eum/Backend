@@ -1,20 +1,23 @@
 import { HttpStatus, ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
+import type { ValidationError } from 'class-validator';
 import pinoHttp from 'pino-http';
 
 import { AppModule } from './modules/app/app.module';
-import { setupSwagger } from './swagger';
 import { createPinoLogger } from './infra/logger/pino';
-
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AppException } from './common/errors/app.exception';
+import { setupSwagger } from './swagger';
 
-function isRequiredError(errors: any[]): boolean {
+function isRequiredError(errors: ValidationError[]): boolean {
   const requiredKeys = new Set(['isNotEmpty', 'isDefined', 'isNotNull']);
+
   return errors.some((e) => {
-    const constraints = e?.constraints ?? {};
+    const constraints = e.constraints;
+    if (!constraints) return false;
+
     return Object.keys(constraints).some((k) => requiredKeys.has(k));
   });
 }
@@ -38,10 +41,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
       errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-      exceptionFactory: (errors) => {
-        const isRequired = isRequiredError(errors as any[]);
-        throw new AppException(
-          isRequired
+      exceptionFactory: (errors: ValidationError[]) => {
+        const required = isRequiredError(errors);
+
+        return new AppException(
+          required
             ? 'VALIDATION_REQUIRED_FIELD_MISSING'
             : 'VALIDATION_INVALID_FORMAT',
           { details: errors },

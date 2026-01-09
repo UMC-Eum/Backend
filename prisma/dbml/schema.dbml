@@ -17,6 +17,8 @@ Table User {
   profileImageUrl String [not null]
   status ActiveStatus [not null, default: 'ACTIVE']
   code String [not null]
+  provider AuthProvider
+  providerUserId String
   vibeVector Json [not null]
   address Address [not null]
   sentHearts Heart [not null]
@@ -31,10 +33,25 @@ Table User {
   sentMessages ChatMessage [not null]
   receivedMessages ChatMessage [not null]
   marketingAgreements MarketingAgreement [not null]
+  refreshTokens RefreshToken [not null]
   blocksInitiated Block [not null]
   blocksReceived Block [not null]
   reportsFiled Report [not null]
   reportsReceived Report [not null]
+
+  indexes {
+    (provider, providerUserId) [unique]
+  }
+}
+
+Table RefreshToken {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  tokenHash String [unique, not null]
+  expiresAt DateTime [not null]
+  revokedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  user User [not null]
 }
 
 Table UserPhoto {
@@ -273,6 +290,10 @@ Enum BlockStatus {
   UNBLOCKED
 }
 
+Enum AuthProvider {
+  KAKAO
+}
+
 Enum ChatMediaType {
   AUDIO
   PHOTO
@@ -295,6 +316,8 @@ Enum NotificationType {
 }
 
 Ref: User.code > Address.code
+
+Ref: RefreshToken.userId > User.id
 
 Ref: UserPhoto.userId > User.id
 

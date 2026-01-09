@@ -2,6 +2,7 @@ import { HttpStatus, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { ValidationError } from 'class-validator';
+import type { Request, NextFunction, Response } from 'express';
 import pinoHttp from 'pino-http';
 
 import { AppModule } from './modules/app/app.module';
@@ -22,6 +23,26 @@ function isRequiredError(errors: ValidationError[]): boolean {
   });
 }
 
+function parseCookieHeader(
+  cookieHeader: string | undefined,
+): Record<string, string> {
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader
+    .split(';')
+    .reduce<Record<string, string>>((acc, entry) => {
+      const [rawKey, ...valueParts] = entry.trim().split('=');
+      if (!rawKey) {
+        return acc;
+      }
+
+      acc[rawKey] = decodeURIComponent(valueParts.join('='));
+      return acc;
+    }, {});
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -34,6 +55,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
   app.enableCors({ origin: corsOrigin, credentials: true });
+  type CookieRequest = Request & { cookies: Record<string, string> };
+
+  app.use((req: CookieRequest, _res: Response, next: NextFunction) => {
+    req.cookies = parseCookieHeader(req.headers.cookie);
+    next();
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

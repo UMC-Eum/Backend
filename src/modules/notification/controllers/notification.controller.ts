@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req, Query } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
 import { UpdateNotificationDto } from '../dtos/notification.dto';
 
@@ -17,8 +17,9 @@ export class NotificationController {
   }
 
   @Get()
-  findAll() {
-    return this.notificationService.findAll();
+  findAll( @Req() req, @Query('cursor') cursor?: string, @Query('size') size?: string) {
+    const limit = size ? Number(size) : 20;
+    return this.notificationService.findAll(req.user.id, cursor, limit);
   }
   @Patch()
   update(@Body() dto: UpdateNotificationDto) {

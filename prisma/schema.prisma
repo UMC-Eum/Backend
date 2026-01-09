@@ -74,6 +74,7 @@ model User {
   profileImageUrl String       @db.VarChar(512)
   status          ActiveStatus @default(ACTIVE)
   code            String       @db.Char(10)
+  vibeVector    Json
 
   address             Address                @relation(fields: [code], references: [code])
   sentHearts          Heart[]                @relation("SentBy")
@@ -168,7 +169,6 @@ model UserIdealPersonality {
   deletedAt     DateTime?             @db.DateTime(6)
   updatedAt     DateTime              @updatedAt @db.DateTime(6)
   createdAt     DateTime              @default(now()) @db.DateTime(6)
-  vibeVector    Json
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -184,7 +184,6 @@ model UserPersonality {
   deletedAt     DateTime?             @db.DateTime(6)
   updatedAt     DateTime              @updatedAt @db.DateTime(6)
   createdAt     DateTime              @default(now()) @db.DateTime(6)
-  vibeVector    Json
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])

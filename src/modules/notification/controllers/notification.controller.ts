@@ -1,13 +1,16 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, Query } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
-import { UpdateNotificationDto } from '../dtos/notification.dto';
+import {
+  CreateNotificationDto,
+  UpdateNotificationDto,
+} from '../dtos/notification.dto';
 
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Post()
-  create(@Body() dto: any) {
+  create(@Body() dto: CreateNotificationDto) {
     return this.notificationService.create(dto);
   }
 

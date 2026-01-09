@@ -1,25 +1,24 @@
-import type { ErrorCode } from '../errors/error-codes';
+import type { ExternalErrorCode } from '../errors/error-codes';
 
-export interface ApiErrorBody {
-  code: ErrorCode;
-  message: string;
-  details?: unknown;
+export type ResultType = 'SUCCESS' | 'FAIL';
+
+export interface ApiMeta {
+  timestamp: string;
+  path: string;
 }
 
 export interface ApiSuccessResponse<T> {
-  success: true;
-  data: T;
+  resultType: 'SUCCESS';
+  success: { data: T };
   error: null;
-  timestamp: string;
-  path: string;
+  meta: ApiMeta;
 }
 
-export interface ApiErrorResponse {
-  success: false;
-  data: null;
-  error: ApiErrorBody;
-  timestamp: string;
-  path: string;
+export interface ApiFailResponse {
+  resultType: 'FAIL';
+  success: null;
+  error: { code: ExternalErrorCode; message: string };
+  meta: ApiMeta;
 }
 
-export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiFailResponse;

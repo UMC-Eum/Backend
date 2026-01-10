@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
 import { HealthModule } from '../health/health.module';
 import { PrismaModule } from 'src/infra/prisma/prisma.module';
+import { AgreementModule } from '../agreements/agreement.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PrismaModule } from 'src/infra/prisma/prisma.module';
     }),
     HealthModule,
     PrismaModule,
+    AgreementModule,
   ],
   controllers: [AppController],
   providers: [AppService],

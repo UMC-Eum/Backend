@@ -7,13 +7,9 @@ export class AgreementRepository {
     constructor(private readonly prisma: PrismaService) {}
 
     // GET v1/agreements
-    findAll(userId : number){
-        return this.prisma.marketingAgreement.findMany({
-            include : {
-                userMarketingAgreement: true,
-            },
-            where: {userId},
-            orderBy: {marketingAgreementId: 'asc'},
+    findAll(){
+        return this.prisma.userMarketingAgreement.findMany({
+            orderBy: {id: 'asc'},
         });
     }
 }

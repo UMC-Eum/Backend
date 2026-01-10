@@ -1,13 +1,14 @@
-import { MarketingAgreementWithUser } from '../repositories/agreement.types';
+import { UserMarketingAgreement } from '@prisma/client';
 
+// db이름이 서로 swap되어서 (userMarketingAgreement<->MarketingAgreement) 추후 수정 예정
 export class AgreementResponseDto {
     agreementId: string;
     body: string;
 
-    static from(entity: MarketingAgreementWithUser){
+    static from(entity: UserMarketingAgreement){
         return {
-            agreementId: entity.marketingAgreementId.toString(),
-            body: entity.userMarketingAgreement.body
+            agreementId: entity.id.toString(),
+            body: entity.body
         }
     }
 

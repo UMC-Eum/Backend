@@ -6,8 +6,8 @@ import { AgreementResponseDto } from '../dtos/agreement.dto';
 export class AgreementService {
     constructor( private readonly agreementRepository: AgreementRepository) {}
 
-    async findAll(userId: number){
-        const result = await this.agreementRepository.findAll(userId);
+    async findAll(){
+        const result = await this.agreementRepository.findAll();
         return result.map(AgreementResponseDto.from)
     }
 }

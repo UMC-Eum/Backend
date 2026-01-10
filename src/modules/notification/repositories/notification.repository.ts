@@ -1,22 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import {
-  CreateNotificationDto, UpdateNotificationDto,
-} from '../dtos/notification.dto';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
 
 @Injectable()
 export class NotificationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateNotificationDto) {
-    return dto;
-  }
 
+  // PATCH v1/notifications/{notificationId}/read
   markAsRead(id: string) {
-    return { id, read: true };
+    this.prisma.notification.update({
+      where: {id: Number(id)},
+      data : {
+        isRead : true
+      }
+    });
   }
 
-  // v1/notifications에 사용될 리포지토리 함수.
+  // GET v1/notifications
   findAll( userId: number, cursor?: string, limit = 20,) {
   return this.prisma.notification.findMany({
     where: { userId },
@@ -29,8 +29,4 @@ export class NotificationRepository {
   });
 }
 
-
-  update(dto: UpdateNotificationDto) {
-    return dto;
-  }
 }

@@ -12,4 +12,23 @@ export class AgreementRepository {
             orderBy: {id: 'asc'},
         });
     }
+
+    // POST v1/users/me/agreements
+    upsertUserMarketingAgreement(userId: number, marketingAgreementId: number, isAgreed: boolean,) {
+        return this.prisma.marketingAgreement.upsert({
+            where: {
+                marketingAgreementId_userId: {
+                userId: BigInt(userId),
+                marketingAgreementId: BigInt(marketingAgreementId),
+                },
+            },
+            update: { isAgreed },
+            create: {
+                userId: BigInt(userId),
+                marketingAgreementId: BigInt(marketingAgreementId),
+                isAgreed,
+            },
+        });
+    }
+
 }

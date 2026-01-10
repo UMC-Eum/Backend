@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AgreementService } from '../services/agreement.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
 
 @Controller()
 export class AgreementController {
@@ -44,5 +45,35 @@ export class AgreementController {
     @Get('/agreements')
     findAll(){
         return this.agreementService.findAll();
+    }
+
+    @ApiOperation( {summary : '마케팅 동의 생성/수정'})
+    @ApiBody({
+        type: CreateUserAgreementRequestDto
+    })
+    @ApiResponse({
+        description: '마케팅 동의 생성/수정 성공',
+        schema: {
+        example: {
+        resultType: 'SUCCESS',
+        success: {
+            data: {}
+        },
+        error: null,
+        meta: {
+            timestamp: '2026-01-10T09:53:11.014Z',
+            path: '/api/v1/users/me/agreements',
+        },
+        },
+    },
+    })
+    @Post('/users/me/agreements')
+    // AUTH 구현 전 임시로 userId 하드코딩
+    async upsertUserMarketingAgreement(@Body() body: CreateUserAgreementRequestDto){
+        const userId = 1;
+        for (const agreement of body.marketingAgreements) {
+            const { marketingAgreementId, isAgreed } = agreement;
+        await this.agreementService.upsertUserMarketingAgreement(userId, marketingAgreementId, isAgreed);
+        }
     }
 }

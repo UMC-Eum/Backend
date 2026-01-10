@@ -10,4 +10,8 @@ export class AgreementService {
         const result = await this.agreementRepository.findAll();
         return result.map(AgreementResponseDto.from)
     }
+
+    async upsertUserMarketingAgreement(userId: number, marketingAgreementId: number, isAgreed: boolean){
+        return await this.agreementRepository.upsertUserMarketingAgreement(userId, marketingAgreementId, isAgreed);
+    }
 }

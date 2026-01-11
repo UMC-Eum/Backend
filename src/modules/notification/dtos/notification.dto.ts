@@ -1,13 +1,19 @@
 import { Notification } from '@prisma/client';
-
+import { IsString, IsBoolean } from 'class-validator';
 
 
 export class NotificationResponseDto {
+  @IsString()
   notificationId: string;
+  @IsString()
   type: string;
+  @IsBoolean()
   isRead: boolean;
+  @IsString()
   createdAt: string;
+  @IsString()
   title: string;
+  @IsString()
   body: string;
 
   static from(entity: Notification): NotificationResponseDto {

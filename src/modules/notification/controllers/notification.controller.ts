@@ -62,12 +62,15 @@ export class NotificationController {
         resultType: 'SUCCESS',
         success: {
           data : {
+            nextCursor : null,
+            items: {
             notificationId: 1,
             type: 'RECOMMEND',
             title: '새로운 추천이 도착했어요',
             body: '회원님과 잘 맞는 추천을 확인해 보세요.',
             isRead: false,
             createdAt: '2025-12-30T04:10:00.000Z',
+            }          
           }
         },
         error: null,

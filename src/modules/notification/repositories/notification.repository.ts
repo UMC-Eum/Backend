@@ -7,8 +7,8 @@ export class NotificationRepository {
 
 
   // PATCH v1/notifications/{notificationId}/read
-  markAsRead(id: string) {
-    this.prisma.notification.update({
+  async markAsRead(id: string) {
+    await this.prisma.notification.update({
       where: {id: Number(id)},
       data : {
         isRead : true

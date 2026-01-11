@@ -15,7 +15,8 @@ export class AgreementController {
         example: {
         resultType: 'SUCCESS',
         success: {
-            data: [
+            data: {
+                items:[
             {
                 agreementId: '1',
                 body: '이메일 수신 동의',
@@ -32,16 +33,16 @@ export class AgreementController {
                 agreementId: '4',
                 body: '마케팅 정보 수신 동의',
             },
-            ],
-        },
+                ],
+            },
         error: null,
         meta: {
             timestamp: '2026-01-10T09:53:11.014Z',
             path: '/api/v1/agreements',
         },
         },
-    },
-    })
+        },
+    }})
     @Get('/agreements')
     findAll(){
         return this.agreementService.findAll();

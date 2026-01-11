@@ -8,7 +8,7 @@ export class AgreementService {
 
     async findAll(){
         const result = await this.agreementRepository.findAll();
-        return result.map(AgreementResponseDto.from)
+        return { items : result.map(AgreementResponseDto.from) }
     }
 
     async upsertUserMarketingAgreement(userId: number, marketingAgreementId: number, isAgreed: boolean){

@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { ActiveStatus, Heart, Prisma } from '@prisma/client';
+import { ActiveStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AppException } from '../../../common/errors/app.exception';
 
@@ -12,29 +12,6 @@ export class HeartRepository {
   private toBigInt(value: string | number | bigint): bigint {
     if (typeof value === 'bigint') return value;
     return BigInt(value);
-  }
-
-  private encodeCursor(heart: Heart) {
-    return Buffer.from(JSON.stringify({ id: heart.id.toString() })).toString(
-      'base64',
-    );
-  }
-
-  private decodeCursor(cursor: string) {
-    this.logger.debug(`decodeCursor cursor=${cursor}`);
-    try {
-      const payload = JSON.parse(
-        Buffer.from(cursor, 'base64').toString('utf8'),
-      ) as { id: string };
-      const decoded = { id: BigInt(payload.id) };
-      this.logger.debug(`decodeCursor result=${payload.id}`);
-      return decoded;
-    } catch {
-      throw new AppException(HttpStatus.BAD_REQUEST, {
-        code: 'COMMON_BAD_REQUEST',
-        message: 'Invalid cursor',
-      });
-    }
   }
 
   async postHeart(
@@ -75,27 +52,33 @@ export class HeartRepository {
     size?: number;
   }) {
     const take = Math.min(Math.max(params.size ?? 20, 1), 50);
-    const decodedCursor = params.cursor
-      ? this.decodeCursor(params.cursor)
-      : undefined;
+    let parsedCursor: bigint | undefined;
+    if (params.cursor !== undefined) {
+      try {
+        parsedCursor = this.toBigInt(params.cursor);
+      } catch {
+        throw new AppException(HttpStatus.BAD_REQUEST, {
+          code: 'COMMON_BAD_REQUEST',
+          message: 'Invalid cursor',
+        });
+      }
+    }
 
     const hearts = await this.prisma.heart.findMany({
       where: params.where,
       orderBy: { id: 'desc' },
       take: take + 1,
-      ...(decodedCursor ? { cursor: decodedCursor, skip: 1 } : {}),
+      ...(parsedCursor ? { cursor: { id: parsedCursor }, skip: 1 } : {}),
     });
 
     this.logger.debug(
-      `findHeartsWithCursor fetched=${hearts.length} take=${take} decodedCursor=${decodedCursor?.id}`,
+      `findHeartsWithCursor fetched=${hearts.length} take=${take} cursor=${parsedCursor}`,
     );
 
     const hasNext = hearts.length > take;
     const items = hasNext ? hearts.slice(0, take) : hearts;
     const nextCursor =
-      hasNext && items.length
-        ? this.encodeCursor(items[items.length - 1])
-        : null;
+      hasNext && items.length ? items[items.length - 1].id.toString() : null;
 
     this.logger.debug(
       `findHeartsWithCursor returning count=${items.length} nextCursor=${nextCursor}`,

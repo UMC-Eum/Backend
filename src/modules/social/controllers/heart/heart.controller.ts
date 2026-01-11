@@ -38,7 +38,7 @@ export class HeartController {
         code: ERROR_CODE.COMMON_BAD_REQUEST,
         message: 'targetUserId query parameter is required',
       });
-    return this.heartService.heart(userIdQuery, targetUserId);
+    return this.heartService.createHeart(userIdQuery, targetUserId);
   }
 
   @Patch(':heartId')

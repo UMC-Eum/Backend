@@ -6,9 +6,16 @@ import { BlockService } from './services/block/block.service';
 import { HeartService } from './services/heart/heart.service';
 import { ReportService } from './services/report/report.service';
 import { HeartRepository } from './repositories/heart.repository';
+import { BlockRepository } from './repositories/block.repository';
 
 @Module({
   controllers: [HeartController, BlockController, ReportController],
-  providers: [BlockService, HeartService, ReportService, HeartRepository],
+  providers: [
+    BlockService,
+    HeartService,
+    ReportService,
+    HeartRepository,
+    BlockRepository,
+  ],
 })
 export class SocialModule {}

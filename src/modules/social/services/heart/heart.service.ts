@@ -20,7 +20,10 @@ export class HeartService {
 
   constructor(private readonly heartRepository: HeartRepository) {}
 
-  async heart(userId: string, targetUserId: string): Promise<HeartItemBase> {
+  async createHeart(
+    userId: string,
+    targetUserId: string,
+  ): Promise<HeartItemBase> {
     return this.heartRepository.postHeart(userId, targetUserId);
   }
 

@@ -34,4 +34,17 @@ export class BlockRepository {
       blockedAt: created.blockedAt.toISOString(),
     };
   }
+
+  async patchBlock(blockId: string): Promise<BlockDto> {
+    const response = await this.prisma.block.update({
+      where: { id: Number(blockId) },
+      data: { status: 'UNBLOCKED' },
+    });
+
+    return {
+      blockId: Number(response.id),
+      status: response.status,
+      blockedAt: response.blockedAt.toISOString(),
+    };
+  }
 }

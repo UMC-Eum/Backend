@@ -8,4 +8,7 @@ export class BlockService {
   async createBlock(userId: string, targetUserId: string, reason: string) {
     return this.blockRepository.createBlock(userId, targetUserId, reason);
   }
+  async unActivateBlock(blockId: string) {
+    return this.blockRepository.patchBlock(blockId);
+  }
 }

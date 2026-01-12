@@ -17,6 +17,8 @@ export class BlockController {
   @Get()
   public async getBlockedUsers() {}
 
-  @Patch(':userId')
-  public async unblockUser() {}
+  @Patch(':blockId')
+  public async unblockUser(@Query('blockId') blockId: string) {
+    return this.blockService.unActivateBlock(blockId);
+  }
 }

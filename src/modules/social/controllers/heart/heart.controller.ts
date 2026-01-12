@@ -26,7 +26,7 @@ export class HeartController {
   @Post()
   public async postHeart(
     @Query('userId') userIdQuery?: string,
-    @Query('targetUserId') targetUserId?: string,
+    @Body('targetUserId') targetUserId?: string,
   ) {
     if (!userIdQuery)
       throw new AppException(HttpStatus.BAD_REQUEST, {

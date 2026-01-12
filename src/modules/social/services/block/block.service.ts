@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { BlockRepository } from '../../repositories/block.repository';
 
+interface PaginationParams {
+  userId: string;
+  cursor?: string;
+  size?: string;
+  path: string;
+}
+
 @Injectable()
 export class BlockService {
   constructor(private readonly blockRepository: BlockRepository) {}
@@ -10,5 +17,8 @@ export class BlockService {
   }
   async unActivateBlock(blockId: string) {
     return this.blockRepository.patchBlock(blockId);
+  }
+  async getBlock(params: PaginationParams) {
+    return this.blockRepository.getBlock(params);
   }
 }

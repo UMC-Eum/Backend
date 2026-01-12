@@ -1,6 +1,16 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { BlockService } from '../../services/block/block.service';
 import { BlockDto } from '../../dtos/block.dto';
+import { AppException } from '../../../../common/errors/app.exception';
+import { ERROR_CODE } from '../../../../common/errors/error-codes';
 
 @Controller('block')
 export class BlockController {
@@ -15,7 +25,24 @@ export class BlockController {
   }
 
   @Get()
-  public async getBlockedUsers() {}
+  public async getBlockedUsers(
+    @Query('userId') userId: string,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    if (!userId) {
+      throw new AppException(HttpStatus.BAD_REQUEST, {
+        code: ERROR_CODE.COMMON_BAD_REQUEST,
+        message: 'userId query parameter is required',
+      });
+    }
+    return this.blockService.getBlock({
+      userId,
+      cursor,
+      size,
+      path: '/api/v1/block',
+    });
+  }
 
   @Patch(':blockId')
   public async unblockUser(@Query('blockId') blockId: string) {

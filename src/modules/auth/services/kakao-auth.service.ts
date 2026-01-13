@@ -116,7 +116,7 @@ export class KakaoAuthService {
     return {
       accessToken,
       refreshToken,
-      isNewUser: onboardingRequired,
+      isNewUser: userRecord.isNewUser,
       onboardingRequired,
       user: {
         userId,

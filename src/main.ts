@@ -30,6 +30,14 @@ function parseCookieHeader(
     return {};
   }
 
+  const decodeValue = (value: string): string => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
   return cookieHeader
     .split(';')
     .reduce<Record<string, string>>((acc, entry) => {
@@ -38,7 +46,7 @@ function parseCookieHeader(
         return acc;
       }
 
-      acc[rawKey] = decodeURIComponent(valueParts.join('='));
+      acc[rawKey] = decodeValue(valueParts.join('='));
       return acc;
     }, {});
 }

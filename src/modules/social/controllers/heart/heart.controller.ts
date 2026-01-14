@@ -2,8 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
-  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -16,8 +14,9 @@ import {
   HeartReceivedItem,
   HeartSentItem,
 } from '../../dtos/heart.dto';
+import { RequiredUserId } from '../../../auth/decorators';
 import { AppException } from '../../../../common/errors/app.exception';
-import { ERROR_CODE } from '../../../../common/errors/error-codes';
+import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 
 @Controller('hearts')
 export class HeartController {
@@ -25,20 +24,18 @@ export class HeartController {
 
   @Post()
   public async postHeart(
-    @Query('userId') userIdQuery?: string,
+    @RequiredUserId() userId: number,
     @Body('targetUserId') targetUserId?: string,
   ) {
-    if (!userIdQuery)
-      throw new AppException(HttpStatus.BAD_REQUEST, {
-        code: ERROR_CODE.COMMON_BAD_REQUEST,
-        message: 'userId query parameter is required',
+    if (!targetUserId) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+        details: {
+          field: 'targetUserId',
+        },
       });
-    if (!targetUserId)
-      throw new AppException(HttpStatus.BAD_REQUEST, {
-        code: ERROR_CODE.COMMON_BAD_REQUEST,
-        message: 'targetUserId query parameter is required',
-      });
-    return this.heartService.createHeart(userIdQuery, targetUserId);
+    }
+    return this.heartService.createHeart(String(userId), targetUserId);
   }
 
   @Patch(':heartId')
@@ -50,17 +47,12 @@ export class HeartController {
 
   @Get('received')
   public async getReceived(
-    @Query('userId') userIdQuery?: string,
+    @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,
     @Query('size') size?: string,
   ): Promise<HeartListPayload<HeartReceivedItem>> {
-    if (!userIdQuery)
-      throw new AppException(HttpStatus.BAD_REQUEST, {
-        code: ERROR_CODE.COMMON_BAD_REQUEST,
-        message: 'userId query parameter is required',
-      });
     return this.heartService.getReceivedHearts({
-      userId: userIdQuery,
+      userId: String(userId),
       cursor,
       size,
       path: '/api/v1/hearts/received',
@@ -69,18 +61,12 @@ export class HeartController {
 
   @Get('sent')
   public async getSent(
-    @Query('userId') userIdQuery?: string,
+    @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,
     @Query('size') size?: string,
   ): Promise<HeartListPayload<HeartSentItem>> {
-    if (!userIdQuery) {
-      throw new AppException(HttpStatus.BAD_REQUEST, {
-        code: ERROR_CODE.COMMON_BAD_REQUEST,
-        message: 'userId query parameter is required',
-      });
-    }
     return this.heartService.getSentHearts({
-      userId: userIdQuery,
+      userId: String(userId),
       cursor,
       size,
       path: '/api/v1/hearts/sent',

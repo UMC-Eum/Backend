@@ -1,5 +1,6 @@
-import { Body, Controller, Post, Query } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ReportService } from '../../services/report/report.service';
+import { RequiredUserId } from '../../../auth/decorators';
 
 @Controller('report')
 export class ReportController {
@@ -7,7 +8,7 @@ export class ReportController {
 
   @Post()
   async createReport(
-    @Query('userId') userId: string,
+    @RequiredUserId() userId: string,
     @Body('targetUserId') targetUserId: string,
     @Body('reason') reason: string,
   ) {

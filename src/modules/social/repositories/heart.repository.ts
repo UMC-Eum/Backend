@@ -1,7 +1,8 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ActiveStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AppException } from '../../../common/errors/app.exception';
+import { ERROR_DEFINITIONS } from '../../../common/errors/error-codes';
 
 @Injectable()
 export class HeartRepository {
@@ -57,9 +58,9 @@ export class HeartRepository {
       try {
         parsedCursor = this.toBigInt(params.cursor);
       } catch {
-        throw new AppException(HttpStatus.BAD_REQUEST, {
-          code: 'COMMON_BAD_REQUEST',
-          message: 'Invalid cursor',
+        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+          message: ERROR_DEFINITIONS.VALIDATION_REQUIRED_FIELD_MISSING.message,
+          details: { field: 'cursor' },
         });
       }
     }

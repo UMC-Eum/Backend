@@ -1,17 +1,47 @@
 import { Body, Controller, Post } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { ReportService } from '../../services/report/report.service';
 import { RequiredUserId } from '../../../auth/decorators';
 
+@ApiTags('Report')
+@ApiBearerAuth()
 @Controller('report')
 export class ReportController {
   public constructor(private readonly reportService: ReportService) {}
 
   @Post()
+  @ApiOperation({ summary: '사용자 신고 생성' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        targetUserId: { type: 'string', example: '40' },
+        reason: {
+          type: 'string',
+          example: '불쾌한 메시지를 반복 전송',
+        },
+      },
+      required: ['targetUserId', 'reason'],
+    },
+  })
+  @ApiCreatedResponse({ description: '신고 접수 완료' })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
   async createReport(
-    @RequiredUserId() userId: string,
+    @RequiredUserId() userId: number,
     @Body('targetUserId') targetUserId: string,
     @Body('reason') reason: string,
   ) {
-    return this.reportService.createReport(userId, targetUserId, reason);
+    return this.reportService.createReport(
+      String(userId),
+      targetUserId,
+      reason,
+    );
   }
 }

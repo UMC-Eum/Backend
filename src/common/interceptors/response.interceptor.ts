@@ -21,13 +21,19 @@ export class ResponseInterceptor<T> implements NestInterceptor<
       .getRequest<{ originalUrl?: string; url?: string }>();
 
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        data,
-        error: null,
-        timestamp: new Date().toISOString(),
-        path: req?.originalUrl ?? req?.url ?? '',
-      })),
+      map((data) => {
+        const payload = data === undefined ? ({} as unknown as T) : data;
+
+        return {
+          resultType: 'SUCCESS',
+          success: { data: payload },
+          error: null,
+          meta: {
+            timestamp: new Date().toISOString(),
+            path: req?.originalUrl ?? req?.url ?? '',
+          },
+        };
+      }),
     );
   }
 }

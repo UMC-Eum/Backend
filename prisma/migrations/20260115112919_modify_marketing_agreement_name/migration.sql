@@ -14,25 +14,25 @@
 
 */
 -- DropForeignKey
-ALTER TABLE `marketingagreement` DROP FOREIGN KEY `MarketingAgreement_marketingAgreementId_fkey`;
+ALTER TABLE `MarketingAgreement` DROP FOREIGN KEY `MarketingAgreement_marketingAgreementId_fkey`;
 
 -- DropForeignKey
-ALTER TABLE `marketingagreement` DROP FOREIGN KEY `MarketingAgreement_userId_fkey`;
+ALTER TABLE `MarketingAgreement` DROP FOREIGN KEY `MarketingAgreement_userId_fkey`;
 
 -- DropIndex
-DROP INDEX `MarketingAgreement_agreedAt_idx` ON `marketingagreement`;
+DROP INDEX `MarketingAgreement_agreedAt_idx` ON `MarketingAgreement`;
 
 -- DropIndex
-DROP INDEX `MarketingAgreement_isAgreed_idx` ON `marketingagreement`;
+DROP INDEX `MarketingAgreement_isAgreed_idx` ON `MarketingAgreement`;
 
 -- DropIndex
-DROP INDEX `MarketingAgreement_marketingAgreementId_userId_key` ON `marketingagreement`;
+DROP INDEX `MarketingAgreement_marketingAgreementId_userId_key` ON `MarketingAgreement`;
 
 -- DropIndex
-DROP INDEX `MarketingAgreement_userId_idx` ON `marketingagreement`;
+DROP INDEX `MarketingAgreement_userId_idx` ON `MarketingAgreement`;
 
 -- AlterTable
-ALTER TABLE `marketingagreement` DROP COLUMN `agreedAt`,
+ALTER TABLE `MarketingAgreement` DROP COLUMN `agreedAt`,
     DROP COLUMN `deletedAt`,
     DROP COLUMN `isAgreed`,
     DROP COLUMN `marketingAgreementId`,
@@ -40,7 +40,7 @@ ALTER TABLE `marketingagreement` DROP COLUMN `agreedAt`,
     ADD COLUMN `body` VARCHAR(255) NOT NULL;
 
 -- AlterTable
-ALTER TABLE `usermarketingagreement` DROP COLUMN `body`,
+ALTER TABLE `UserMarketingAgreement` DROP COLUMN `body`,
     ADD COLUMN `agreedAt` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     ADD COLUMN `deletedAt` DATETIME(6) NULL,
     ADD COLUMN `isAgreed` BOOLEAN NOT NULL DEFAULT true,

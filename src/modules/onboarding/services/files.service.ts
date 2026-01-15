@@ -26,9 +26,12 @@ export class FileUploadService {
 
     
     async generatePresignedUrl(userId: number, dto: PresignFileDto) {
-      const { fileName, contentType } = dto;
+      const { fileName, contentType, purpose } = dto;
 
-      const key = `voice-profiles/${userId}/${Date.now()}_${fileName}`;
+      // purpose에 따른 폴더 경로 결정
+      const folder = purpose === 'PROFILE_INTRO_AUDIO' ? 'voices' : 'images';
+
+      const key = `${folder}/${userId}/${Date.now()}_${fileName}`;
   
       const command = new PutObjectCommand({
           Bucket: this.bucket,

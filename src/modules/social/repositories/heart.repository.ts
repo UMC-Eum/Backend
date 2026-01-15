@@ -26,6 +26,16 @@ export class HeartRepository {
     this.logger.debug(
       `postHeart sentById=${payload.sentById} sentToId=${payload.sentToId}`,
     );
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: payload.sentToId },
+      select: { id: true },
+    });
+    if (!targetUser) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
+        details: { targetUserId: payload.sentToId.toString() },
+      });
+    }
     const response = await this.prisma.heart.create({ data: payload });
     return {
       heartId: Number(response.id),

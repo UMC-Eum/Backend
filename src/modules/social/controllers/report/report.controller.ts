@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -9,9 +9,11 @@ import {
 } from '@nestjs/swagger';
 import { ReportService } from '../../services/report/report.service';
 import { RequiredUserId } from '../../../auth/decorators';
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 
 @ApiTags('Report')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
+@UseGuards(AccessTokenGuard)
 @Controller('report')
 export class ReportController {
   public constructor(private readonly reportService: ReportService) {}

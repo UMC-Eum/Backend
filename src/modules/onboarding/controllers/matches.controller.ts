@@ -15,9 +15,27 @@ export class MatchesController {
 
   @Get('recommended')
   @UseGuards(AccessTokenGuard)
-  @ApiQuery({ name: 'size', required: false, type: Number, description: '조회할 매치 개수', example: 20 })
-  @ApiQuery({ name: 'ageMin', required: false, type: Number, description: '최소 나이', example: 20 })
-  @ApiQuery({ name: 'ageMax', required: false, type: Number, description: '최대 나이', example: 50 })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    type: Number,
+    description: '조회할 매치 개수',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'ageMin',
+    required: false,
+    type: Number,
+    description: '최소 나이',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'ageMax',
+    required: false,
+    type: Number,
+    description: '최대 나이',
+    example: 50,
+  })
   async getRecommendedMatches(
     @RequiredUserId() userId: number,
     @Query() query: GetRecommendedMatchesQueryDto,

@@ -6,7 +6,10 @@ import { CreateProfileDto } from '../dtos/onboarding.dto';
 export class OnboardingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async updateUserProfile(userId: number, dto: CreateProfileDto): Promise<void> {
+  async updateUserProfile(
+    userId: number,
+    dto: CreateProfileDto,
+  ): Promise<void> {
     const {
       nickname,
       gender,
@@ -18,21 +21,21 @@ export class OnboardingRepository {
       vibeVector,
     } = dto;
 
-    // 유저 정보 업데이트 
+    // 유저 정보 업데이트
     await this.prisma.user.update({
-        where: {id:userId},
-        data: {
-            nickname,
-            sex: gender === 'F' ? 'F' : 'M',
-            birthdate: new Date(birthDate),
-            code: areaCode,
-            introText,
-            introVoiceUrl: introAudioUrl,
-            vibeVector,
-        }
-    })
+      where: { id: userId },
+      data: {
+        nickname,
+        sex: gender === 'F' ? 'F' : 'M',
+        birthdate: new Date(birthDate),
+        code: areaCode,
+        introText,
+        introVoiceUrl: introAudioUrl,
+        vibeVector,
+      },
+    });
 
-    // 키워드 후보들 중 DB에 존재하는 ID 조회 
+    // 키워드 후보들 중 DB에 존재하는 ID 조회
     const matchedInterests = await this.prisma.interest.findMany({
       where: { body: { in: selectedKeywords } },
       select: { id: true, body: true },
@@ -43,7 +46,7 @@ export class OnboardingRepository {
       select: { id: true, body: true },
     });
 
-    // 중복 저장 방지 
+    // 중복 저장 방지
     await this.prisma.$transaction([
       ...matchedInterests.map(({ id }) =>
         this.prisma.userInterest.upsert({

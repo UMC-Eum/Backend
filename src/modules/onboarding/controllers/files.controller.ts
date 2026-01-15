@@ -16,9 +16,15 @@ export class FilesController {
   @Post('presign')
   @UseGuards(AccessTokenGuard)
   @ApiBody({ type: PresignFileDto })
-  async getPresignedUrl(@RequiredUserId() userId: number, @Body() dto: PresignFileDto) {
+  async getPresignedUrl(
+    @RequiredUserId() userId: number,
+    @Body() dto: PresignFileDto,
+  ) {
     try {
-      const result = await this.fileUploadService.generatePresignedUrl(userId, dto);
+      const result = await this.fileUploadService.generatePresignedUrl(
+        userId,
+        dto,
+      );
 
       return {
         data: result,

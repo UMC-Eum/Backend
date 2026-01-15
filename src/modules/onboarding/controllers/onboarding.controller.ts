@@ -16,9 +16,15 @@ export class OnboardingController {
   @Post('profile')
   @UseGuards(AccessTokenGuard)
   @ApiBody({ type: CreateProfileDto })
-  async createUserProfile(@RequiredUserId() userId: number, @Body() dto: CreateProfileDto) {
+  async createUserProfile(
+    @RequiredUserId() userId: number,
+    @Body() dto: CreateProfileDto,
+  ) {
     try {
-      const result = await this.onboardingService.createUserProfile(userId, dto);
+      const result = await this.onboardingService.createUserProfile(
+        userId,
+        dto,
+      );
 
       return result;
     } catch (err) {

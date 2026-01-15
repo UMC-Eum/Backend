@@ -18,11 +18,14 @@ export class MatchesService {
       ageMax,
     );
     return {
-      nextCursor: items.length > 0 ? this.generatorCursor(items[items.length - 1].userId) : null,
+      nextCursor:
+        items.length > 0
+          ? this.generatorCursor(items[items.length - 1].userId)
+          : null,
       items,
     };
   }
-  private generatorCursor(userId:bigint | number): string {
+  private generatorCursor(userId: bigint | number): string {
     return Buffer.from(userId.toString()).toString('base64');
   }
 }

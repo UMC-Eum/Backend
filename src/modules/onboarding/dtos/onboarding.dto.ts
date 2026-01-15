@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsArray,
-  IsDateString,
-  IsNumber,
-} from 'class-validator';
+import { IsString, IsArray, IsDateString, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateProfileDto {

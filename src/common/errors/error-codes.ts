@@ -12,6 +12,33 @@ export const ERROR_DEFINITIONS = {
     code: 'AUTH-002',
     message: '보안을 위해 자동 로그아웃 되었습니다. 다시 로그인해 주세요.',
   },
+  AUTH_EMAIL_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'AUTH-003',
+    message: '이미 가입된 이메일입니다. 다른 로그인 방법을 이용해 주세요.',
+  },
+  AUTH_KAKAO_TOKEN_INVALID: {
+    status: HttpStatus.UNAUTHORIZED,
+    code: 'AUTH-004',
+    message: '카카오 인증 정보가 유효하지 않습니다. 다시 로그인해 주세요.',
+  },
+  AUTH_KAKAO_TOKEN_EXCHANGE_FAILED: {
+    status: HttpStatus.BAD_GATEWAY,
+    code: 'AUTH-005',
+    message:
+      '카카오 인증 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
+  AUTH_KAKAO_PROFILE_UNAUTHORIZED: {
+    status: HttpStatus.UNAUTHORIZED,
+    code: 'AUTH-006',
+    message: '카카오 인증이 만료되었습니다. 다시 로그인해 주세요.',
+  },
+  AUTH_KAKAO_PROFILE_FETCH_FAILED: {
+    status: HttpStatus.BAD_GATEWAY,
+    code: 'AUTH-007',
+    message:
+      '카카오 프로필 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
 
   // VALID
   VALIDATION_INVALID_FORMAT: {

@@ -2,20 +2,19 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { MatchesService } from '../services/matches.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { GetRecommendedMatchesQueryDto } from '../dtos/matches.dto';
-
+import { RequiredUserId } from 'src/modules/auth/decorators';
 @Controller('matches')
 export class MatchesController {
   constructor(private readonly matchesService: MatchesService) {}
 
   @Get('recommended')
   async getRecommendedMatches(
+    @RequiredUserId() userId: number,
     @Query() query: GetRecommendedMatchesQueryDto,
   ) {
     try {
-      const userId = BigInt(1); // TODO: 실제 userId 받기
-
       const result = await this.matchesService.getRecommendedMatches(
-        userId,
+        BigInt(userId),
         query.size ?? 20,
         query.ageMin,
         query.ageMax,

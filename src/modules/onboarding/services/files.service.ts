@@ -25,13 +25,10 @@ export class FileUploadService {
     }
 
     
-    async generatePresignedUrl(dto: PresignFileDto) {
+    async generatePresignedUrl(userId: number, dto: PresignFileDto) {
       const { fileName, contentType } = dto;
-  
-      // TODO: 실제 userId 받기
-      const tempUserId = 1; 
-  
-      const key = `voice-profiles/${tempUserId}/${Date.now()}_${fileName}`;
+
+      const key = `voice-profiles/${userId}/${Date.now()}_${fileName}`;
   
       const command = new PutObjectCommand({
           Bucket: this.bucket,

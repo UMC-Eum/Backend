@@ -1,8 +1,7 @@
 import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
 import { ApiOperation, ApiParam, ApiResponse, ApiQuery } from '@nestjs/swagger';
-
-
+import { RequiredUserId } from 'src/modules/auth/decorators';
 
 
 @Controller('notifications')
@@ -35,14 +34,7 @@ export class NotificationController {
   async markAsRead(@Param('id') id: string) {
     await this.notificationService.markAsRead(id);
   }
- // AUTH가 구현되면 사용할 코드
-  /*@Get()
-  
-  findAll( @Req() req, @Query('cursor') cursor?: string, @Query('size') size?: string) {
-    const limit = size ? Number(size) : 20;
-    return this.notificationService.findAll(req.user.id, cursor, limit);
-  }*/
- // AUTH구현되기 전 임시 코드
+
  @ApiOperation({ summary: '알림 목록 조회 '})
  @ApiQuery({
   name: 'cursor',
@@ -81,10 +73,10 @@ export class NotificationController {
       }
     }
   })
+
  @Get()
-  findAll(@Query('cursor') cursor?: string, @Query('size') size?: string,) {
+  findAll(@RequiredUserId() userId, @Query('cursor') cursor?: string, @Query('size') size?: string,) {
   // 추후 삭제 예정(AUTH 구현 전 테스트용)
-  const userId = 2;
   return this.notificationService.findAll(
     userId,
     cursor,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -12,9 +12,11 @@ import {
 import { BlockService } from '../../services/block/block.service';
 import { BlockDto } from '../../dtos/block.dto';
 import { RequiredUserId } from '../../../auth/decorators';
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 
 @ApiTags('Block')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
+@UseGuards(AccessTokenGuard)
 @Controller('block')
 export class BlockController {
   public constructor(private readonly blockService: BlockService) {}

@@ -82,6 +82,13 @@ export const ERROR_DEFINITIONS = {
     message: '음성 분석 중입니다. 잠시만 기다려 주세요.',
   },
 
+  // SOCIAL
+  SOCIAL_TARGET_USER_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'SOCIAL-001',
+    message: '대상 사용자를 찾을 수 없습니다. 사용자 정보를 확인해 주세요.',
+  },
+
   // PROF
   PROFILE_NOT_REGISTERED: {
     status: HttpStatus.CONFLICT,

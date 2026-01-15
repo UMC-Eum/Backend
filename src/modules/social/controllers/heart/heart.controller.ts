@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -25,11 +26,13 @@ import {
   HeartSentItem,
 } from '../../dtos/heart.dto';
 import { RequiredUserId } from '../../../auth/decorators';
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 
 @ApiTags('Heart')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
+@UseGuards(AccessTokenGuard)
 @Controller('hearts')
 export class HeartController {
   public constructor(private readonly heartService: HeartService) {}

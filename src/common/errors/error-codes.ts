@@ -88,6 +88,32 @@ export const ERROR_DEFINITIONS = {
     code: 'SOCIAL-001',
     message: '대상 사용자를 찾을 수 없습니다. 사용자 정보를 확인해 주세요.',
   },
+  SOCIAL_NO_BLOCKED: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'SOCIAL-002',
+    message: '차단한 대상이 없습니다.',
+  },
+  SOCIAL_BLOCK_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'SOCIAL-003',
+    message: '해당 차단 기록을 찾을 수 없습니다. 차단 목록을 확인해 주세요.',
+  },
+  SOCIAL_NO_HEART: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'SOCIAL-004',
+    message: '아직 기록되어있는 마음이 없습니다. 마음을 표현해보세요.',
+  },
+  SOCIAL_HEART_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'SOCIAL-005',
+    message: '해당 마음 기록을 찾을 수 없습니다. 마음 목록을 확인해 주세요.',
+  },
+  SOCIAL_HEART_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'SOCIAL-006',
+    message:
+      '이미 마음을 표현한 사용자입니다. 다른 사용자에게 마음을 전해보세요.',
+  },
 
   // PROF
   PROFILE_NOT_REGISTERED: {

@@ -92,7 +92,7 @@ export class NotificationController {
   @Get()
   @UseGuards(AccessTokenGuard)
   findAll(
-    @RequiredUserId() userId,
+    @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,
     @Query('size') size?: string,
   ) {

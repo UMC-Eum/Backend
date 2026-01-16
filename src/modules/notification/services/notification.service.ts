@@ -24,7 +24,7 @@ export class NotificationService {
 
     return {
       nextCursor: nextCursor !== null ? Number(nextCursor) : null,
-      items: items.map((item)=>NotificationResponseDto.from(item)),
+      items: items.map((item) => NotificationResponseDto.from(item)),
     };
   }
 }

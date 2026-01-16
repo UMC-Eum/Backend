@@ -21,7 +21,10 @@ describe('NotificationController', () => {
           useValue: serviceMock,
         },
       ],
-    }).overrideGuard(AccessTokenGuard).useValue({ canActivate : () => true }).compile();
+    })
+      .overrideGuard(AccessTokenGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<NotificationController>(NotificationController);
   });

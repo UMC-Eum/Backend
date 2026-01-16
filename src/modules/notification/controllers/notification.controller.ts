@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
-import { ApiOperation, ApiParam, ApiResponse, ApiQuery } from '@nestjs/swagger';
-import { RequiredUserId } from 'src/modules/auth/decorators';
+import { ApiOperation, ApiParam, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
+import { CurrentUser, RequiredUserId } from 'src/modules/auth/decorators';
+import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
+
 
 
 @Controller('notifications')
@@ -31,6 +33,7 @@ export class NotificationController {
     }
   })
   @Patch(':id/read')
+  @UseGuards(AccessTokenGuard)
   async markAsRead(@Param('id') id: string) {
     await this.notificationService.markAsRead(id);
   }
@@ -73,10 +76,9 @@ export class NotificationController {
       }
     }
   })
-
  @Get()
+ @UseGuards(AccessTokenGuard)
   findAll(@RequiredUserId() userId, @Query('cursor') cursor?: string, @Query('size') size?: string,) {
-  // 추후 삭제 예정(AUTH 구현 전 테스트용)
   return this.notificationService.findAll(
     userId,
     cursor,

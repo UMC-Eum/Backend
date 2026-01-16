@@ -10,15 +10,24 @@ export class ReportRepository {
     userId: string,
     targetUserId: string,
     reason: string,
+    category: string,
+    chatRoomId: string,
   ): Promise<ReportResponseDto> {
     const response = await this.prisma.report.create({
       data: {
         reportedById: BigInt(userId),
         reportedId: BigInt(targetUserId),
         reason,
+        category,
+        chatRoomId: BigInt(chatRoomId),
         reportedAt: new Date(),
       },
     });
-    return { reportId: Number(response.id) };
+    return {
+      reportId: Number(response.id),
+      category: category,
+      reason: reason,
+      chatRoomId: Number(chatRoomId),
+    };
   }
 }

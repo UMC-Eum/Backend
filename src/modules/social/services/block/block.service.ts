@@ -32,8 +32,8 @@ export class BlockService {
     const result = await this.blockRepository.patchBlock(blockId);
     //해당되는 block이 없을때
     if (result == null)
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+      throw new AppException('SOCIAL_BLOCK_NOT_FOUND', {
+        message: ERROR_DEFINITIONS.SOCIAL_BLOCK_NOT_FOUND.message,
         details: { field: 'blockId' },
       });
     return result;
@@ -46,8 +46,8 @@ export class BlockService {
     });
     if (result == null) {
       // getBlock에서 해당 입력값에 대응되는 block이 없을때 오류 던지기. 이에 대한 오류 메세지를 정의해줘야함?
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+      throw new AppException('SOCIAL_NO_BLOCKED', {
+        message: ERROR_DEFINITIONS.SOCIAL_NO_BLOCKED.message,
         details: { field: 'cursor' },
       });
     }

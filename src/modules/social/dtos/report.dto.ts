@@ -4,6 +4,9 @@ export interface ReportDto {
 }
 export interface ReportResponseDto {
   reportId: number;
+  category: string;
+  reason: string;
+  chatRoomId: number;
 }
 /*
 {

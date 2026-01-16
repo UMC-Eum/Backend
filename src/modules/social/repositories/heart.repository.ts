@@ -9,6 +9,9 @@ import {
   HeartReceivedItem,
   HeartSentItem,
 } from '../dtos/heart.dto';
+type PostHeartResult =
+  | { ok: true; heart: HeartItemBase }
+  | { ok: false; reason: 'TARGET_NOT_FOUND' | 'ALREADY_EXISTS' };
 
 @Injectable()
 export class HeartRepository {
@@ -24,7 +27,7 @@ export class HeartRepository {
   async postHeart(
     sentById: string | number | bigint,
     sentToId: string | number | bigint,
-  ): Promise<HeartItemBase | null> {
+  ): Promise<PostHeartResult> {
     const payload = {
       sentById: this.toBigInt(sentById),
       sentToId: this.toBigInt(sentToId),
@@ -37,12 +40,25 @@ export class HeartRepository {
       select: { id: true },
     });
     if (!targetUser) {
-      return null;
+      return { ok: false, reason: 'TARGET_NOT_FOUND' };
+    }
+    const exist = await this.prisma.heart.findFirst({
+      where: {
+        sentById: payload.sentById,
+        sentToId: payload.sentToId,
+        status: ActiveStatus.ACTIVE,
+      },
+    });
+    if (exist != null) {
+      return { ok: false, reason: 'ALREADY_EXISTS' };
     }
     const response = await this.prisma.heart.create({ data: payload });
     return {
-      heartId: Number(response.id),
-      createdAt: response.createdAt.toISOString(),
+      ok: true,
+      heart: {
+        heartId: Number(response.id),
+        createdAt: response.createdAt.toISOString(),
+      },
     };
   }
 

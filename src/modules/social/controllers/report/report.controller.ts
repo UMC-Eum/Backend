@@ -29,6 +29,16 @@ export class ReportController {
           type: 'string',
           example: '불쾌한 메시지를 반복 전송',
         },
+        category: {
+          type: 'string',
+          example: 'HARASSMENT',
+          description: '신고 유형 코드',
+        },
+        chatRoomId: {
+          type: 'string',
+          example: '123',
+          description: '관련된 채팅방 ID',
+        },
       },
       required: ['targetUserId', 'reason'],
     },
@@ -39,11 +49,15 @@ export class ReportController {
     @RequiredUserId() userId: number,
     @Body('targetUserId') targetUserId: string,
     @Body('reason') reason: string,
+    @Body('category') category: string,
+    @Body('chatRoomId') chatRoomId: string,
   ) {
     return this.reportService.createReport(
       String(userId),
       targetUserId,
       reason,
+      category,
+      chatRoomId,
     );
   }
 }

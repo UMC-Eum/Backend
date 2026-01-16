@@ -27,19 +27,33 @@ export class HeartService {
     targetUserId: string,
   ): Promise<HeartItemBase> {
     const result = await this.heartRepository.postHeart(userId, targetUserId);
-    if (result == null) {
-      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
-        message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
-        details: { targetUserId: targetUserId },
-      });
-    } else return result;
+    if (result.ok) {
+      return result.heart;
+    } else {
+      if (result.reason === 'TARGET_NOT_FOUND') {
+        throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+          message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
+          details: { field: 'targetUserId' },
+        });
+      } else if (result.reason === 'ALREADY_EXISTS') {
+        throw new AppException('SOCIAL_HEART_ALREADY_EXISTS', {
+          message: ERROR_DEFINITIONS.SOCIAL_HEART_ALREADY_EXISTS.message,
+          details: { field: 'targetUserId' },
+        });
+      } else {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: ERROR_DEFINITIONS.SERVER_TEMPORARY_ERROR.message,
+          details: { field: 'targetUserId' },
+        });
+      }
+    }
   }
 
   async patchHeart(heartId: number): Promise<HeartItemBase> {
     const result = await this.heartRepository.patchHeart(heartId);
     if (result == null) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+      throw new AppException('SOCIAL_HEART_NOT_FOUND', {
+        message: ERROR_DEFINITIONS.SOCIAL_HEART_NOT_FOUND.message,
         details: { field: 'heartId' },
       });
     } else return result;
@@ -57,8 +71,8 @@ export class HeartService {
       size: this.parseSize(params.size),
     });
     if (result == null)
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+      throw new AppException('SOCIAL_NO_HEART', {
+        message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
     return result as HeartListPayload<HeartReceivedItem>;
@@ -76,8 +90,8 @@ export class HeartService {
       size: this.parseSize(params.size),
     });
     if (result == null)
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+      throw new AppException('SOCIAL_NO_HEART', {
+        message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
     return result as HeartListPayload<HeartSentItem>;

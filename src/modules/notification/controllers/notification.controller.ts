@@ -14,8 +14,8 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { RequiredUserId } from 'src/modules/auth/decorators';
-import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
+import { RequiredUserId } from '../../../modules/auth/decorators';
+import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guard';
 
 @ApiBearerAuth('access-token')
 @Controller('notifications')

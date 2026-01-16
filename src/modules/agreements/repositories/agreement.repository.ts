@@ -8,14 +8,14 @@ export class AgreementRepository {
 
     // GET v1/agreements
     findAll(){
-        return this.prisma.userMarketingAgreement.findMany({
+        return this.prisma.marketingAgreement.findMany({
             orderBy: {id: 'asc'},
         });
     }
 
     // POST v1/users/me/agreements
     upsertUserMarketingAgreement(userId: number, marketingAgreementId: number, isAgreed: boolean,) {
-        return this.prisma.marketingAgreement.upsert({
+        return this.prisma.userMarketingAgreement.upsert({
             where: {
                 marketingAgreementId_userId: {
                 userId: BigInt(userId),

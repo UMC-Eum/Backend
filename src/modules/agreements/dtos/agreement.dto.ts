@@ -1,4 +1,4 @@
-import { UserMarketingAgreement } from '@prisma/client';
+import { MarketingAgreement } from '@prisma/client';
 import { IsNumber, IsBoolean, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -8,7 +8,7 @@ export class AgreementResponseDto {
     agreementId: string;
     body: string;
 
-    static from(entity: UserMarketingAgreement){
+    static from(entity: MarketingAgreement){
         return {
             agreementId: entity.id.toString(),
             body: entity.body
@@ -17,6 +17,7 @@ export class AgreementResponseDto {
 
 }
 
+// marketingAgreement<->userMarketingAgreement 조인이 필요할 때 사용할 dto
 export class AgreementItemDto {
     @IsNumber()
     @ApiProperty({example : 1})

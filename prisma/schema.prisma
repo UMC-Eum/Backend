@@ -38,6 +38,10 @@ enum BlockStatus {
   UNBLOCKED
 }
 
+enum AuthProvider {
+  KAKAO
+}
+
 enum ChatMediaType {
   AUDIO
   PHOTO
@@ -74,7 +78,9 @@ model User {
   profileImageUrl String       @db.VarChar(512)
   status          ActiveStatus @default(ACTIVE)
   code            String       @db.Char(10)
-  vibeVector    Json
+  provider        AuthProvider?
+  providerUserId  String?      @db.VarChar(64)
+  vibeVector      Json
 
   address             Address                @relation(fields: [code], references: [code])
   sentHearts          Heart[]                @relation("SentBy")
@@ -88,7 +94,8 @@ model User {
   chatParticipations  ChatParticipant[]
   sentMessages        ChatMessage[]          @relation("ChatMessagesSentBy")
   receivedMessages    ChatMessage[]          @relation("ChatMessagesSentTo")
-  marketingAgreements MarketingAgreement[]
+  userMarketingAgreement UserMarketingAgreement[]
+  refreshTokens       RefreshToken[]
   blocksInitiated     Block[]                @relation("UserBlocksBy")
   blocksReceived      Block[]                @relation("UserBlocks")
   reportsFiled        Report[]               @relation("UserReportsBy")
@@ -97,7 +104,23 @@ model User {
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([provider])
+  @@unique([provider, providerUserId])
   @@index([sex, status])
+}
+
+model RefreshToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt
+  tokenHash String    @unique @db.VarChar(255)
+  expiresAt DateTime  @db.DateTime(6)
+  revokedAt DateTime? @db.DateTime(6)
+  createdAt DateTime  @default(now()) @db.DateTime(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model UserPhoto {
@@ -330,13 +353,13 @@ model ChatMedia {
   @@index([messageId])
 }
 
-model UserMarketingAgreement {
+model MarketingAgreement {
   id                  BigInt               @id @default(autoincrement()) @db.BigInt
   body                String               @db.VarChar(255)
-  marketingAgreements MarketingAgreement[]
+  userMarketingAgreement UserMarketingAgreement[]
 }
 
-model MarketingAgreement {
+model UserMarketingAgreement {
   id                   BigInt    @id @default(autoincrement()) @db.BigInt
   marketingAgreementId BigInt    @db.BigInt
   userId               BigInt    @db.BigInt
@@ -345,7 +368,7 @@ model MarketingAgreement {
   deletedAt            DateTime? @db.DateTime(6)
 
   user                   User                   @relation(fields: [userId], references: [id])
-  userMarketingAgreement UserMarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+  marketingAgreement     MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
 
   @@unique([marketingAgreementId, userId])
   @@index([userId])

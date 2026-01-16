@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActiveStatus, Prisma } from '@prisma/client';
+import { ActiveStatus, Prisma, Sex } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -42,9 +42,31 @@ export class UserRepository {
     });
   }
 
+  findAddressByCode(code: string) {
+    return this.prismaService.address.findUnique({
+      where: { code },
+      select: { code: true },
+    });
+  }
+
+  findInterestsByBodies(bodies: string[]) {
+    return this.prismaService.interest.findMany({
+      where: { body: { in: bodies } },
+      select: { id: true, body: true },
+    });
+  }
+
   updateProfile(
     userId: number,
-    data: { nickname?: string; code?: string; introText?: string },
+    data: {
+      nickname?: string;
+      sex?: Sex;
+      birthdate?: Date;
+      code?: string;
+      introText?: string;
+      introVoiceUrl?: string;
+      profileImageUrl?: string;
+    },
   ) {
     return this.prismaService.user.updateMany({
       where: {

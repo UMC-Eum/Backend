@@ -14,6 +14,11 @@ export class NotificationRepository {
       },
     });
   }
+  findNotificationById(id: string) {
+    return this.prisma.notification.findUnique({
+      where: { id: Number(id) },
+    });
+  }
 
   // GET v1/notifications
   findAll(userId: number, cursor?: string, limit = 20) {

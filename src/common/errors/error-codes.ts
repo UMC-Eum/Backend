@@ -1,6 +1,12 @@
 import { HttpStatus } from '@nestjs/common';
 
 export const ERROR_DEFINITIONS = {
+  // NOTI
+  NOTI_DOESNOT_EXIST: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'NOTI-001',
+    message: '존재하지 않는 알림입니다.',
+  },
   // AUTH
   AUTH_LOGIN_REQUIRED: {
     status: HttpStatus.UNAUTHORIZED,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
 import { NotificationResponseDto } from '../dtos/notification.dto';
+import { AppException } from '../../../common/errors/app.exception';
 
 @Injectable()
 export class NotificationService {
@@ -9,6 +10,11 @@ export class NotificationService {
   ) {}
 
   async markAsRead(id: string) {
+    const notification =
+      await this.notificationRepository.findNotificationById(id);
+    if (!notification) {
+      throw new AppException('NOTI_DOESNOT_EXIST');
+    }
     await this.notificationRepository.markAsRead(id);
   }
 

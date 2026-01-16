@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { AgreementService } from '../services/agreement.service';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
 import { RequiredUserId } from 'src/modules/auth/decorators';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 
+@ApiBearerAuth('access-token')
 @Controller()
 export class AgreementController {
     constructor(private readonly agreementService: AgreementService) {};

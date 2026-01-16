@@ -11,7 +11,8 @@ export function buildMessagePreview(
 ): MessagePreview {
   const t = (type ?? 'TEXT').toUpperCase();
 
-  if (t === 'AUDIO') return { type: 'AUDIO', textPreview: '음성메시지를 보냈어요' };
+  if (t === 'AUDIO')
+    return { type: 'AUDIO', textPreview: '음성메시지를 보냈어요' };
   if (t === 'PHOTO') return { type: 'PHOTO', textPreview: '사진을 보냈어요' };
   if (t === 'VIDEO') return { type: 'VIDEO', textPreview: '동영상을 보냈어요' };
 

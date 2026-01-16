@@ -28,11 +28,8 @@ import { AuthModule } from '../auth/auth.module';
     }),
     HealthModule,
     PrismaModule,
-<<<<<<< HEAD
     ChatModule,
-=======
     AuthModule,
->>>>>>> origin/dev
   ],
   controllers: [AppController],
   providers: [AppService],

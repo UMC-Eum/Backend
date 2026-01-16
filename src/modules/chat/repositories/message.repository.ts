@@ -48,7 +48,9 @@ export class MessageRepository {
     return map;
   }
 
-  async getLastMessageSummary(roomId: bigint): Promise<LastMessageSummary | null> {
+  async getLastMessageSummary(
+    roomId: bigint,
+  ): Promise<LastMessageSummary | null> {
     const lastMsg = await this.prisma.chatMessage.findFirst({
       where: { roomId, deletedAt: null },
       orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],

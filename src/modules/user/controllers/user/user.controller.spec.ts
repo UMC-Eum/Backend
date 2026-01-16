@@ -12,16 +12,17 @@ describe('UserController', () => {
       providers: [
         {
           provide: UserService,
-          useValue: { getMe: jest.fn() },
-        },
-        {
-          provide: AccessTokenGuard,
           useValue: {
-            canActivate: jest.fn(() => true),
+            getMe: jest.fn(),
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AccessTokenGuard)
+      .useValue({
+        canActivate: jest.fn(() => true),
+      })
+      .compile();
 
     controller = module.get<UserController>(UserController);
   });

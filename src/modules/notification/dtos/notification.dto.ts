@@ -1,7 +1,6 @@
 import { Notification } from '@prisma/client';
 import { IsString, IsBoolean } from 'class-validator';
 
-
 export class NotificationResponseDto {
   @IsString()
   notificationId: string;
@@ -24,6 +23,6 @@ export class NotificationResponseDto {
       body: entity.body,
       isRead: entity.isRead,
       createdAt: entity.createdAt.toISOString(),
-    };  
-  };
+    };
+  }
 }

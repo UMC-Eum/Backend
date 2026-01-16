@@ -27,7 +27,7 @@ import { AuthModule } from '../auth/auth.module';
     HealthModule,
     PrismaModule,
     NotificationModule,
-    AuthModule
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

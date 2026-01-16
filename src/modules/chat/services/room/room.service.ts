@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
-import { decodeCursor, encodeCursor } from '../../../../common/utils/cursor.util';
+import {
+  decodeCursor,
+  encodeCursor,
+} from '../../../../common/utils/cursor.util';
 import { buildMessagePreview } from '../../../../common/utils/message-preview.util';
 
 import type {
@@ -34,7 +37,10 @@ export class RoomService {
     private readonly messageRepo: MessageRepository,
   ) {}
 
-  async createRoom(meUserId: number, targetUserId: number): Promise<CreateRoomRes> {
+  async createRoom(
+    meUserId: number,
+    targetUserId: number,
+  ): Promise<CreateRoomRes> {
     if (meUserId === targetUserId) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
         message: '자기 자신과는 채팅방을 생성할 수 없습니다.',
@@ -51,7 +57,10 @@ export class RoomService {
       });
     }
 
-    const existingRoomId = await this.roomRepo.findRoomIdByMeAndTarget(me, target);
+    const existingRoomId = await this.roomRepo.findRoomIdByMeAndTarget(
+      me,
+      target,
+    );
     if (existingRoomId) {
       return {
         chatRoomId: Number(existingRoomId),
@@ -64,7 +73,10 @@ export class RoomService {
       };
     }
 
-    const newRoomId = await this.roomRepo.createRoomWithParticipants(me, target);
+    const newRoomId = await this.roomRepo.createRoomWithParticipants(
+      me,
+      target,
+    );
 
     return {
       chatRoomId: Number(newRoomId),
@@ -77,7 +89,10 @@ export class RoomService {
     };
   }
 
-  async getRoomDetail(meUserId: number, chatRoomId: number): Promise<RoomDetailRes> {
+  async getRoomDetail(
+    meUserId: number,
+    chatRoomId: number,
+  ): Promise<RoomDetailRes> {
     const me = BigInt(meUserId);
     const roomId = BigInt(chatRoomId);
 
@@ -92,7 +107,11 @@ export class RoomService {
 
     const addr = await this.roomRepo.getAddressByCode(peer.code);
     const areaName =
-      addr?.emdName ?? addr?.sigunguName ?? addr?.sidoName ?? addr?.fullName ?? null;
+      addr?.emdName ??
+      addr?.sigunguName ??
+      addr?.sidoName ??
+      addr?.fullName ??
+      null;
 
     return {
       chatRoomId,
@@ -105,7 +124,10 @@ export class RoomService {
     };
   }
 
-  async listRooms(meUserId: number, query: ListRoomsQueryDto): Promise<ListRoomsRes> {
+  async listRooms(
+    meUserId: number,
+    query: ListRoomsQueryDto,
+  ): Promise<ListRoomsRes> {
     const me = BigInt(meUserId);
     const size = query.size ?? 20;
 
@@ -120,7 +142,8 @@ export class RoomService {
     if (rooms.length === 0) return { nextCursor: null, items: [] };
 
     const roomIds = rooms.map((r) => r.id);
-    const lastSentAtMap = await this.messageRepo.getLastSentAtByRoomIds(roomIds);
+    const lastSentAtMap =
+      await this.messageRepo.getLastSentAtByRoomIds(roomIds);
 
     const sorted = rooms
       .map((r) => ({
@@ -130,7 +153,10 @@ export class RoomService {
       .filter((x) => {
         if (!cursorSortAt || !cursorRoomId) return true;
         if (x.sortAt < cursorSortAt) return true;
-        if (x.sortAt.getTime() === cursorSortAt.getTime() && x.roomId < cursorRoomId) {
+        if (
+          x.sortAt.getTime() === cursorSortAt.getTime() &&
+          x.roomId < cursorRoomId
+        ) {
           return true;
         }
         return false;
@@ -147,7 +173,10 @@ export class RoomService {
 
     const pageRoomIds = page.map((x) => x.roomId);
 
-    const peerIdByRoom = await this.participantRepo.findPeerUserIdsByRoomIds(pageRoomIds, me);
+    const peerIdByRoom = await this.participantRepo.findPeerUserIdsByRoomIds(
+      pageRoomIds,
+      me,
+    );
     const peerIds = Array.from(new Set(Array.from(peerIdByRoom.values())));
 
     const peerUsers = await this.roomRepo.getPeerBasicsByIds(peerIds);
@@ -164,9 +193,12 @@ export class RoomService {
       });
     }
 
-    const unreadMap = await this.messageRepo.countUnreadByRoomIds(pageRoomIds, me);
+    const unreadMap = await this.messageRepo.countUnreadByRoomIds(
+      pageRoomIds,
+      me,
+    );
 
-    // ✅ never[] 방지: items 타입을 명시
+    // never[] 방지: items 타입을 명시
     const items: ListRoomsRes['items'] = [];
 
     for (const p of page) {

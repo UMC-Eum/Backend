@@ -101,7 +101,10 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.userRepository.updateKeywords(userId, payload.interestKeywordIds);
+    await this.userRepository.updateKeywords(
+      userId,
+      payload.interestKeywordIds,
+    );
 
     return null;
   }

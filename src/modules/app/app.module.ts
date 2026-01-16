@@ -6,6 +6,7 @@ import { envSchema } from '../../config/env.schema';
 import { HealthModule } from '../health/health.module';
 import { PrismaModule } from 'src/infra/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AuthModule } from '../auth/auth.module';
     HealthModule,
     PrismaModule,
     AuthModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -33,4 +33,12 @@ export class AgreementRepository {
       },
     });
   }
+
+  findMarketingAgreementById(agreementId: number) {
+    return this.prisma.marketingAgreement.findUnique({
+      where: {
+        id: agreementId,
+      },
+    });
+  }
 }

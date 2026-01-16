@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AgreementService } from '../services/agreement.service';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
+import { RequiredUserId } from 'src/modules/auth/decorators';
 
 @Controller()
 export class AgreementController {
@@ -69,9 +70,7 @@ export class AgreementController {
     },
     })
     @Post('/users/me/agreements')
-    // AUTH 구현 전 임시로 userId 하드코딩
-    async upsertUserMarketingAgreement(@Body() body: CreateUserAgreementRequestDto){
-        const userId = 1;
+    async upsertUserMarketingAgreement(@RequiredUserId() userId, @Body() body: CreateUserAgreementRequestDto){
         for (const agreement of body.marketingAgreements) {
             const { marketingAgreementId, isAgreed } = agreement;
         await this.agreementService.upsertUserMarketingAgreement(userId, marketingAgreementId, isAgreed);

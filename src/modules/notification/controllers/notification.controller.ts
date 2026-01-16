@@ -1,11 +1,11 @@
 import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
-import { ApiOperation, ApiParam, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
-import { CurrentUser, RequiredUserId } from 'src/modules/auth/decorators';
+import { ApiOperation, ApiParam, ApiResponse, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import { RequiredUserId } from 'src/modules/auth/decorators';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 
 
-
+@ApiBearerAuth('access-token')
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}

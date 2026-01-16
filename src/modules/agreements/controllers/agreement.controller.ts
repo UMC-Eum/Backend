@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { AgreementService } from '../services/agreement.service';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
 import { RequiredUserId } from 'src/modules/auth/decorators';
+import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 
 @Controller()
 export class AgreementController {
@@ -70,6 +71,7 @@ export class AgreementController {
     },
     })
     @Post('/users/me/agreements')
+    @UseGuards(AccessTokenGuard)
     async upsertUserMarketingAgreement(@RequiredUserId() userId, @Body() body: CreateUserAgreementRequestDto){
         for (const agreement of body.marketingAgreements) {
             const { marketingAgreementId, isAgreed } = agreement;

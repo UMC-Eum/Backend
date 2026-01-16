@@ -5,11 +5,9 @@ import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
 import { RequiredUserId } from 'src/modules/auth/decorators';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 
-@ApiBearerAuth('access-token')
 @Controller()
 export class AgreementController {
     constructor(private readonly agreementService: AgreementService) {};
-
 
     @ApiOperation({ summary: '마케팅 약관 목록 조회 '})
     @ApiResponse({
@@ -51,6 +49,7 @@ export class AgreementController {
         return this.agreementService.findAll();
     }
 
+    @ApiBearerAuth('access-token')
     @ApiOperation( {summary : '마케팅 동의 생성/수정'})
     @ApiBody({
         type: CreateUserAgreementRequestDto

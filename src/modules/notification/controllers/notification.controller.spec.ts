@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from '../services/notification.service';
+import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guard';
 
 describe('NotificationController', () => {
   let controller: NotificationController;
@@ -20,7 +21,7 @@ describe('NotificationController', () => {
           useValue: serviceMock,
         },
       ],
-    }).compile();
+    }).overrideGuard(AccessTokenGuard).useValue({ canActivate : () => true }).compile();
 
     controller = module.get<NotificationController>(NotificationController);
   });

@@ -4,14 +4,22 @@ import { AgreementResponseDto } from '../dtos/agreement.dto';
 
 @Injectable()
 export class AgreementService {
-    constructor( private readonly agreementRepository: AgreementRepository) {}
+  constructor(private readonly agreementRepository: AgreementRepository) {}
 
-    async findAll(){
-        const result = await this.agreementRepository.findAll();
-        return { items : result.map(AgreementResponseDto.from) }
-    }
+  async findAll() {
+    const result = await this.agreementRepository.findAll();
+    return { items: result.map((item) => AgreementResponseDto.from(item)) };
+  }
 
-    async upsertUserMarketingAgreement(userId: number, marketingAgreementId: number, isAgreed: boolean){
-        return await this.agreementRepository.upsertUserMarketingAgreement(userId, marketingAgreementId, isAgreed);
-    }
+  async upsertUserMarketingAgreement(
+    userId: number,
+    marketingAgreementId: number,
+    isAgreed: boolean,
+  ) {
+    return await this.agreementRepository.upsertUserMarketingAgreement(
+      userId,
+      marketingAgreementId,
+      isAgreed,
+    );
+  }
 }

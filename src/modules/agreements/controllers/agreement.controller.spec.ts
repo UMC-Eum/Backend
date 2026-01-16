@@ -9,9 +9,7 @@ describe('AgreementController', () => {
       controllers: [AgreementController],
     }).compile();
 
-    controller = module.get<AgreementController>(
-      AgreementController,
-    );
+    controller = module.get<AgreementController>(AgreementController);
   });
 
   it('should be defined', () => {

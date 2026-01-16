@@ -7,5 +7,6 @@ export const marketingAgreementWithUserArgs =
     },
   });
 
-export type MarketingAgreementWithUser =
-  Prisma.MarketingAgreementGetPayload<typeof marketingAgreementWithUserArgs>;
+export type MarketingAgreementWithUser = Prisma.MarketingAgreementGetPayload<
+  typeof marketingAgreementWithUserArgs
+>;

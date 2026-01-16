@@ -17,10 +17,9 @@ describe('UserService', () => {
             findInterestsByBodies: jest.fn(),
             updateProfile: jest.fn(),
             updateKeywords: jest.fn(),
-          }, 
+          },
         },
       ],
-      
     }).compile();
 
     service = module.get<UserService>(UserService);

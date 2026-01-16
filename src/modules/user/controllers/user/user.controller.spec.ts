@@ -17,7 +17,7 @@ describe('UserController', () => {
         {
           provide: AccessTokenGuard,
           useValue: {
-            canActivate: jest.fn(() => true), 
+            canActivate: jest.fn(() => true),
           },
         },
       ],

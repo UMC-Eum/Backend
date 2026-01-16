@@ -3,6 +3,12 @@ import { ActiveStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../common/errors/error-codes';
+import {
+  HeartItemBase,
+  HeartListPayload,
+  HeartReceivedItem,
+  HeartSentItem,
+} from '../dtos/heart.dto';
 
 @Injectable()
 export class HeartRepository {
@@ -18,7 +24,7 @@ export class HeartRepository {
   async postHeart(
     sentById: string | number | bigint,
     sentToId: string | number | bigint,
-  ) {
+  ): Promise<HeartItemBase | null> {
     const payload = {
       sentById: this.toBigInt(sentById),
       sentToId: this.toBigInt(sentToId),
@@ -31,10 +37,7 @@ export class HeartRepository {
       select: { id: true },
     });
     if (!targetUser) {
-      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
-        message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
-        details: { targetUserId: payload.sentToId.toString() },
-      });
+      return null;
     }
     const response = await this.prisma.heart.create({ data: payload });
     return {
@@ -43,7 +46,15 @@ export class HeartRepository {
     };
   }
 
-  async patchHeart(heartId: number) {
+  async patchHeart(heartId: number): Promise<HeartItemBase | null> {
+    if (
+      !(await this.prisma.heart.findFirst({
+        where: { id: BigInt(heartId), status: ActiveStatus.ACTIVE },
+      }))
+    ) {
+      return null;
+    }
+    this.logger.debug(`patchHeart heartId=${heartId}`);
     const updated = await this.prisma.heart.update({
       where: { id: BigInt(heartId) },
       data: {
@@ -61,7 +72,8 @@ export class HeartRepository {
     where: Prisma.HeartWhereInput;
     cursor?: string;
     size?: number;
-  }) {
+    isSent: boolean;
+  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
     const take = Math.min(Math.max(params.size ?? 20, 1), 50);
     let parsedCursor: bigint | undefined;
     if (params.cursor !== undefined) {
@@ -85,6 +97,7 @@ export class HeartRepository {
     this.logger.debug(
       `findHeartsWithCursor fetched=${hearts.length} take=${take} cursor=${parsedCursor}`,
     );
+    if (hearts.length === 0) return null;
 
     const hasNext = hearts.length > take;
     const items = hasNext ? hearts.slice(0, take) : hearts;
@@ -95,38 +108,62 @@ export class HeartRepository {
       `findHeartsWithCursor returning count=${items.length} nextCursor=${nextCursor}`,
     );
 
-    return { items, nextCursor };
+    if (params.isSent) {
+      const mappedItems: HeartSentItem[] = items.map((item) => ({
+        heartId: Number(item.id),
+        createdAt: item.createdAt.toISOString(),
+        targetUserId: Number(item.sentToId),
+      }));
+      return { nextCursor, items: mappedItems };
+    } else {
+      const mappedItems: HeartReceivedItem[] = items.map((item) => ({
+        heartId: Number(item.id),
+        createdAt: item.createdAt.toISOString(),
+        fromUserId: Number(item.sentById),
+      }));
+      return { nextCursor, items: mappedItems };
+    }
   }
 
   async getReceivedHeartsByUserId(params: {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }) {
+  }): Promise<HeartListPayload<HeartReceivedItem | HeartSentItem> | null> {
     const sentToId = this.toBigInt(params.userId);
     this.logger.debug(
       `getReceivedHeartsByUserId userId=${sentToId} cursor=${params.cursor} size=${params.size}`,
     );
-    return this.findHeartsWithCursor({
+    const result = await this.findHeartsWithCursor({
       where: { sentToId, status: ActiveStatus.ACTIVE, deletedAt: null },
       cursor: params.cursor,
       size: params.size,
+      isSent: false,
     });
+    if (result == null) {
+      return null;
+    } else return result;
   }
 
   async getSentHeartsByUserId(params: {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }) {
+  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
     const sentById = this.toBigInt(params.userId);
     this.logger.debug(
       `getSentHeartsByUserId userId=${sentById} cursor=${params.cursor} size=${params.size}`,
     );
-    return this.findHeartsWithCursor({
+    const result = await this.findHeartsWithCursor({
       where: { sentById, status: ActiveStatus.ACTIVE, deletedAt: null },
       cursor: params.cursor,
       size: params.size,
+      isSent: true,
     });
+    if (result == null) {
+      return null;
+    } else {
+      return result;
+    }
   }
 }

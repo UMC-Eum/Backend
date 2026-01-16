@@ -6,6 +6,8 @@ import {
   HeartListPayload,
   HeartItemBase,
 } from '../../dtos/heart.dto';
+import { AppException } from '../../../../common/errors/app.exception';
+import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 
 interface PaginationParams {
   userId: string;
@@ -24,11 +26,23 @@ export class HeartService {
     userId: string,
     targetUserId: string,
   ): Promise<HeartItemBase> {
-    return this.heartRepository.postHeart(userId, targetUserId);
+    const result = await this.heartRepository.postHeart(userId, targetUserId);
+    if (result == null) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
+        details: { targetUserId: targetUserId },
+      });
+    } else return result;
   }
 
   async patchHeart(heartId: number): Promise<HeartItemBase> {
-    return this.heartRepository.patchHeart(heartId);
+    const result = await this.heartRepository.patchHeart(heartId);
+    if (result == null) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+        details: { field: 'heartId' },
+      });
+    } else return result;
   }
 
   async getReceivedHearts(
@@ -37,25 +51,17 @@ export class HeartService {
     this.logger.debug(
       `getReceivedHearts called userId=${params.userId} cursor=${params.cursor} size=${params.size}`,
     );
-    const { items, nextCursor } =
-      await this.heartRepository.getReceivedHeartsByUserId({
-        userId: params.userId,
-        cursor: params.cursor,
-        size: this.parseSize(params.size),
+    const result = await this.heartRepository.getReceivedHeartsByUserId({
+      userId: params.userId,
+      cursor: params.cursor,
+      size: this.parseSize(params.size),
+    });
+    if (result == null)
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+        details: { field: 'cursor' },
       });
-    this.logger.debug(
-      `getReceivedHearts repo returned count=${items.length} nextCursor=${nextCursor}`,
-    );
-
-    const payload: HeartReceivedItem[] = items.map((heart) => ({
-      heartId: Number(heart.id),
-      fromUserId: Number(heart.sentById),
-      createdAt: heart.createdAt.toISOString(),
-    }));
-    return {
-      nextCursor,
-      items: payload,
-    };
+    return result as HeartListPayload<HeartReceivedItem>;
   }
 
   async getSentHearts(
@@ -64,26 +70,17 @@ export class HeartService {
     this.logger.debug(
       `getSentHearts called userId=${params.userId} cursor=${params.cursor} size=${params.size}`,
     );
-    const { items, nextCursor } =
-      await this.heartRepository.getSentHeartsByUserId({
-        userId: params.userId,
-        cursor: params.cursor,
-        size: this.parseSize(params.size),
+    const result = await this.heartRepository.getSentHeartsByUserId({
+      userId: params.userId,
+      cursor: params.cursor,
+      size: this.parseSize(params.size),
+    });
+    if (result == null)
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+        details: { field: 'cursor' },
       });
-    this.logger.debug(
-      `getSentHearts repo returned count=${items.length} nextCursor=${nextCursor}`,
-    );
-
-    const payload: HeartSentItem[] = items.map((heart) => ({
-      heartId: Number(heart.id),
-      targetUserId: Number(heart.sentToId),
-      createdAt: heart.createdAt.toISOString(),
-    }));
-
-    return {
-      nextCursor,
-      items: payload,
-    };
+    return result as HeartListPayload<HeartSentItem>;
   }
 
   private parseSize(size?: string) {

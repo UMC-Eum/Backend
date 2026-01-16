@@ -26,12 +26,15 @@ export class BlockRepository {
     userId: string,
     blockedUserId: string,
     reason: string,
-  ): Promise<BlockDto> {
+  ): Promise<BlockDto | null> {
     const blockedById = BigInt(userId);
     const blockedId = BigInt(blockedUserId);
     this.logger.debug(
       `createBlock blockedById=${blockedById} blockedId=${blockedId}`,
     );
+    if (this.prisma.user.findUnique({ where: { id: blockedId } }) == null) {
+      return null;
+    }
 
     const created = await this.prisma.block.create({
       data: {
@@ -99,7 +102,15 @@ export class BlockRepository {
     return { nextCursor, items: mappedItems };
   }
 
-  async patchBlock(blockId: string): Promise<BlockDto> {
+  async patchBlock(blockId: string): Promise<BlockDto | null> {
+    if (
+      this.prisma.block.findFirst({
+        where: { id: Number(blockId), status: BlockStatus.BLOCKED },
+      }) == null
+    ) {
+      return null;
+    }
+
     const response = await this.prisma.block.update({
       where: { id: Number(blockId) },
       data: { status: 'UNBLOCKED' },
@@ -116,12 +127,14 @@ export class BlockRepository {
     userId: string;
     cursor?: string;
     size?: string;
-  }): Promise<BlockListPayload> {
+  }): Promise<BlockListPayload | null> {
     const userId = this.toBigInt(params.userId);
     this.logger.debug(
       `getBlock userId=${userId} cursor=${params.cursor} size=${params.size}`,
     );
-
+    if (this.prisma.block.findMany({ where: { blockedId: userId } }) == null) {
+      return null;
+    }
     return this.findBlocksWithCursor({
       userId,
       cursor: params.cursor,

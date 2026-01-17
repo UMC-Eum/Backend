@@ -47,8 +47,8 @@ export class NotificationController {
   })
   @Patch(':id/read')
   @UseGuards(AccessTokenGuard)
-  async markAsRead(@Param('id') id: string) {
-    await this.notificationService.markAsRead(id);
+  async markAsRead(@Param('id') id: string, @RequiredUserId() userId: number) {
+    await this.notificationService.markAsRead(id, userId);
   }
 
   @ApiOperation({ summary: '알림 목록 조회 ' })

@@ -9,9 +9,11 @@ export class NotificationService {
     private readonly notificationRepository: NotificationRepository,
   ) {}
 
-  async markAsRead(id: string) {
-    const notification =
-      await this.notificationRepository.findNotificationById(id);
+  async markAsRead(id: string, userId: number) {
+    const notification = await this.notificationRepository.findNotificationById(
+      id,
+      userId,
+    );
     if (!notification) {
       throw new AppException('NOTI_DOESNOT_EXIST');
     }

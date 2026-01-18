@@ -8,8 +8,11 @@ import {
   OnGatewayDisconnect,
   WsException,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
+
+import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 type SocketData = { userId?: number };
 
@@ -21,7 +24,13 @@ type AuthedSocket = Socket<
 >;
 
 type JoinRoomBody = { chatRoomId: number };
-type SendMessageBody = { chatRoomId: number; text: string };
+type SendMessageBody = {
+  chatRoomId: number;
+  type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
+  text?: string | null;
+  mediaUrl?: string | null;
+  durationSec?: number | null;
+};
 
 function toPositiveInt(v: unknown): number | null {
   const n =
@@ -50,8 +59,11 @@ function extractUserId(client: Socket): number | null {
   namespace: '/chats',
   cors: { origin: true, credentials: true },
 })
+@Injectable()
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   @WebSocketServer()
   server!: Server;
@@ -102,18 +114,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('message.send')
-  onSendMessage(
+  async onSendMessage(
     @ConnectedSocket() client: AuthedSocket,
     @MessageBody() body: SendMessageBody,
   ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
-    const text = typeof body?.text === 'string' ? body.text.trim() : '';
-
     if (!chatRoomId) {
       throw new WsException('Invalid chatRoomId');
-    }
-    if (!text) {
-      throw new WsException('Message text is required');
     }
 
     const senderUserId = client.data.userId;
@@ -121,15 +128,84 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('Unauthorized socket');
     }
 
+    const type = body?.type;
+    if (!type || !['AUDIO', 'PHOTO', 'VIDEO', 'TEXT'].includes(type)) {
+      throw new WsException('Invalid message type');
+    }
+
+    if (type === 'TEXT') {
+      const text = typeof body?.text === 'string' ? body.text.trim() : '';
+      if (!text) {
+        throw new WsException('Message text is required');
+      }
+    } else {
+      const mediaUrl =
+        typeof body?.mediaUrl === 'string' ? body.mediaUrl.trim() : '';
+      if (!mediaUrl) {
+        throw new WsException('Media URL is required');
+      }
+    }
+
+    const me = BigInt(senderUserId);
+    const roomId = BigInt(chatRoomId);
+
+    const isParticipant = await this.prisma.chatParticipant.findFirst({
+      where: {
+        userId: me,
+        roomId,
+        endedAt: null,
+      },
+    });
+
+    if (!isParticipant) {
+      throw new WsException('Not a participant of this room');
+    }
+
+    const peer = await this.prisma.chatParticipant.findFirst({
+      where: {
+        roomId,
+        userId: { not: me },
+        endedAt: null,
+      },
+      select: { userId: true },
+    });
+
+    if (!peer) {
+      throw new WsException('Peer not found');
+    }
+
+    const message = await this.prisma.chatMessage.create({
+      data: {
+        roomId,
+        sentById: me,
+        sentToId: peer.userId,
+        sentAt: new Date(),
+      },
+      select: { id: true, sentAt: true },
+    });
+
+    await this.prisma.chatMedia.create({
+      data: {
+        messageId: message.id,
+        type,
+        text: type === 'TEXT' ? (body.text ?? null) : null,
+        url: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
+      },
+    });
+
     const room = `room:${chatRoomId}`;
     const payload = {
+      messageId: Number(message.id),
       chatRoomId,
       senderUserId,
-      text,
-      sentAt: new Date().toISOString(),
+      type,
+      text: type === 'TEXT' ? body.text : null,
+      mediaUrl: type !== 'TEXT' ? body.mediaUrl : null,
+      durationSec: type === 'AUDIO' ? (body.durationSec ?? null) : null,
+      sentAt: message.sentAt.toISOString(),
     };
 
     this.server.to(room).emit('message.new', payload);
-    return { ok: true };
+    return { ok: true, messageId: Number(message.id) };
   }
 }

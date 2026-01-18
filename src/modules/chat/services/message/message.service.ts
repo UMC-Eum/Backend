@@ -183,7 +183,17 @@ export class MessageService {
       });
     }
 
+    // 메시지 수신자인지 확인
     if (message.sentToId !== me) {
+      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    }
+
+    // 추가: 채팅방 참여자인지 확인
+    const isParticipant = await this.participantRepo.isParticipant(
+      me,
+      message.roomId,
+    );
+    if (!isParticipant) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
@@ -201,7 +211,17 @@ export class MessageService {
       });
     }
 
+    // 메시지 송신자 또는 수신자인지 확인
     if (message.sentById !== me && message.sentToId !== me) {
+      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    }
+
+    // 추가: 채팅방 참여자인지 확인
+    const isParticipant = await this.participantRepo.isParticipant(
+      me,
+      message.roomId,
+    );
+    if (!isParticipant) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 

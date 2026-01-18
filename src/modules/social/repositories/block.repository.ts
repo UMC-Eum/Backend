@@ -32,7 +32,9 @@ export class BlockRepository {
     this.logger.debug(
       `createBlock blockedById=${blockedById} blockedId=${blockedId}`,
     );
-    if (this.prisma.user.findUnique({ where: { id: blockedId } }) == null) {
+    if (
+      (await this.prisma.user.findUnique({ where: { id: blockedId } })) == null
+    ) {
       return null;
     }
 
@@ -104,16 +106,16 @@ export class BlockRepository {
 
   async patchBlock(blockId: string): Promise<BlockDto | null> {
     if (
-      this.prisma.block.findFirst({
+      (await this.prisma.block.findFirst({
         where: { id: Number(blockId), status: BlockStatus.BLOCKED },
-      }) == null
+      })) == null
     ) {
       return null;
     }
 
     const response = await this.prisma.block.update({
       where: { id: Number(blockId) },
-      data: { status: 'UNBLOCKED' },
+      data: { status: BlockStatus.UNBLOCKED, blockedAt: new Date() },
     });
 
     return {
@@ -132,7 +134,10 @@ export class BlockRepository {
     this.logger.debug(
       `getBlock userId=${userId} cursor=${params.cursor} size=${params.size}`,
     );
-    if (this.prisma.block.findMany({ where: { blockedId: userId } }) == null) {
+    if (
+      (await this.prisma.block.findMany({ where: { blockedId: userId } })) ==
+      null
+    ) {
       return null;
     }
     return this.findBlocksWithCursor({

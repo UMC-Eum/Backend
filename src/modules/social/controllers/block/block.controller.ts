@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
   Query,
@@ -131,7 +132,7 @@ export class BlockController {
   @ApiOperation({ summary: '차단 해제' })
   @ApiOkResponse({ description: '차단 해제 완료' })
   @ApiBadRequestResponse({ description: '잘못된 blockId' })
-  public async unblockUser(@Query('blockId') blockId: string) {
+  public async unblockUser(@Param('blockId') blockId: string) {
     return this.blockService.unActivateBlock(blockId);
   }
 }

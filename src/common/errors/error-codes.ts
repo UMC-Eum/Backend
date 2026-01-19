@@ -1,6 +1,18 @@
 import { HttpStatus } from '@nestjs/common';
 
 export const ERROR_DEFINITIONS = {
+  // AGREE
+  AGREE_DOESNOT_EXIST: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'AGREE-001',
+    message: '존재하지 않는 약관입니다.',
+  },
+  // NOTI
+  NOTI_DOESNOT_EXIST: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'NOTI-001',
+    message: '존재하지 않는 알림입니다.',
+  },
   // AUTH
   AUTH_LOGIN_REQUIRED: {
     status: HttpStatus.UNAUTHORIZED,

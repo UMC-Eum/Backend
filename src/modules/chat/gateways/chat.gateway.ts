@@ -9,10 +9,13 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ActiveStatus } from '@prisma/client';
 
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
 
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { JwtTokenService } from '../../auth/services/jwt-token.service';
 
 type SocketData = { userId?: number };
 
@@ -46,13 +49,18 @@ function toPositiveInt(v: unknown): number | null {
   return Math.floor(n);
 }
 
-function extractUserId(client: Socket): number | null {
-  // socket.io 타입 상 auth/query가 any로 나오는 케이스가 있어 unknown으로 처리
+function extractBearerToken(client: Socket): string | null {
   const auth = client.handshake.auth as Record<string, unknown> | undefined;
   const query = client.handshake.query as Record<string, unknown> | undefined;
 
-  const raw = auth?.userId ?? query?.userId;
-  return toPositiveInt(raw);
+  const raw =
+    auth?.token ?? auth?.accessToken ?? query?.token ?? query?.accessToken;
+
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  return trimmed.startsWith('Bearer ') ? trimmed : `Bearer ${trimmed}`;
 }
 
 @WebSocketGateway({
@@ -63,24 +71,62 @@ function extractUserId(client: Socket): number | null {
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtTokenService: JwtTokenService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
 
-  handleConnection(client: AuthedSocket) {
-    const userId = extractUserId(client);
+  async handleConnection(client: AuthedSocket) {
+    try {
+      const bearer = extractBearerToken(client);
+      if (!bearer) {
+        this.logger.warn('reject connection: missing token');
+        client.disconnect(true);
+        return;
+      }
 
-    if (!userId) {
-      this.logger.warn(`reject connection: invalid userId`);
+      const token = bearer.replace(/^Bearer\s+/i, '').trim();
+      if (!token) {
+        this.logger.warn('reject connection: invalid token format');
+        client.disconnect(true);
+        return;
+      }
+
+      const secret = this.configService.get<string>(
+        'JWT_ACCESS_SECRET',
+        'dev-access-secret',
+      );
+
+      const payload = this.jwtTokenService.verify(token, secret);
+
+      const userRecord = await this.prisma.user.findFirst({
+        where: {
+          id: BigInt(payload.sub),
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (!userRecord) {
+        this.logger.warn('reject connection: user not found');
+        client.disconnect(true);
+        return;
+      }
+
+      const userId = Number(userRecord.id);
+      client.data.userId = userId;
+      client.join(`user:${userId}`);
+
+      this.logger.log(`connected: socket=${client.id} userId=${userId}`);
+    } catch (e) {
+      this.logger.warn(`reject connection: ${String(e)}`);
       client.disconnect(true);
-      return;
     }
-
-    client.data.userId = userId;
-    client.join(`user:${userId}`);
-
-    this.logger.log(`connected: socket=${client.id} userId=${userId}`);
   }
 
   handleDisconnect(client: AuthedSocket) {
@@ -99,13 +145,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room.join')
-  onJoinRoom(
+  async onJoinRoom(
     @ConnectedSocket() client: AuthedSocket,
     @MessageBody() body: JoinRoomBody,
   ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
     if (!chatRoomId) {
       throw new WsException('Invalid chatRoomId');
+    }
+
+    const senderUserId = client.data.userId;
+    if (!senderUserId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    const me = BigInt(senderUserId);
+    const roomId = BigInt(chatRoomId);
+
+    // 채팅방 참여 여부 확인
+    const isParticipant = await this.prisma.chatParticipant.findFirst({
+      where: {
+        userId: me,
+        roomId,
+        endedAt: null,
+      },
+    });
+
+    if (!isParticipant) {
+      throw new WsException('Not a participant of this room');
     }
 
     const room = `room:${chatRoomId}`;
@@ -184,12 +251,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       select: { id: true, sentAt: true },
     });
 
+    // AUDIO, VIDEO 둘 다 durationSec 저장
+    const shouldHaveDuration = type === 'AUDIO' || type === 'VIDEO';
     await this.prisma.chatMedia.create({
       data: {
         messageId: message.id,
         type,
         text: type === 'TEXT' ? (body.text ?? null) : null,
         url: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
+        durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
       },
     });
 
@@ -201,11 +271,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       type,
       text: type === 'TEXT' ? body.text : null,
       mediaUrl: type !== 'TEXT' ? body.mediaUrl : null,
-      durationSec: type === 'AUDIO' ? (body.durationSec ?? null) : null,
+      durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
       sentAt: message.sentAt.toISOString(),
     };
 
-    this.server.to(room).emit('message.new', payload);
+    void this.server.to(room).emit('message.new', payload);
     return { ok: true, messageId: Number(message.id) };
   }
 }

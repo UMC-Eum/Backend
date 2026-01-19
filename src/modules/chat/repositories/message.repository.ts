@@ -19,6 +19,7 @@ export type MessageWithMedia = {
     type: ChatMediaType;
     text: string | null;
     url: string | null;
+    durationSec: number | null;
   }>;
 };
 
@@ -127,6 +128,7 @@ export class MessageRepository {
             type: true,
             text: true,
             url: true,
+            durationSec: true,
           },
         },
       },

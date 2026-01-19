@@ -22,21 +22,21 @@ export class SendMessageDto {
 
   @ApiPropertyOptional({ example: null })
   @IsOptional()
-  @ValidateIf((o) => o.type === 'TEXT')
+  @ValidateIf((o) => (o as SendMessageDto).type === 'TEXT')
   @IsString()
   @IsNotEmpty({ message: 'TEXT 타입일 때 text는 필수입니다.' })
   text?: string | null;
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/m9001.m4a' })
   @IsOptional()
-  @ValidateIf((o) => o.type !== 'TEXT')
+  @ValidateIf((o) => (o as SendMessageDto).type !== 'TEXT')
   @IsUrl({}, { message: 'mediaUrl은 유효한 URL 형식이어야 합니다.' })
   @IsNotEmpty({ message: '미디어 메시지일 때 mediaUrl은 필수입니다.' })
   mediaUrl?: string | null;
 
   @ApiPropertyOptional({ example: 4, description: 'AUDIO 타입일 때 필수' })
   @IsOptional()
-  @ValidateIf((o) => o.type === 'AUDIO')
+  @ValidateIf((o) => (o as SendMessageDto).type === 'AUDIO')
   @Type(() => Number)
   @IsInt()
   @Min(1)

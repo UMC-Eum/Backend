@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
-import {
-  decodeCursor,
-  encodeCursor,
-} from '../../../../common/utils/cursor.util';
+import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
 
 import type {
   ListMessagesQueryDto,
@@ -71,7 +68,8 @@ export class MessageService {
     const size = query.size ?? 30;
     const cursor = query.cursor ? decodeCursor(query.cursor) : null;
     const cursorSentAt = cursor ? new Date(cursor.sortAt) : null;
-    const cursorMessageId = cursor ? BigInt(cursor.roomId) : null;
+    const cursorMessageId =
+      cursor && 'messageId' in cursor ? BigInt(cursor.messageId) : null;
 
     const messages = await this.messageRepo.findMessagesByRoomId(
       roomId,
@@ -92,7 +90,7 @@ export class MessageService {
         type: media?.type ?? 'TEXT',
         text: media?.text ?? null,
         mediaUrl: media?.url ?? null,
-        durationSec: null,
+        durationSec: media?.durationSec ?? null,
         senderUserId: Number(msg.sentById),
         sentAt: msg.sentAt.toISOString(),
         readAt: msg.readAt?.toISOString() ?? null,
@@ -104,7 +102,7 @@ export class MessageService {
       hasNext && page.length > 0
         ? encodeCursor({
             sortAt: page[page.length - 1].sentAt.toISOString(),
-            roomId: page[page.length - 1].id.toString(),
+            messageId: page[page.length - 1].id.toString(),
           })
         : null;
 

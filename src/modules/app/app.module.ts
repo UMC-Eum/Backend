@@ -8,8 +8,10 @@ import { PrismaModule } from 'src/infra/prisma/prisma.module';
 
 import { ChatModule } from '../chat/chat.module';
 
+import { AgreementModule } from '../agreements/agreement.module';
+import { NotificationModule } from '../notification/notification.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 import { AuthModule } from '../auth/auth.module';
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,6 +31,9 @@ import { AuthModule } from '../auth/auth.module';
     HealthModule,
     PrismaModule,
     ChatModule,
+    AgreementModule,
+    NotificationModule,
+    OnboardingModule,
     AuthModule,
   ],
   controllers: [AppController],

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat API 테스트</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+    h2 { color: #555; margin-top: 30px; border-left: 4px solid #007bff; padding-left: 10px; }
+    .section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+    .status.connected { background: #d4edda; color: #155724; }
+    .status.disconnected { background: #f8d7da; color: #721c24; }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    input, select, textarea {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    button:hover { background: #0056b3; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    button.success { background: #28a745; }
+    button.success:hover { background: #218838; }
+    #messages {
+      border: 1px solid #ddd;
+      padding: 15px;
+      height: 400px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .message {
+      margin: 8px 0;
+      padding: 8px;
+      background: white;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+    }
+    .message.error { border-left-color: #dc3545; }
+    .message.success { border-left-color: #28a745; }
+    .message.warning { border-left-color: #ffc107; }
+    .api-section {
+      border-top: 2px solid #eee;
+      padding-top: 20px;
+      margin-top: 20px;
+    }
+    .api-section h3 {
+      color: #007bff;
+      margin-bottom: 15px;
+    }
+    .response-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+    }
+    .config-section {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>💬 Chat API 테스트 도구</h1>
+  
+  <!-- 설정 -->
+  <div class="section config-section">
+    <h2>⚙️ 설정</h2>
+    <div class="controls">
+      <label>API Base URL:</label>
+      <input type="text" id="apiBase" value="http://localhost:3000/api/v1" style="flex: 1;">
+      <label>User ID:</label>
+      <input type="number" id="userIdInput" placeholder="User ID" value="1" min="1">
+    </div>
+  </div>
+  
+  <!-- WebSocket 연결 상태 -->
+  <div class="section">
+    <h2>🔌 WebSocket 연결</h2>
+    <div id="status" class="status disconnected">❌ 연결 안됨</div>
+    <div class="controls">
+      <button onclick="connectWS()">연결</button>
+      <button onclick="disconnectWS()">연결 끊기</button>
+      <button onclick="pingWS()">Ping 테스트</button>
+    </div>
+  </div>
+
+  <!-- WebSocket API -->
+  <div class="section">
+    <h2>📡 WebSocket API</h2>
+    
+    <div class="api-section">
+      <h3>room.join - 채팅방 입장</h3>
+      <div class="controls">
+        <input type="number" id="wsRoomId" placeholder="Chat Room ID" value="3" min="1">
+        <button onclick="joinRoomWS()">채팅방 입장</button>
+      </div>
+    </div>
+
+    <div class="api-section">
+      <h3>message.send - 메시지 전송</h3>
+      <div class="controls">
+        <input type="number" id="wsMsgRoomId" placeholder="Chat Room ID" value="3" min="1">
+        <select id="wsMsgType">
+          <option value="TEXT">TEXT</option>
+          <option value="AUDIO">AUDIO</option>
+          <option value="PHOTO">PHOTO</option>
+          <option value="VIDEO">VIDEO</option>
+        </select>
+        <input type="text" id="wsMsgText" placeholder="메시지 내용 (TEXT용)" value="안녕하세요!">
+        <input type="text" id="wsMsgMediaUrl" placeholder="Media URL" value="https://example.com/media.mp3">
+        <input type="number" id="wsMsgDuration" placeholder="Duration (초, AUDIO용)" value="5" min="1">
+        <button onclick="sendMessageWS()">메시지 전송</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REST API -->
+  <div class="section">
+    <h2>🌐 REST API</h2>
+    
+    <div class="api-section">
+      <h3>POST /chats/rooms - 채팅방 생성</h3>
+      <div class="controls">
+        <input type="number" id="createRoomTargetId" placeholder="Target User ID" value="2" min="1">
+        <button onclick="createRoom()">채팅방 생성</button>
+      </div>
+      <div id="createRoomResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>GET /chats/rooms - 채팅방 목록</h3>
+      <div class="controls">
+        <input type="text" id="listRoomsCursor" placeholder="Cursor (선택)" value="">
+        <input type="number" id="listRoomsSize" placeholder="Size" value="20" min="1" max="50">
+        <button onclick="listRooms()">목록 조회</button>
+      </div>
+      <div id="listRoomsResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>GET /chats/rooms/{chatRoomId} - 채팅방 상세</h3>
+      <div class="controls">
+        <input type="number" id="roomDetailId" placeholder="Chat Room ID" value="3" min="1">
+        <button onclick="getRoomDetail()">상세 조회</button>
+      </div>
+      <div id="roomDetailResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>GET /chats/rooms/{chatRoomId}/messages - 메시지 목록</h3>
+      <div class="controls">
+        <input type="number" id="listMsgRoomId" placeholder="Chat Room ID" value="3" min="1">
+        <input type="text" id="listMsgCursor" placeholder="Cursor (선택)" value="">
+        <input type="number" id="listMsgSize" placeholder="Size" value="30" min="1" max="100">
+        <button onclick="listMessages()">메시지 목록</button>
+      </div>
+      <div id="listMessagesResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>POST /chats/rooms/{chatRoomId}/messages - 메시지 전송</h3>
+      <div class="controls">
+        <input type="number" id="sendMsgRoomId" placeholder="Chat Room ID" value="3" min="1">
+        <select id="sendMsgType">
+          <option value="TEXT">TEXT</option>
+          <option value="AUDIO">AUDIO</option>
+          <option value="PHOTO">PHOTO</option>
+          <option value="VIDEO">VIDEO</option>
+        </select>
+        <input type="text" id="sendMsgText" placeholder="메시지 내용 (TEXT용)" value="안녕하세요!">
+        <input type="text" id="sendMsgMediaUrl" placeholder="Media URL" value="https://example.com/media.mp3">
+        <input type="number" id="sendMsgDuration" placeholder="Duration (초, AUDIO용)" value="5" min="1">
+        <button onclick="sendMessage()">메시지 전송</button>
+      </div>
+      <div id="sendMessageResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>PATCH /chats/messages/{messageId}/read - 메시지 읽음 처리</h3>
+      <div class="controls">
+        <input type="number" id="readMsgId" placeholder="Message ID" value="1" min="1">
+        <button onclick="markAsRead()">읽음 처리</button>
+      </div>
+      <div id="markAsReadResponse" class="response-box" style="display:none;"></div>
+    </div>
+
+    <div class="api-section">
+      <h3>PATCH /chats/messages/{messageId} - 메시지 삭제</h3>
+      <div class="controls">
+        <input type="number" id="deleteMsgId" placeholder="Message ID" value="1" min="1">
+        <button class="danger" onclick="deleteMessage()">메시지 삭제</button>
+      </div>
+      <div id="deleteMessageResponse" class="response-box" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- 로그 -->
+  <div class="section">
+    <h2>📋 로그</h2>
+    <div id="messages"></div>
+  </div>
+
+  <script>
+    let socket = null;
+    let currentUserId = 1;
+
+    function getApiBase() {
+      return document.getElementById('apiBase').value || 'http://localhost:3000/api/v1';
+    }
+
+    function getUserId() {
+      return parseInt(document.getElementById('userIdInput').value) || 1;
+    }
+
+    function updateStatus(connected) {
+      const statusEl = document.getElementById('status');
+      if (connected) {
+        statusEl.textContent = `✅ 연결됨 - Socket ID: ${socket?.id || 'N/A'} (User ID: ${currentUserId})`;
+        statusEl.className = 'status connected';
+      } else {
+        statusEl.textContent = '❌ 연결 안됨';
+        statusEl.className = 'status disconnected';
+      }
+    }
+
+    function appendMessage(msg, type = 'info') {
+      const messagesDiv = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function showResponse(elementId, data, isError = false) {
+      const el = document.getElementById(elementId);
+      el.style.display = 'block';
+      el.textContent = JSON.stringify(data, null, 2);
+      el.style.borderLeftColor = isError ? '#dc3545' : '#28a745';
+      el.style.borderLeftWidth = '4px';
+      el.style.borderLeftStyle = 'solid';
+    }
+
+    // WebSocket 연결
+    function connectWS() {
+      const userId = getUserId();
+      if (!userId || userId <= 0) {
+        alert('유효한 User ID를 입력하세요.');
+        return;
+      }
+
+      if (socket) {
+        socket.disconnect();
+      }
+
+      currentUserId = userId;
+      appendMessage(`🔌 WebSocket 연결 시도 중... (userId: ${userId})`);
+      
+      socket = io('http://localhost:3000/chats', {
+        path: '/ws',
+        auth: { userId: userId },
+        transports: ['websocket']
+      });
+
+      socket.on('connect', () => {
+        appendMessage(`✅ WebSocket 연결 성공! Socket ID: ${socket.id}`, 'success');
+        updateStatus(true);
+      });
+
+      socket.on('disconnect', (reason) => {
+        appendMessage(`❌ WebSocket 연결 끊김: ${reason}`, 'error');
+        updateStatus(false);
+      });
+
+      socket.on('connect_error', (error) => {
+        appendMessage(`🔴 WebSocket 연결 오류: ${error.message}`, 'error');
+        updateStatus(false);
+      });
+
+      socket.on('message.new', (data) => {
+        appendMessage(`📨 새 메시지 수신: ${JSON.stringify(data, null, 2)}`, 'success');
+      });
+
+      socket.on('exception', (error) => {
+        appendMessage(`❌ WebSocket 예외: ${JSON.stringify(error, null, 2)}`, 'error');
+      });
+    }
+
+    function disconnectWS() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        appendMessage('연결을 끊었습니다.');
+        updateStatus(false);
+      }
+    }
+
+    function pingWS() {
+      if (!socket?.connected) {
+        alert('먼저 WebSocket에 연결하세요.');
+        return;
+      }
+
+      socket.emit('ping', {}, (response) => {
+        if (response) {
+          appendMessage(`🏓 Ping 응답: ${JSON.stringify(response, null, 2)}`, 'success');
+        }
+      });
+    }
+
+    function joinRoomWS() {
+      if (!socket?.connected) {
+        alert('먼저 WebSocket에 연결하세요.');
+        return;
+      }
+
+      const roomId = parseInt(document.getElementById('wsRoomId').value);
+      if (!roomId) {
+        alert('Chat Room ID를 입력하세요.');
+        return;
+      }
+
+      appendMessage(`🚪 채팅방 입장 시도... (roomId: ${roomId})`);
+
+      socket.emit('room.join', { chatRoomId: roomId }, (response) => {
+        if (response) {
+          appendMessage(`✅ 채팅방 입장 성공: ${JSON.stringify(response, null, 2)}`, 'success');
+        }
+      });
+
+      socket.once('exception', (error) => {
+        appendMessage(`❌ 채팅방 입장 실패: ${JSON.stringify(error, null, 2)}`, 'error');
+      });
+    }
+
+    function sendMessageWS() {
+      if (!socket?.connected) {
+        alert('먼저 WebSocket에 연결하세요.');
+        return;
+      }
+
+      const roomId = parseInt(document.getElementById('wsMsgRoomId').value);
+      const type = document.getElementById('wsMsgType').value;
+      const text = document.getElementById('wsMsgText').value;
+      const mediaUrl = document.getElementById('wsMsgMediaUrl').value;
+      const durationSec = parseInt(document.getElementById('wsMsgDuration').value);
+
+      if (!roomId) {
+        alert('Chat Room ID를 입력하세요.');
+        return;
+      }
+
+      const payload = {
+        chatRoomId: roomId,
+        type: type,
+        text: type === 'TEXT' ? text : null,
+        mediaUrl: type !== 'TEXT' ? mediaUrl : null,
+        durationSec: type === 'AUDIO' ? durationSec : null
+      };
+
+      appendMessage(`📤 WebSocket 메시지 전송 중... ${JSON.stringify(payload, null, 2)}`);
+
+      const timeout = setTimeout(() => {
+        appendMessage(`⏱️ 메시지 전송 타임아웃 (응답 없음)`, 'error');
+      }, 10000);
+
+      socket.emit('message.send', payload, (response) => {
+        clearTimeout(timeout);
+        if (response) {
+          appendMessage(`✅ WebSocket 메시지 전송 성공: ${JSON.stringify(response, null, 2)}`, 'success');
+        } else {
+          appendMessage(`⚠️ WebSocket 메시지 전송 응답 없음`, 'warning');
+        }
+      });
+
+      socket.once('exception', (error) => {
+        clearTimeout(timeout);
+        appendMessage(`❌ WebSocket 메시지 전송 실패: ${JSON.stringify(error, null, 2)}`, 'error');
+      });
+    }
+
+    // REST API 함수들
+    async function apiCall(method, url, body = null) {
+      const apiBase = getApiBase();
+      const userId = getUserId();
+      
+      const fullUrl = `${apiBase}${url}`;
+      
+      appendMessage(`🌐 ${method} ${fullUrl}`, 'info');
+      appendMessage(`   Headers: x-user-id: ${userId}`, 'info');
+      
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId.toString()
+        },
+        mode: 'cors',
+        credentials: 'include'
+      };
+
+      if (body) {
+        options.body = JSON.stringify(body);
+        appendMessage(`   Body: ${JSON.stringify(body, null, 2)}`, 'info');
+      }
+
+      try {
+        const response = await fetch(fullUrl, options);
+        const responseText = await response.text();
+        
+        appendMessage(`   Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          data = { raw: responseText };
+        }
+        
+        return { 
+          ok: response.ok, 
+          status: response.status, 
+          statusText: response.statusText,
+          data,
+          headers: Object.fromEntries(response.headers.entries())
+        };
+      } catch (error) {
+        appendMessage(`   네트워크 에러: ${error.message}`, 'error');
+        return { 
+          ok: false, 
+          error: error.message,
+          details: error
+        };
+      }
+    }
+
+    async function createRoom() {
+      const targetUserId = parseInt(document.getElementById('createRoomTargetId').value);
+      if (!targetUserId) {
+        alert('Target User ID를 입력하세요.');
+        return;
+      }
+
+      appendMessage(`📤 채팅방 생성 요청... (targetUserId: ${targetUserId})`);
+      const result = await apiCall('POST', '/chats/rooms', { targetUserId });
+      
+      if (result.ok) {
+        appendMessage(`✅ 채팅방 생성 성공`, 'success');
+        showResponse('createRoomResponse', result.data);
+      } else {
+        appendMessage(`❌ 채팅방 생성 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('createRoomResponse', result.data, true);
+      }
+    }
+
+    async function listRooms() {
+      const cursor = document.getElementById('listRoomsCursor').value;
+      const size = parseInt(document.getElementById('listRoomsSize').value) || 20;
+      
+      let url = `/chats/rooms?size=${size}`;
+      if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+      appendMessage(`📤 채팅방 목록 조회...`);
+      const result = await apiCall('GET', url);
+      
+      if (result.ok) {
+        appendMessage(`✅ 채팅방 목록 조회 성공`, 'success');
+        showResponse('listRoomsResponse', result.data);
+      } else {
+        appendMessage(`❌ 채팅방 목록 조회 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('listRoomsResponse', result.data, true);
+      }
+    }
+
+    async function getRoomDetail() {
+      const roomId = parseInt(document.getElementById('roomDetailId').value);
+      if (!roomId) {
+        alert('Chat Room ID를 입력하세요.');
+        return;
+      }
+
+      appendMessage(`📤 채팅방 상세 조회... (roomId: ${roomId})`);
+      const result = await apiCall('GET', `/chats/rooms/${roomId}`);
+      
+      if (result.ok) {
+        appendMessage(`✅ 채팅방 상세 조회 성공`, 'success');
+        showResponse('roomDetailResponse', result.data);
+      } else {
+        appendMessage(`❌ 채팅방 상세 조회 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('roomDetailResponse', result.data, true);
+      }
+    }
+
+    async function listMessages() {
+      const roomId = parseInt(document.getElementById('listMsgRoomId').value);
+      const cursor = document.getElementById('listMsgCursor').value;
+      const size = parseInt(document.getElementById('listMsgSize').value) || 30;
+      
+      if (!roomId) {
+        alert('Chat Room ID를 입력하세요.');
+        return;
+      }
+
+      let url = `/chats/rooms/${roomId}/messages?size=${size}`;
+      if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+      appendMessage(`📤 메시지 목록 조회... (roomId: ${roomId})`);
+      const result = await apiCall('GET', url);
+      
+      if (result.ok) {
+        appendMessage(`✅ 메시지 목록 조회 성공`, 'success');
+        showResponse('listMessagesResponse', result.data);
+      } else {
+        appendMessage(`❌ 메시지 목록 조회 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('listMessagesResponse', result.data, true);
+      }
+    }
+
+    async function sendMessage() {
+      const roomId = parseInt(document.getElementById('sendMsgRoomId').value);
+      const type = document.getElementById('sendMsgType').value;
+      const text = document.getElementById('sendMsgText').value;
+      const mediaUrl = document.getElementById('sendMsgMediaUrl').value;
+      const durationSec = parseInt(document.getElementById('sendMsgDuration').value);
+
+      if (!roomId) {
+        alert('Chat Room ID를 입력하세요.');
+        return;
+      }
+
+      const body = {
+        type: type,
+        text: type === 'TEXT' ? text : null,
+        mediaUrl: type !== 'TEXT' ? mediaUrl : null,
+        durationSec: type === 'AUDIO' ? durationSec : null
+      };
+
+      appendMessage(`📤 REST API 메시지 전송... (roomId: ${roomId})`);
+      const result = await apiCall('POST', `/chats/rooms/${roomId}/messages`, body);
+      
+      if (result.ok) {
+        appendMessage(`✅ REST API 메시지 전송 성공`, 'success');
+        showResponse('sendMessageResponse', result.data);
+      } else {
+        appendMessage(`❌ REST API 메시지 전송 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('sendMessageResponse', result.data, true);
+      }
+    }
+
+    async function markAsRead() {
+      const messageId = parseInt(document.getElementById('readMsgId').value);
+      if (!messageId) {
+        alert('Message ID를 입력하세요.');
+        return;
+      }
+
+      appendMessage(`📤 메시지 읽음 처리... (messageId: ${messageId})`);
+      const result = await apiCall('PATCH', `/chats/messages/${messageId}/read`);
+      
+      if (result.ok) {
+        appendMessage(`✅ 메시지 읽음 처리 성공`, 'success');
+        showResponse('markAsReadResponse', result.data);
+      } else {
+        appendMessage(`❌ 메시지 읽음 처리 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('markAsReadResponse', result.data, true);
+      }
+    }
+
+    async function deleteMessage() {
+      const messageId = parseInt(document.getElementById('deleteMsgId').value);
+      if (!messageId) {
+        alert('Message ID를 입력하세요.');
+        return;
+      }
+
+      if (!confirm(`정말 메시지 ${messageId}를 삭제하시겠습니까?`)) {
+        return;
+      }
+
+      appendMessage(`📤 메시지 삭제... (messageId: ${messageId})`);
+      const result = await apiCall('PATCH', `/chats/messages/${messageId}`);
+      
+      if (result.ok) {
+        appendMessage(`✅ 메시지 삭제 성공`, 'success');
+        showResponse('deleteMessageResponse', result.data);
+      } else {
+        appendMessage(`❌ 메시지 삭제 실패: ${JSON.stringify(result.data, null, 2)}`, 'error');
+        showResponse('deleteMessageResponse', result.data, true);
+      }
+    }
+  </script>
+</body>
+</html>

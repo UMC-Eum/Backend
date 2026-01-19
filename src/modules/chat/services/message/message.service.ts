@@ -162,6 +162,7 @@ export class MessageService {
       dto.type,
       dto.type === 'TEXT' ? (dto.text ?? null) : null,
       dto.type !== 'TEXT' ? (dto.mediaUrl ?? null) : null,
+      dto.type === 'AUDIO' ? (dto.durationSec ?? null) : null,
     );
 
     return {

@@ -142,6 +142,7 @@ export class MessageRepository {
     type: ChatMediaType,
     text: string | null,
     mediaUrl: string | null,
+    durationSec: number | null = null,
   ): Promise<{ id: bigint; sentAt: Date }> {
     return this.prisma.$transaction(async (tx) => {
       const message = await tx.chatMessage.create({
@@ -160,6 +161,7 @@ export class MessageRepository {
           type,
           text: type === 'TEXT' ? text : null,
           url: type !== 'TEXT' ? mediaUrl : null,
+          durationSec: type === 'AUDIO' ? durationSec : null,
         },
       });
 

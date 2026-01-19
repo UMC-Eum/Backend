@@ -12,6 +12,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { AppException } from './common/errors/app.exception';
 import { setupSwagger } from './swagger';
 
+import { SocketIoAdapter } from './infra/websocket/socket-io.adapter';
+
 function isRequiredError(errors: ValidationError[]): boolean {
   const requiredKeys = new Set(['isNotEmpty', 'isDefined', 'isNotNull']);
 
@@ -100,6 +102,7 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
+  app.useWebSocketAdapter(new SocketIoAdapter(app, configService));
 
   setupSwagger(app);
 

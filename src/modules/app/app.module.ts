@@ -5,7 +5,6 @@ import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
 import { HealthModule } from '../health/health.module';
 import { PrismaModule } from 'src/infra/prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module';
 import { SocialModule } from '../social/social.module';
 
 import { ChatModule } from '../chat/chat.module';
@@ -32,7 +31,6 @@ import { AuthModule } from '../auth/auth.module';
     }),
     HealthModule,
     PrismaModule,
-    AuthModule,
     SocialModule,
     ChatModule,
     AgreementModule,

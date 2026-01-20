@@ -350,6 +350,7 @@ model ChatMedia {
   url       String?       @db.VarChar(512)
   type      ChatMediaType @default(TEXT)
   text      String?       @db.VarChar(512)
+  durationSec Int?
 
   message ChatMessage @relation(fields: [messageId], references: [id])
 

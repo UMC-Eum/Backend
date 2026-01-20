@@ -64,7 +64,17 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api/v1');
-  app.enableCors({ origin: corsOrigin, credentials: true });
+
+  const allowedOrigins = [
+    corsOrigin,
+    'http://127.0.0.1:5500',
+    'http://localhost:5500',
+  ];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    credentials: true,
+  });
   type CookieRequest = Request & { cookies: Record<string, string> };
 
   app.use((req: CookieRequest, _res: Response, next: NextFunction) => {

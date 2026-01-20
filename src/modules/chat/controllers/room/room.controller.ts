@@ -1,40 +1,51 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-import { DevUserId } from '../../../../common/decorators/dev-user-id.decorator';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
+
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
+import { RequiredUser } from '../../../auth/decorators/required-user.decorator';
+import type { AuthenticatedUser } from '../../../auth/decorators/auth-user.types';
 
 import { CreateRoomDto, ListRoomsQueryDto } from '../../dtos/room.dto';
 import { RoomService } from '../../services/room/room.service';
 
 @ApiTags('Chats')
-@ApiHeader({
-  name: 'x-user-id',
-  required: false,
-  description: 'DEV ONLY(Auth 전): 내 userId (예: x-user-id: 1)',
-})
+@ApiBearerAuth('access-token')
+@UseGuards(AccessTokenGuard)
 @Controller('chats/rooms')
 export class RoomController {
   constructor(private readonly roomService: RoomService) {}
 
   @Post()
-  async createRoom(@DevUserId() meUserId: number, @Body() dto: CreateRoomDto) {
-    return this.roomService.createRoom(meUserId, dto.targetUserId);
+  async createRoom(
+    @RequiredUser() user: AuthenticatedUser,
+    @Body() dto: CreateRoomDto,
+  ) {
+    return this.roomService.createRoom(user.userId, dto.targetUserId);
   }
 
   @Get()
   async listRooms(
-    @DevUserId() meUserId: number,
+    @RequiredUser() user: AuthenticatedUser,
     @Query() query: ListRoomsQueryDto,
   ) {
-    return this.roomService.listRooms(meUserId, query);
+    return this.roomService.listRooms(user.userId, query);
   }
 
   @Get(':chatRoomId')
   async getRoomDetail(
-    @DevUserId() meUserId: number,
+    @RequiredUser() user: AuthenticatedUser,
     @Param('chatRoomId', new ParsePositiveIntPipe()) chatRoomId: number,
   ) {
-    return this.roomService.getRoomDetail(meUserId, chatRoomId);
+    return this.roomService.getRoomDetail(user.userId, chatRoomId);
   }
 }

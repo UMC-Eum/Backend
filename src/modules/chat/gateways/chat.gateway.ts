@@ -8,8 +8,14 @@ import {
   OnGatewayDisconnect,
   WsException,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ActiveStatus } from '@prisma/client';
+
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
+
+import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { JwtTokenService } from '../../auth/services/jwt-token.service';
 
 type SocketData = { userId?: number };
 
@@ -21,7 +27,13 @@ type AuthedSocket = Socket<
 >;
 
 type JoinRoomBody = { chatRoomId: number };
-type SendMessageBody = { chatRoomId: number; text: string };
+type SendMessageBody = {
+  chatRoomId: number;
+  type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
+  text?: string | null;
+  mediaUrl?: string | null;
+  durationSec?: number | null;
+};
 
 function toPositiveInt(v: unknown): number | null {
   const n =
@@ -37,38 +49,84 @@ function toPositiveInt(v: unknown): number | null {
   return Math.floor(n);
 }
 
-function extractUserId(client: Socket): number | null {
-  // socket.io 타입 상 auth/query가 any로 나오는 케이스가 있어 unknown으로 처리
+function extractBearerToken(client: Socket): string | null {
   const auth = client.handshake.auth as Record<string, unknown> | undefined;
   const query = client.handshake.query as Record<string, unknown> | undefined;
 
-  const raw = auth?.userId ?? query?.userId;
-  return toPositiveInt(raw);
+  const raw =
+    auth?.token ?? auth?.accessToken ?? query?.token ?? query?.accessToken;
+
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  return trimmed.startsWith('Bearer ') ? trimmed : `Bearer ${trimmed}`;
 }
 
 @WebSocketGateway({
   namespace: '/chats',
   cors: { origin: true, credentials: true },
 })
+@Injectable()
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtTokenService: JwtTokenService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
 
-  handleConnection(client: AuthedSocket) {
-    const userId = extractUserId(client);
+  async handleConnection(client: AuthedSocket) {
+    try {
+      const bearer = extractBearerToken(client);
+      if (!bearer) {
+        this.logger.warn('reject connection: missing token');
+        client.disconnect(true);
+        return;
+      }
 
-    if (!userId) {
-      this.logger.warn(`reject connection: invalid userId`);
+      const token = bearer.replace(/^Bearer\s+/i, '').trim();
+      if (!token) {
+        this.logger.warn('reject connection: invalid token format');
+        client.disconnect(true);
+        return;
+      }
+
+      const secret = this.configService.get<string>(
+        'JWT_ACCESS_SECRET',
+        'dev-access-secret',
+      );
+
+      const payload = this.jwtTokenService.verify(token, secret);
+
+      const userRecord = await this.prisma.user.findFirst({
+        where: {
+          id: BigInt(payload.sub),
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (!userRecord) {
+        this.logger.warn('reject connection: user not found');
+        client.disconnect(true);
+        return;
+      }
+
+      const userId = Number(userRecord.id);
+      client.data.userId = userId;
+      client.join(`user:${userId}`);
+
+      this.logger.log(`connected: socket=${client.id} userId=${userId}`);
+    } catch (e) {
+      this.logger.warn(`reject connection: ${String(e)}`);
       client.disconnect(true);
-      return;
     }
-
-    client.data.userId = userId;
-    client.join(`user:${userId}`);
-
-    this.logger.log(`connected: socket=${client.id} userId=${userId}`);
   }
 
   handleDisconnect(client: AuthedSocket) {
@@ -87,7 +145,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('room.join')
-  onJoinRoom(
+  async onJoinRoom(
     @ConnectedSocket() client: AuthedSocket,
     @MessageBody() body: JoinRoomBody,
   ) {
@@ -96,24 +154,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('Invalid chatRoomId');
     }
 
+    const senderUserId = client.data.userId;
+    if (!senderUserId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    const me = BigInt(senderUserId);
+    const roomId = BigInt(chatRoomId);
+
+    // 채팅방 참여 여부 확인
+    const isParticipant = await this.prisma.chatParticipant.findFirst({
+      where: {
+        userId: me,
+        roomId,
+        endedAt: null,
+      },
+    });
+
+    if (!isParticipant) {
+      throw new WsException('Not a participant of this room');
+    }
+
     const room = `room:${chatRoomId}`;
     client.join(room);
     return { ok: true, joined: room };
   }
 
   @SubscribeMessage('message.send')
-  onSendMessage(
+  async onSendMessage(
     @ConnectedSocket() client: AuthedSocket,
     @MessageBody() body: SendMessageBody,
   ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
-    const text = typeof body?.text === 'string' ? body.text.trim() : '';
-
     if (!chatRoomId) {
       throw new WsException('Invalid chatRoomId');
-    }
-    if (!text) {
-      throw new WsException('Message text is required');
     }
 
     const senderUserId = client.data.userId;
@@ -121,15 +195,87 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('Unauthorized socket');
     }
 
+    const type = body?.type;
+    if (!type || !['AUDIO', 'PHOTO', 'VIDEO', 'TEXT'].includes(type)) {
+      throw new WsException('Invalid message type');
+    }
+
+    if (type === 'TEXT') {
+      const text = typeof body?.text === 'string' ? body.text.trim() : '';
+      if (!text) {
+        throw new WsException('Message text is required');
+      }
+    } else {
+      const mediaUrl =
+        typeof body?.mediaUrl === 'string' ? body.mediaUrl.trim() : '';
+      if (!mediaUrl) {
+        throw new WsException('Media URL is required');
+      }
+    }
+
+    const me = BigInt(senderUserId);
+    const roomId = BigInt(chatRoomId);
+
+    const isParticipant = await this.prisma.chatParticipant.findFirst({
+      where: {
+        userId: me,
+        roomId,
+        endedAt: null,
+      },
+    });
+
+    if (!isParticipant) {
+      throw new WsException('Not a participant of this room');
+    }
+
+    const peer = await this.prisma.chatParticipant.findFirst({
+      where: {
+        roomId,
+        userId: { not: me },
+        endedAt: null,
+      },
+      select: { userId: true },
+    });
+
+    if (!peer) {
+      throw new WsException('Peer not found');
+    }
+
+    const message = await this.prisma.chatMessage.create({
+      data: {
+        roomId,
+        sentById: me,
+        sentToId: peer.userId,
+        sentAt: new Date(),
+      },
+      select: { id: true, sentAt: true },
+    });
+
+    // AUDIO, VIDEO 둘 다 durationSec 저장
+    const shouldHaveDuration = type === 'AUDIO' || type === 'VIDEO';
+    await this.prisma.chatMedia.create({
+      data: {
+        messageId: message.id,
+        type,
+        text: type === 'TEXT' ? (body.text ?? null) : null,
+        url: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
+        durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
+      },
+    });
+
     const room = `room:${chatRoomId}`;
     const payload = {
+      messageId: Number(message.id),
       chatRoomId,
       senderUserId,
-      text,
-      sentAt: new Date().toISOString(),
+      type,
+      text: type === 'TEXT' ? body.text : null,
+      mediaUrl: type !== 'TEXT' ? body.mediaUrl : null,
+      durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
+      sentAt: message.sentAt.toISOString(),
     };
 
-    this.server.to(room).emit('message.new', payload);
-    return { ok: true };
+    void this.server.to(room).emit('message.new', payload);
+    return { ok: true, messageId: Number(message.id) };
   }
 }

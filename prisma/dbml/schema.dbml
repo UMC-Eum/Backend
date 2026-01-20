@@ -244,6 +244,7 @@ Table ChatMedia {
   url String
   type ChatMediaType [not null, default: 'TEXT']
   text String
+  durationSec Int
   message ChatMessage [not null]
 }
 

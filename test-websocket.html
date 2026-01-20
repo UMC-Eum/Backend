@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat API 테스트</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+    h2 { color: #555; margin-top: 30px; border-left: 4px solid #007bff; padding-left: 10px; }
+    .section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+    .status.connected { background: #d4edda; color: #155724; }
+    .status.disconnected { background: #f8d7da; color: #721c24; }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    input, select, textarea {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    button:hover { background: #0056b3; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    button.success { background: #28a745; }
+    button.success:hover { background: #218838; }
+    #messages {
+      border: 1px solid #ddd;
+      padding: 15px;
+      height: 300px;
+      overflow-y: auto;
+      background: #f9f9f9;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .message {
+      margin: 5px 0;
+      padding: 8px;
+      background: white;
+      border-left: 3px solid #007bff;
+      border-radius: 4px;
+    }
+    .message.error { border-left-color: #dc3545; }
+    .message.success { border-left-color: #28a745; }
+    .message.warning { border-left-color: #ffc107; }
+    .api-group {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      border-left: 4px solid #007bff;
+    }
+    .api-group h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    .response-box {
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>💬 채팅 API 테스트 도구</h1>
+  
+  <!-- 공통 설정 -->
+  <div class="section">
+    <h2>⚙️ 설정</h2>
+    <div class="controls">
+      <input type="text" id="apiBaseUrl" placeholder="API URL" value="http://localhost:3000/api/v1">
+      <input type="password" id="accessToken" placeholder="Access Token (JWT)">
+    </div>
+  </div>
+
+  <!-- WebSocket 연결 -->
+  <div class="section">
+    <h2>🔌 실시간 채팅 (WebSocket)</h2>
+    <div id="wsStatus" class="status disconnected">🔴 연결 안됨</div>
+    <div class="controls">
+      <button onclick="connectWebSocket()" class="success">연결</button>
+      <button onclick="disconnectWebSocket()" class="danger">연결 끊기</button>
+      <button onclick="pingWS()">Ping</button>
+    </div>
+
+    <!-- 채팅방 입장 & 메시지 전송 (WebSocket용) -->
+    <div class="api-group">
+      <h3>room.join - 채팅방 입장</h3>
+      <div class="controls">
+        <input type="number" id="chatRoomId" placeholder="채팅방 ID" value="3" min="1">
+        <button onclick="joinRoomWS()">입장</button>
+      </div>
+    </div>
+
+    <div class="api-group">
+      <h3>message.send - 메시지 전송 (실시간)</h3>
+      <div class="controls">
+        <select id="msgType">
+          <option value="TEXT">TEXT</option>
+          <option value="AUDIO">AUDIO</option>
+          <option value="PHOTO">PHOTO</option>
+          <option value="VIDEO">VIDEO</option>
+        </select>
+        <input type="text" id="msgText" placeholder="메시지 내용" value="안녕하세요!">
+        <input type="text" id="msgMediaUrl" placeholder="미디어 URL">
+        <input type="number" id="msgDuration" placeholder="길이(초)" value="5" min="1">
+        <button onclick="sendMessageWS()">전송</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REST API (초기 데이터 로드용) -->
+  <div class="section">
+    <h2>📡 채팅방 관리 (REST API)</h2>
+
+    <div class="api-group">
+      <h3>POST /chats/rooms - 새 채팅방 생성</h3>
+      <p style="font-size: 12px; color: #666;">상대방과 처음 만날 때 사용합니다.</p>
+      <div class="controls">
+        <input type="number" id="targetUserId" placeholder="상대방 ID" value="2" min="1">
+        <button onclick="createRoom()">생성</button>
+      </div>
+      <div id="createRoomResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>GET /chats/rooms - 내 채팅방 목록</h3>
+      <p style="font-size: 12px; color: #666;">로그인 후 내가 참여 중인 채팅방을 보여줍니다.</p>
+      <div class="controls">
+        <button onclick="listRooms()">목록 조회</button>
+      </div>
+      <div id="listRoomsResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>GET /chats/rooms/{id} - 채팅방 상세</h3>
+      <div class="controls">
+        <input type="number" id="roomDetailId" placeholder="채팅방 ID" value="3" min="1">
+        <button onclick="getRoomDetail()">조회</button>
+      </div>
+      <div id="roomDetailResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>GET /chats/rooms/{id}/messages - 과거 메시지 조회</h3>
+      <p style="font-size: 12px; color: #666;">채팅방 입장 시 이전 메시지들을 받아옵니다.</p>
+      <div class="controls">
+        <input type="number" id="msgRoomId" placeholder="채팅방 ID" value="3" min="1">
+        <button onclick="listMessages()">조회</button>
+      </div>
+      <div id="listMessagesResponse" class="response-box"></div>
+    </div>
+  </div>
+
+  <!-- 로그 -->
+  <div class="section">
+    <h2>📋 로그</h2>
+    <div id="messages"></div>
+  </div>
+
+  <script>
+    let socket = null;
+
+    // ============ 유틸리티 함수 ============
+    function getWebSocketUrl() {
+      const apiBaseUrl = document.getElementById('apiBaseUrl').value || 'http://localhost:3000/api/v1';
+      return apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://').replace('/api/v1', '');
+    }
+
+    function addLog(message, type = 'info') {
+      const logsEl = document.getElementById('messages');
+      const logEl = document.createElement('div');
+      logEl.className = `message ${type}`;
+      logEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsEl.appendChild(logEl);
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function updateWSStatus(connected) {
+      const statusEl = document.getElementById('wsStatus');
+      if (connected) {
+        statusEl.className = 'status connected';
+        statusEl.textContent = '🟢 WebSocket 연결됨';
+      } else {
+        statusEl.className = 'status disconnected';
+        statusEl.textContent = '🔴 WebSocket 연결 안됨';
+      }
+    }
+
+    function showResponse(elementId, data, isError = false) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = JSON.stringify(data, null, 2);
+      el.style.borderLeftColor = isError ? '#dc3545' : '#28a745';
+    }
+
+    // ============ WebSocket 함수 ============
+    function connectWebSocket() {
+      const token = document.getElementById('accessToken').value;
+      
+      if (!token) {
+        addLog('❌ 토큰이 없습니다. JWT access_token을 입력하세요.', 'error');
+        return;
+      }
+
+      const wsUrl = getWebSocketUrl();
+      
+      socket = io(`${wsUrl}/chats`, {
+        path: '/ws',
+        auth: { token },
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5,
+      });
+
+      socket.on('connect', () => {
+        addLog('✅ WebSocket 연결 성공!', 'success');
+        updateWSStatus(true);
+      });
+
+      socket.on('disconnect', () => {
+        addLog('⚠️ WebSocket 연결 끊김', 'warning');
+        updateWSStatus(false);
+      });
+
+      socket.on('connect_error', (error) => {
+        addLog(`❌ 연결 오류: ${error.message}`, 'error');
+      });
+
+      socket.on('message.new', (msg) => {
+        addLog(`📨 새 메시지: [${msg.senderUserId}] ${msg.text || `[${msg.type}]`}`, 'success');
+      });
+
+      socket.on('exception', (error) => {
+        addLog(`❌ 오류: ${JSON.stringify(error)}`, 'error');
+      });
+    }
+
+    function disconnectWebSocket() {
+      if (socket) {
+        socket.disconnect();
+        addLog('WebSocket 연결을 닫았습니다.', 'warning');
+        updateWSStatus(false);
+      }
+    }
+
+    function pingWS() {
+      if (!socket?.connected) {
+        addLog('❌ WebSocket이 연결되지 않았습니다.', 'error');
+        return;
+      }
+
+      socket.emit('ping', (res) => {
+        addLog(`🏓 Ping! ${JSON.stringify(res)}`, 'success');
+      });
+    }
+
+    function joinRoomWS() {
+      if (!socket?.connected) {
+        addLog('❌ WebSocket이 연결되지 않았습니다.', 'error');
+        return;
+      }
+
+      const chatRoomId = parseInt(document.getElementById('chatRoomId').value);
+      if (!chatRoomId) {
+        addLog('❌ 채팅방 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      socket.emit('room.join', { chatRoomId }, (res) => {
+        if (res.ok) {
+          addLog(`✅ 채팅방 입장: ${res.joined}`, 'success');
+        } else {
+          addLog(`❌ 입장 실패`, 'error');
+        }
+      });
+    }
+
+    function sendMessageWS() {
+      if (!socket?.connected) {
+        addLog('❌ WebSocket이 연결되지 않았습니다.', 'error');
+        return;
+      }
+
+      const chatRoomId = parseInt(document.getElementById('chatRoomId').value);
+      const type = document.getElementById('msgType').value;
+      const text = document.getElementById('msgText').value;
+      const mediaUrl = document.getElementById('msgMediaUrl').value;
+      const durationSec = parseInt(document.getElementById('msgDuration').value);
+      
+      if (!chatRoomId) {
+        addLog('❌ 채팅방 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const payload = {
+        chatRoomId,
+        type,
+        text: type === 'TEXT' ? text : null,
+        mediaUrl: type !== 'TEXT' ? mediaUrl : null,
+        durationSec: type === 'AUDIO' ? durationSec : null,
+      };
+
+      socket.emit('message.send', payload, (res) => {
+        if (res.ok) {
+          addLog(`✅ 메시지 전송 성공!`, 'success');
+          document.getElementById('msgText').value = '';
+        }
+      });
+    }
+
+    // ============ REST API 함수 ============
+    async function apiCall(method, endpoint, body = null) {
+      const apiBase = document.getElementById('apiBaseUrl').value || 'http://localhost:3000/api/v1';
+      const token = document.getElementById('accessToken').value;
+      
+      const url = `${apiBase}${endpoint}`;
+      
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      };
+
+      if (body) options.body = JSON.stringify(body);
+
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        
+        addLog(`${method} ${endpoint} - ${response.status}`, response.ok ? 'success' : 'error');
+        return { ok: response.ok, data };
+      } catch (error) {
+        addLog(`네트워크 오류: ${error.message}`, 'error');
+        return { ok: false, error: error.message };
+      }
+    }
+
+    async function createRoom() {
+      const targetUserId = parseInt(document.getElementById('targetUserId').value);
+      if (!targetUserId) {
+        addLog('❌ 상대방 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('POST', '/chats/rooms', { targetUserId });
+      showResponse('createRoomResponse', result.data, !result.ok);
+    }
+
+    async function listRooms() {
+      const result = await apiCall('GET', '/chats/rooms');
+      showResponse('listRoomsResponse', result.data, !result.ok);
+    }
+
+    async function getRoomDetail() {
+      const roomId = parseInt(document.getElementById('roomDetailId').value);
+      if (!roomId) {
+        addLog('❌ 채팅방 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('GET', `/chats/rooms/${roomId}`);
+      showResponse('roomDetailResponse', result.data, !result.ok);
+    }
+
+    async function listMessages() {
+      const roomId = parseInt(document.getElementById('msgRoomId').value);
+      if (!roomId) {
+        addLog('❌ 채팅방 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('GET', `/chats/rooms/${roomId}/messages`);
+      showResponse('listMessagesResponse', result.data, !result.ok);
+    }
+
+    // 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+      updateWSStatus(false);
+      addLog('준비됨. Access Token을 입력하고 WebSocket을 연결하세요.', 'info');
+    });
+  </script>
+</body>
+</html>

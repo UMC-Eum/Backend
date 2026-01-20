@@ -1,11 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
-import {
-  decodeCursor,
-  encodeCursor,
-} from '../../../../common/utils/cursor.util';
-import { buildMessagePreview } from '../../../../common/utils/message-preview.util';
+import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
+import { buildMessagePreview } from '../../utils/message-preview.util';
 
 import type {
   CreateRoomRes,
@@ -133,7 +130,8 @@ export class RoomService {
 
     const cursor = query.cursor ? decodeCursor(query.cursor) : null;
     const cursorSortAt = cursor ? new Date(cursor.sortAt) : null;
-    const cursorRoomId = cursor ? BigInt(cursor.roomId) : null;
+    const cursorRoomId =
+      cursor && 'roomId' in cursor ? BigInt(cursor.roomId) : null;
 
     const myRoomIds = await this.participantRepo.getMyRoomIds(me);
     if (myRoomIds.length === 0) return { nextCursor: null, items: [] };

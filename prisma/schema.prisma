@@ -103,7 +103,6 @@ model User {
   reportsReceived        Report[]                 @relation("UserReports")
 
   @@unique([provider, providerUserId])
-  @@unique([provider, providerUserId])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])

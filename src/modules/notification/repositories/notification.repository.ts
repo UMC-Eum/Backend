@@ -1,24 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import {
-  CreateNotificationDto,
-  UpdateNotificationDto,
-} from '../dtos/notification.dto';
+import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
 export class NotificationRepository {
-  create(dto: CreateNotificationDto) {
-    return dto;
+  constructor(private readonly prisma: PrismaService) {}
+
+  // PATCH v1/notifications/{notificationId}/read
+  async markAsRead(id: string) {
+    await this.prisma.notification.update({
+      where: { id: Number(id) },
+      data: {
+        isRead: true,
+      },
+    });
+  }
+  findNotificationById(id: string, userId: number) {
+    return this.prisma.notification.findUnique({
+      where: {
+        id: Number(id),
+        userId,
+      },
+    });
   }
 
-  markAsRead(id: string) {
-    return { id, read: true };
-  }
-
-  findAll() {
-    return [];
-  }
-
-  update(dto: UpdateNotificationDto) {
-    return dto;
+  // GET v1/notifications
+  findAll(userId: number, cursor?: string, limit = 20) {
+    return this.prisma.notification.findMany({
+      where: { userId },
+      take: limit,
+      ...(cursor && {
+        cursor: { id: BigInt(cursor) },
+        skip: 1,
+      }),
+      orderBy: { id: 'desc' },
+    });
   }
 }

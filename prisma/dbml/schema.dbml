@@ -32,7 +32,7 @@ Table User {
   chatParticipations ChatParticipant [not null]
   sentMessages ChatMessage [not null]
   receivedMessages ChatMessage [not null]
-  marketingAgreements MarketingAgreement [not null]
+  userMarketingAgreement UserMarketingAgreement [not null]
   refreshTokens RefreshToken [not null]
   blocksInitiated Block [not null]
   blocksReceived Block [not null]
@@ -145,8 +145,8 @@ Table Address {
   riCode String [not null]
   fullName String [not null]
   sidoName String [not null]
-  sigunguName String [not null]
-  emdName String [not null]
+  sigunguName String
+  emdName String
   riName String
   level AddressLevel [not null, default: 'SIGUNGU']
   parentCode String
@@ -247,13 +247,13 @@ Table ChatMedia {
   message ChatMessage [not null]
 }
 
-Table UserMarketingAgreement {
+Table MarketingAgreement {
   id BigInt [pk, increment]
   body String [not null]
-  marketingAgreements MarketingAgreement [not null]
+  userMarketingAgreement UserMarketingAgreement [not null]
 }
 
-Table MarketingAgreement {
+Table UserMarketingAgreement {
   id BigInt [pk, increment]
   marketingAgreementId BigInt [not null]
   userId BigInt [not null]
@@ -261,7 +261,7 @@ Table MarketingAgreement {
   isAgreed Boolean [not null, default: true]
   deletedAt DateTime
   user User [not null]
-  userMarketingAgreement UserMarketingAgreement [not null]
+  marketingAgreement MarketingAgreement [not null]
 
   indexes {
     (marketingAgreementId, userId) [unique]
@@ -363,6 +363,6 @@ Ref: ChatMessage.sentToId > User.id
 
 Ref: ChatMedia.messageId > ChatMessage.id
 
-Ref: MarketingAgreement.userId > User.id
+Ref: UserMarketingAgreement.userId > User.id
 
-Ref: MarketingAgreement.marketingAgreementId > UserMarketingAgreement.id
+Ref: UserMarketingAgreement.marketingAgreementId > MarketingAgreement.id

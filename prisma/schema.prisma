@@ -82,32 +82,32 @@ model User {
   providerUserId  String?       @db.VarChar(64)
   vibeVector      Json
 
-  address             Address                @relation(fields: [code], references: [code])
-  sentHearts          Heart[]                @relation("SentBy")
-  receivedHearts      Heart[]                @relation("SentTo")
-  photos              UserPhoto[]
-  interests           UserInterest[]
-  idealPersonalities  UserIdealPersonality[]
-  personalities       UserPersonality[]
-  notifications       Notification[]
-  chatRooms           ChatRoom[]
-  chatParticipations  ChatParticipant[]
-  sentMessages        ChatMessage[]          @relation("ChatMessagesSentBy")
-  receivedMessages    ChatMessage[]          @relation("ChatMessagesSentTo")
-  marketingAgreements MarketingAgreement[]
+  address                Address                  @relation(fields: [code], references: [code])
+  sentHearts             Heart[]                  @relation("SentBy")
+  receivedHearts         Heart[]                  @relation("SentTo")
+  photos                 UserPhoto[]
+  interests              UserInterest[]
+  idealPersonalities     UserIdealPersonality[]
+  personalities          UserPersonality[]
+  notifications          Notification[]
+  chatRooms              ChatRoom[]
+  chatParticipations     ChatParticipant[]
+  sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")
+  receivedMessages       ChatMessage[]            @relation("ChatMessagesSentTo")
+  marketingAgreements    MarketingAgreement[]
   userMarketingAgreement UserMarketingAgreement[]
-  refreshTokens       RefreshToken[]
-  blocksInitiated     Block[]                @relation("UserBlocksBy")
-  blocksReceived      Block[]                @relation("UserBlocks")
-  reportsFiled        Report[]               @relation("UserReportsBy")
-  reportsReceived     Report[]               @relation("UserReports")
+  refreshTokens          RefreshToken[]
+  blocksInitiated        Block[]                  @relation("UserBlocksBy")
+  blocksReceived         Block[]                  @relation("UserBlocks")
+  reportsFiled           Report[]                 @relation("UserReportsBy")
+  reportsReceived        Report[]                 @relation("UserReports")
 
+  @@unique([provider, providerUserId])
   @@unique([provider, providerUserId])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
   @@index([provider])
-  @@unique([provider, providerUserId])
   @@index([sex, status])
 }
 
@@ -194,9 +194,6 @@ model UserIdealPersonality {
   deletedAt     DateTime? @db.DateTime(6)
   updatedAt     DateTime  @updatedAt @db.DateTime(6)
   createdAt     DateTime  @default(now()) @db.DateTime(6)
-  deletedAt     DateTime?             @db.DateTime(6)
-  updatedAt     DateTime              @updatedAt @db.DateTime(6)
-  createdAt     DateTime              @default(now()) @db.DateTime(6)
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -212,9 +209,6 @@ model UserPersonality {
   deletedAt     DateTime? @db.DateTime(6)
   updatedAt     DateTime  @updatedAt @db.DateTime(6)
   createdAt     DateTime  @default(now()) @db.DateTime(6)
-  deletedAt     DateTime?             @db.DateTime(6)
-  updatedAt     DateTime              @updatedAt @db.DateTime(6)
-  createdAt     DateTime              @default(now()) @db.DateTime(6)
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -364,9 +358,11 @@ model ChatMedia {
 }
 
 model MarketingAgreement {
-  id                  BigInt               @id @default(autoincrement()) @db.BigInt
-  body                String               @db.VarChar(255)
+  id                     BigInt                   @id @default(autoincrement()) @db.BigInt
+  body                   String                   @db.VarChar(255)
   userMarketingAgreement UserMarketingAgreement[]
+  User                   User?                    @relation(fields: [userId], references: [id])
+  userId                 BigInt?
 }
 
 model UserMarketingAgreement {
@@ -377,8 +373,8 @@ model UserMarketingAgreement {
   isAgreed             Boolean   @default(true)
   deletedAt            DateTime? @db.DateTime(6)
 
-  user                   User                   @relation(fields: [userId], references: [id])
-  marketingAgreement     MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+  user               User               @relation(fields: [userId], references: [id])
+  marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
 
   @@unique([marketingAgreementId, userId])
   @@index([userId])

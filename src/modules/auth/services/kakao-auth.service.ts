@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActiveStatus, AddressLevel, AuthProvider, Prisma } from '@prisma/client';
+import {
+  ActiveStatus,
+  AddressLevel,
+  AuthProvider,
+  Prisma,
+} from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../../../infra/prisma/prisma.service';

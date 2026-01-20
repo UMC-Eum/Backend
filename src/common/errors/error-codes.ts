@@ -39,6 +39,11 @@ export const ERROR_DEFINITIONS = {
     message:
       '카카오 프로필 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.',
   },
+  AUTH_USER_BLOCKED: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'AUTH-008',
+    message: '신고 누적으로 로그인이 제한되었습니다. 고객센터에 문의해 주세요.',
+  },
 
   // VALID
   VALIDATION_INVALID_FORMAT: {

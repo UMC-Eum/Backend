@@ -7,7 +7,11 @@ import { HealthModule } from '../health/health.module';
 import { PrismaModule } from 'src/infra/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { UserModule } from '../user/user.module';
-
+import { SocialModule } from '../social/social.module';
+import { ChatModule } from '../chat/chat.module';
+import { AgreementModule } from '../agreements/agreement.module';
+import { NotificationModule } from '../notification/notification.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +30,11 @@ import { UserModule } from '../user/user.module';
     }),
     HealthModule,
     PrismaModule,
+    SocialModule,
+    ChatModule,
+    AgreementModule,
+    NotificationModule,
+    OnboardingModule,
     AuthModule,
     UserModule,
   ],

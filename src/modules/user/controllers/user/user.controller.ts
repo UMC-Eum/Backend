@@ -9,8 +9,10 @@ import {
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
-import { UserKeywordsUpdateRequestDto } from '../../dtos/user-keyword-update-request.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
+import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
+import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
+import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
 import { UserService } from '../../services/user/user.service';
 
 @ApiTags('User')
@@ -51,14 +53,36 @@ export class UserController {
     return this.userService.deactivateMe(userId ?? 0);
   }
 
-  @Put('me/keywords')
+  @Put('me/interests')
   @UseGuards(AccessTokenGuard)
-  @ApiOperation({ summary: 'Update my keywords' })
+  @ApiOperation({ summary: 'Update my interests' })
   @ApiOkResponse({ schema: { example: null } })
-  updateKeywords(
+  updateInterests(
     @CurrentUser('userId') userId: number | null,
-    @Body() body: UserKeywordsUpdateRequestDto,
+    @Body() body: UserInterestsUpdateRequestDto,
   ) {
-    return this.userService.updateKeywords(userId ?? 0, body);
+    return this.userService.updateInterests(userId ?? 0, body);
+  }
+
+  @Put('me/personalities')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Update my personalities' })
+  @ApiOkResponse({ schema: { example: null } })
+  updatePersonalities(
+    @CurrentUser('userId') userId: number | null,
+    @Body() body: UserPersonalitiesUpdateRequestDto,
+  ) {
+    return this.userService.updatePersonalities(userId ?? 0, body);
+  }
+
+  @Put('me/ideal-personalities')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Update my ideal personalities' })
+  @ApiOkResponse({ schema: { example: null } })
+  updateIdealPersonalities(
+    @CurrentUser('userId') userId: number | null,
+    @Body() body: UserIdealPersonalitiesUpdateRequestDto,
+  ) {
+    return this.userService.updateIdealPersonalities(userId ?? 0, body);
   }
 }

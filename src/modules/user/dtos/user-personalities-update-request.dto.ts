@@ -8,13 +8,13 @@ import {
   Min,
 } from 'class-validator';
 
-export class UserKeywordsUpdateRequestDto {
-  @ApiProperty({ example: [1, 5, 9] })
+export class UserPersonalitiesUpdateRequestDto {
+  @ApiProperty({ example: [1, 2, 3] })
   @IsArray()
   @ArrayNotEmpty()
   @ArrayUnique()
   @Type(() => Number)
   @IsInt({ each: true })
   @Min(1, { each: true })
-  interestKeywordIds: number[];
+  personalityIds: number[];
 }

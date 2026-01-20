@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
-import { UserKeywordsUpdateRequestDto } from '../../dtos/user-keyword-update-request.dto';
+import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
+import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
+import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
 @Injectable()
@@ -128,17 +130,46 @@ export class UserService {
     return null;
   }
 
-  async updateKeywords(
+  async updateInterests(
     userId: number,
-    payload: UserKeywordsUpdateRequestDto,
+    payload: UserInterestsUpdateRequestDto,
   ): Promise<null> {
     if (!userId) {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.userRepository.updateKeywords(
+    await this.userRepository.updateKeywords(userId, payload.interestIds);
+
+    return null;
+  }
+
+  async updatePersonalities(
+    userId: number,
+    payload: UserPersonalitiesUpdateRequestDto,
+  ): Promise<null> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    await this.userRepository.updatePersonalities(
       userId,
-      payload.interestKeywordIds,
+      payload.personalityIds,
+    );
+
+    return null;
+  }
+
+  async updateIdealPersonalities(
+    userId: number,
+    payload: UserIdealPersonalitiesUpdateRequestDto,
+  ): Promise<null> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    await this.userRepository.updateIdealPersonalities(
+      userId,
+      payload.personalityIds,
     );
 
     return null;

@@ -144,4 +144,102 @@ export class UserRepository {
       }
     });
   }
+
+  async updatePersonalities(userId: number, personalityIds: number[]) {
+    const now = new Date();
+    const ids = personalityIds.map((id) => BigInt(id));
+
+    return this.prismaService.$transaction(async (tx) => {
+      await tx.userPersonality.updateMany({
+        where: {
+          userId: BigInt(userId),
+          deletedAt: null,
+          ...(ids.length > 0 ? { personalityId: { notIn: ids } } : {}),
+        },
+        data: { deletedAt: now },
+      });
+
+      if (ids.length > 0) {
+        await tx.userPersonality.updateMany({
+          where: {
+            userId: BigInt(userId),
+            personalityId: { in: ids },
+          },
+          data: { deletedAt: null },
+        });
+
+        const existing = await tx.userPersonality.findMany({
+          where: {
+            userId: BigInt(userId),
+            personalityId: { in: ids },
+          },
+          select: { personalityId: true },
+        });
+
+        const existingIds = new Set(
+          existing.map((item) => Number(item.personalityId)),
+        );
+        const createData = personalityIds
+          .filter((id) => !existingIds.has(id))
+          .map((id) => ({
+            userId: BigInt(userId),
+            personalityId: BigInt(id),
+            vibeVector: Prisma.JsonNull,
+          }));
+
+        if (createData.length > 0) {
+          await tx.userPersonality.createMany({ data: createData });
+        }
+      }
+    });
+  }
+
+  async updateIdealPersonalities(userId: number, personalityIds: number[]) {
+    const now = new Date();
+    const ids = personalityIds.map((id) => BigInt(id));
+
+    return this.prismaService.$transaction(async (tx) => {
+      await tx.userIdealPersonality.updateMany({
+        where: {
+          userId: BigInt(userId),
+          deletedAt: null,
+          ...(ids.length > 0 ? { personalityId: { notIn: ids } } : {}),
+        },
+        data: { deletedAt: now },
+      });
+
+      if (ids.length > 0) {
+        await tx.userIdealPersonality.updateMany({
+          where: {
+            userId: BigInt(userId),
+            personalityId: { in: ids },
+          },
+          data: { deletedAt: null },
+        });
+
+        const existing = await tx.userIdealPersonality.findMany({
+          where: {
+            userId: BigInt(userId),
+            personalityId: { in: ids },
+          },
+          select: { personalityId: true },
+        });
+
+        const existingIds = new Set(
+          existing.map((item) => Number(item.personalityId)),
+        );
+        const createData = personalityIds
+          .filter((id) => !existingIds.has(id))
+          .map((id) => ({
+            userId: BigInt(userId),
+            personalityId: BigInt(id),
+            vibeVector: Prisma.JsonNull,
+          }));
+
+        if (createData.length > 0) {
+          await tx.userIdealPersonality.createMany({ data: createData });
+        }
+      }
+    });
+  }
 }

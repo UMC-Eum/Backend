@@ -8,9 +8,6 @@ import {
 } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
 import {
-  CreateNotificationDto,
-  UpdateNotificationDto,
-} from '../dtos/notification.dto';
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -25,10 +22,6 @@ import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guar
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
-  @Post()
-  create(@Body() dto: CreateNotificationDto) {
-    return this.notificationService.create(dto);
-  }
   @ApiOperation({ summary: '알림 읽음 처리' })
   @ApiParam({
     name: 'id',

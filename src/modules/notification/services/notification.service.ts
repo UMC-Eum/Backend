@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
-import {
-  CreateNotificationDto,
-  UpdateNotificationDto,
-} from '../dtos/notification.dto';
 import { NotificationResponseDto } from '../dtos/notification.dto';
 import { AppException } from '../../../common/errors/app.exception';
 
@@ -13,8 +9,6 @@ export class NotificationService {
     private readonly notificationRepository: NotificationRepository,
   ) {}
 
-  create(dto: CreateNotificationDto) {
-    return this.notificationRepository.create(dto);
   async markAsRead(id: string, userId: number) {
     const notification = await this.notificationRepository.findNotificationById(
       id,
@@ -36,12 +30,6 @@ export class NotificationService {
     const items = hasNext ? result.slice(0, limit) : result;
     const nextCursor = hasNext ? items[items.length - 1].id : null;
 
-  findAll() {
-    return this.notificationRepository.findAll();
-  }
-
-  update(dto: UpdateNotificationDto) {
-    return this.notificationRepository.update(dto);
     return {
       nextCursor: nextCursor !== null ? Number(nextCursor) : null,
       items: items.map((item) => NotificationResponseDto.from(item)),

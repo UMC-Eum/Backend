@@ -64,48 +64,49 @@ enum NotificationType {
 }
 
 model User {
-  id              BigInt       @id @default(autoincrement())
-  birthdate       DateTime     @db.DateTime(6)
-  email           String       @unique @db.VarChar(255)
-  sex             Sex          @default(M)
-  createdAt       DateTime     @default(now()) @db.DateTime(6)
-  nickname        String       @db.VarChar(20)
-  updatedAt       DateTime     @updatedAt @db.DateTime(6)
-  deletedAt       DateTime?    @db.DateTime(6)
-  idealVoiceUrl   String?      @db.VarChar(512)
-  introVoiceUrl   String       @db.VarChar(512)
-  introText       String       @db.VarChar(255)
-  profileImageUrl String       @db.VarChar(512)
-  status          ActiveStatus @default(ACTIVE)
-  code            String       @db.Char(10)
+  id              BigInt        @id @default(autoincrement())
+  birthdate       DateTime      @db.DateTime(6)
+  email           String        @unique @db.VarChar(255)
+  sex             Sex           @default(M)
+  createdAt       DateTime      @default(now()) @db.DateTime(6)
+  nickname        String        @db.VarChar(20)
+  updatedAt       DateTime      @updatedAt @db.DateTime(6)
+  deletedAt       DateTime?     @db.DateTime(6)
+  idealVoiceUrl   String?       @db.VarChar(512)
+  introVoiceUrl   String        @db.VarChar(512)
+  introText       String        @db.VarChar(255)
+  profileImageUrl String        @db.VarChar(512)
+  status          ActiveStatus  @default(ACTIVE)
+  code            String        @db.Char(10)
   provider        AuthProvider?
-  providerUserId  String?      @db.VarChar(64)
+  providerUserId  String?       @db.VarChar(64)
   vibeVector      Json
 
-  address             Address                @relation(fields: [code], references: [code])
-  sentHearts          Heart[]                @relation("SentBy")
-  receivedHearts      Heart[]                @relation("SentTo")
-  photos              UserPhoto[]
-  interests           UserInterest[]
-  idealPersonalities  UserIdealPersonality[]
-  personalities       UserPersonality[]
-  notifications       Notification[]
-  chatRooms           ChatRoom[]
-  chatParticipations  ChatParticipant[]
-  sentMessages        ChatMessage[]          @relation("ChatMessagesSentBy")
-  receivedMessages    ChatMessage[]          @relation("ChatMessagesSentTo")
+  address                Address                  @relation(fields: [code], references: [code])
+  sentHearts             Heart[]                  @relation("SentBy")
+  receivedHearts         Heart[]                  @relation("SentTo")
+  photos                 UserPhoto[]
+  interests              UserInterest[]
+  idealPersonalities     UserIdealPersonality[]
+  personalities          UserPersonality[]
+  notifications          Notification[]
+  chatRooms              ChatRoom[]
+  chatParticipations     ChatParticipant[]
+  sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")
+  receivedMessages       ChatMessage[]            @relation("ChatMessagesSentTo")
+  marketingAgreements    MarketingAgreement[]
   userMarketingAgreement UserMarketingAgreement[]
-  refreshTokens       RefreshToken[]
-  blocksInitiated     Block[]                @relation("UserBlocksBy")
-  blocksReceived      Block[]                @relation("UserBlocks")
-  reportsFiled        Report[]               @relation("UserReportsBy")
-  reportsReceived     Report[]               @relation("UserReports")
+  refreshTokens          RefreshToken[]
+  blocksInitiated        Block[]                  @relation("UserBlocksBy")
+  blocksReceived         Block[]                  @relation("UserBlocks")
+  reportsFiled           Report[]                 @relation("UserReportsBy")
+  reportsReceived        Report[]                 @relation("UserReports")
 
+  @@unique([provider, providerUserId])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
   @@index([provider])
-  @@unique([provider, providerUserId])
   @@index([sex, status])
 }
 
@@ -162,12 +163,12 @@ model Interest {
 }
 
 model UserInterest {
-  id         BigInt                @id @default(autoincrement())
+  id         BigInt    @id @default(autoincrement())
   interestId BigInt
   userId     BigInt
-  deletedAt  DateTime?             @db.DateTime(6)
-  updatedAt  DateTime              @updatedAt @db.DateTime(6)
-  createdAt  DateTime              @default(now()) @db.DateTime(6)
+  deletedAt  DateTime? @db.DateTime(6)
+  updatedAt  DateTime  @updatedAt @db.DateTime(6)
+  createdAt  DateTime  @default(now()) @db.DateTime(6)
   vibeVector Json
 
   interest Interest @relation(fields: [interestId], references: [id])
@@ -186,12 +187,12 @@ model Personality {
 }
 
 model UserIdealPersonality {
-  id            BigInt                @id @default(autoincrement())
+  id            BigInt    @id @default(autoincrement())
   userId        BigInt
   personalityId BigInt
-  deletedAt     DateTime?             @db.DateTime(6)
-  updatedAt     DateTime              @updatedAt @db.DateTime(6)
-  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  deletedAt     DateTime? @db.DateTime(6)
+  updatedAt     DateTime  @updatedAt @db.DateTime(6)
+  createdAt     DateTime  @default(now()) @db.DateTime(6)
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -201,12 +202,12 @@ model UserIdealPersonality {
 }
 
 model UserPersonality {
-  id            BigInt                @id @default(autoincrement())
+  id            BigInt    @id @default(autoincrement())
   userId        BigInt
   personalityId BigInt
-  deletedAt     DateTime?             @db.DateTime(6)
-  updatedAt     DateTime              @updatedAt @db.DateTime(6)
-  createdAt     DateTime              @default(now()) @db.DateTime(6)
+  deletedAt     DateTime? @db.DateTime(6)
+  updatedAt     DateTime  @updatedAt @db.DateTime(6)
+  createdAt     DateTime  @default(now()) @db.DateTime(6)
 
   user        User        @relation(fields: [userId], references: [id])
   personality Personality @relation(fields: [personalityId], references: [id])
@@ -263,6 +264,8 @@ model Report {
   reportedId   BigInt    @db.BigInt
   reportedAt   DateTime  @db.DateTime(6)
   reason       String    @db.VarChar(100)
+  category     String?   @db.VarChar(50)
+  chatRoomId   BigInt?   @db.BigInt
   deletedAt    DateTime? @db.DateTime(6)
 
   reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id])
@@ -279,7 +282,7 @@ model Notification {
   userId    BigInt           @db.BigInt // unique 제약은 걸어주지 않습니다. 한사람에게 여러개의 알람이 존재하니..
   type      NotificationType @default(CHAT)
   isRead    Boolean          @default(false)
-  createdAt DateTime         @db.DateTime(6) @default(now())
+  createdAt DateTime         @default(now()) @db.DateTime(6)
   deletedAt DateTime?        @db.DateTime(6)
   title     String           @db.VarChar(50)
   body      String           @db.VarChar(100)
@@ -293,7 +296,7 @@ model Notification {
 model ChatRoom {
   id           BigInt            @id @default(autoincrement()) @db.BigInt
   userId       BigInt            @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
-  startedAt    DateTime          @db.DateTime(6) @default(now())
+  startedAt    DateTime          @default(now()) @db.DateTime(6)
   endedAt      DateTime?         @db.DateTime(6)
   status       ChatRoomStatus    @default(ACTIVE)
   participants ChatParticipant[]
@@ -308,7 +311,7 @@ model ChatRoom {
 
 model ChatParticipant {
   id       BigInt    @id @default(autoincrement()) @db.BigInt
-  joinedAt DateTime  @db.DateTime(6) @default(now())
+  joinedAt DateTime  @default(now()) @db.DateTime(6)
   userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
   roomId   BigInt    @db.BigInt
   endedAt  DateTime? @db.DateTime(6)
@@ -322,8 +325,8 @@ model ChatParticipant {
 
 model ChatMessage {
   id        BigInt    @id @default(autoincrement()) @db.BigInt
-  sentAt    DateTime  @db.DateTime(6) @default(now())
-  updatedAt DateTime  @db.DateTime(6) @updatedAt
+  sentAt    DateTime  @default(now()) @db.DateTime(6)
+  updatedAt DateTime  @updatedAt @db.DateTime(6)
   readAt    DateTime? @db.DateTime(6)
   deletedAt DateTime? @db.DateTime(6)
   sentById  BigInt    @db.BigInt
@@ -354,21 +357,23 @@ model ChatMedia {
 }
 
 model MarketingAgreement {
-  id                  BigInt               @id @default(autoincrement()) @db.BigInt
-  body                String               @db.VarChar(255)
+  id                     BigInt                   @id @default(autoincrement()) @db.BigInt
+  body                   String                   @db.VarChar(255)
   userMarketingAgreement UserMarketingAgreement[]
+  User                   User?                    @relation(fields: [userId], references: [id])
+  userId                 BigInt?
 }
 
 model UserMarketingAgreement {
   id                   BigInt    @id @default(autoincrement()) @db.BigInt
   marketingAgreementId BigInt    @db.BigInt
   userId               BigInt    @db.BigInt
-  agreedAt             DateTime  @db.DateTime(6) @default(now())
+  agreedAt             DateTime  @default(now()) @db.DateTime(6)
   isAgreed             Boolean   @default(true)
   deletedAt            DateTime? @db.DateTime(6)
 
-  user                   User                   @relation(fields: [userId], references: [id])
-  marketingAgreement     MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+  user               User               @relation(fields: [userId], references: [id])
+  marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
 
   @@unique([marketingAgreementId, userId])
   @@index([userId])

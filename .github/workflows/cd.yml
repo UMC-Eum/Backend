@@ -1,0 +1,104 @@
+name: CD - Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/eum-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            sudo docker stop eum-backend || true
+            sudo docker rm eum-backend || true
+
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
+
+            sudo docker run -d \
+              --name eum-backend \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -e PORT=3000 \
+              -e NODE_ENV=production \
+              -e DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}' \
+              -e REDIS_URL='${{ secrets.PROD_REDIS_URL }}' \
+              -e JWT_SECRET='${{ secrets.PROD_JWT_SECRET }}' \
+              -e JWT_ACCESS_SECRET='${{ secrets.PROD_JWT_ACCESS_SECRET }}' \
+              -e JWT_REFRESH_SECRET='${{ secrets.PROD_JWT_REFRESH_SECRET }}' \
+              -e KAKAO_CLIENT_ID='${{ secrets.PROD_KAKAO_CLIENT_ID }}' \
+              -e KAKAO_CLIENT_SECRET='${{ secrets.PROD_KAKAO_CLIENT_SECRET }}' \
+              -e AWS_ACCESS_KEY_ID='${{ secrets.PROD_AWS_ACCESS_KEY_ID }}' \
+              -e AWS_SECRET_ACCESS_KEY='${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}' \
+              -e AWS_REGION='${{ secrets.PROD_AWS_REGION }}' \
+              -e AWS_S3_BUCKET='${{ secrets.PROD_AWS_S3_BUCKET }}' \
+              ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
+
+            sleep 10
+
+            if sudo docker ps | grep -q eum-backend; then
+              echo "Container started successfully"
+            else
+              echo "Container failed to start"
+              sudo docker logs eum-backend || true
+              exit 1
+            fi
+
+            for i in {1..10}; do
+              if curl -fsS http://localhost:3000/api/v1/health > /dev/null; then
+                echo "Health check passed"
+                break
+              else
+                echo "Health check failed (attempt $i/10), retrying in 5 seconds..."
+                sleep 5
+              fi
+
+              if [ "$i" -eq 10 ]; then
+                echo "Health check failed after 10 attempts"
+                sudo docker logs eum-backend || true
+                exit 1
+              fi
+            done
+
+            sudo docker image prune -f
+
+      - name: Notify deployment result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Deployment completed successfully!"
+          else
+            echo "❌ Deployment failed!"
+          fi

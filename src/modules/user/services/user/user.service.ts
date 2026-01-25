@@ -26,6 +26,12 @@ export class UserService {
     const keywords = user.interests
       .map((interest) => interest.interest.body)
       .filter((body): body is string => Boolean(body));
+    const personalities = user.personalities
+      .map((item) => item.personality.body)
+      .filter((body): body is string => Boolean(body));
+    const idealPersonalities = user.idealPersonalities
+      .map((item) => item.personality.body)
+      .filter((body): body is string => Boolean(body));
     const birthDate = user.birthdate.toISOString().split('T')[0];
 
     return {
@@ -39,6 +45,8 @@ export class UserService {
       },
       introText: user.introText,
       keywords,
+      personalities,
+      idealPersonalities,
       introAudioUrl: user.introVoiceUrl,
       profileImageUrl: user.profileImageUrl,
     };

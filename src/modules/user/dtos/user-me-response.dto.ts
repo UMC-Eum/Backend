@@ -31,6 +31,12 @@ export class UserMeResponseDto {
   @ApiProperty({ example: ['뜨개질', '산책', '영화', '문화생활'] })
   keywords: string[];
 
+  @ApiProperty({ example: ['다정함', '배려'] })
+  personalities: string[];
+
+  @ApiProperty({ example: ['유머', '성실'] })
+  idealPersonalities: string[];
+
   @ApiProperty({ example: 'https://cdn.example.com/files/intro.m4a' })
   introAudioUrl: string;
 

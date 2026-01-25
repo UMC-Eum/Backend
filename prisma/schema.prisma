@@ -94,7 +94,6 @@ model User {
   chatParticipations     ChatParticipant[]
   sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")
   receivedMessages       ChatMessage[]            @relation("ChatMessagesSentTo")
-  marketingAgreements    MarketingAgreement[]
   userMarketingAgreement UserMarketingAgreement[]
   refreshTokens          RefreshToken[]
   blocksInitiated        Block[]                  @relation("UserBlocksBy")
@@ -169,7 +168,6 @@ model UserInterest {
   deletedAt  DateTime? @db.DateTime(6)
   updatedAt  DateTime  @updatedAt @db.DateTime(6)
   createdAt  DateTime  @default(now()) @db.DateTime(6)
-  vibeVector Json
 
   interest Interest @relation(fields: [interestId], references: [id])
   user     User     @relation(fields: [userId], references: [id])
@@ -361,8 +359,7 @@ model MarketingAgreement {
   id                     BigInt                   @id @default(autoincrement()) @db.BigInt
   body                   String                   @db.VarChar(255)
   userMarketingAgreement UserMarketingAgreement[]
-  User                   User?                    @relation(fields: [userId], references: [id])
-  userId                 BigInt?
+
 }
 
 model UserMarketingAgreement {

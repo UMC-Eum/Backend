@@ -60,7 +60,6 @@ export class OnboardingRepository {
           create: {
             interestId: id,
             userId,
-            vibeVector,
           },
         }),
       ),

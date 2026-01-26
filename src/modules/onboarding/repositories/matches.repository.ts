@@ -48,7 +48,7 @@ export class MatchesRepository {
       deletedAt: null,
       // 1단계: 주소 기반 필터링
       address: {
-        parentCode: me.address?.parentCode, // 같은 시군구 기준
+        parentCode: me.address?.parentCode, 
       },
       birthdate: {
         gte: ageMax

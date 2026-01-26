@@ -103,7 +103,7 @@ export class MatchesRepository {
       take: 100,
     });
 
-    // 벡터값 기반 소프트매치 + 가공
+    // 벡터값 기반 소프트매치
     const scored = candidates
       .filter((user) => {
         const userVector = user.vibeVector as number[];

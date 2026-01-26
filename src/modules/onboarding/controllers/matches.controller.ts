@@ -1,4 +1,4 @@
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { MatchesService } from '../services/matches.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { GetRecommendedMatchesQueryDto } from '../dtos/matches.dto';
@@ -47,6 +47,7 @@ export class MatchesController {
     @Query() query: GetRecommendedMatchesQueryDto,
   ) {
     try {
+      // cursor를 userId로 디코딩
       let startFromUserId: bigint | null = null;
       if (query.cursor) {
         try {

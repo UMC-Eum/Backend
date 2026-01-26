@@ -97,9 +97,9 @@ export class MatchesRepository {
         interests: { include: { interest: true } },
         personalities: { include: { personality: true } },
       },
-      orderBy: { id: 'asc' }, 
-      skip: cursorUserId ? 1 : 0, 
-      cursor: cursorUserId ? { id: cursorUserId } : undefined, 
+      orderBy: { id: 'asc' },
+      skip: cursorUserId ? 1 : 0,
+      cursor: cursorUserId ? { id: cursorUserId } : undefined,
       take: 100,
     });
 

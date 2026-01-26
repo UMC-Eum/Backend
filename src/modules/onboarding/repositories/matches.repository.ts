@@ -42,7 +42,7 @@ export class MatchesRepository {
     );
 
     // 필터링 조건 구성
-    const whereCondition: any = {
+    const whereCondition: Record<string, unknown> = {
       id: { not: userId },
       status: 'ACTIVE',
       deletedAt: null,

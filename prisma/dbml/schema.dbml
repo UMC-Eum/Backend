@@ -91,7 +91,6 @@ Table UserInterest {
   deletedAt DateTime
   updatedAt DateTime [not null]
   createdAt DateTime [default: `now()`, not null]
-  vibeVector Json [not null]
   interest Interest [not null]
   user User [not null]
 
@@ -177,6 +176,8 @@ Table Report {
   reportedId BigInt [not null]
   reportedAt DateTime [not null]
   reason String [not null]
+  category String
+  chatRoomId BigInt
   deletedAt DateTime
   reportedBy User [not null]
   reported User [not null]

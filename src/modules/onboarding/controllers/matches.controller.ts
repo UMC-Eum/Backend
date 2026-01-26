@@ -47,7 +47,6 @@ export class MatchesController {
     @Query() query: GetRecommendedMatchesQueryDto,
   ) {
     try {
-      // cursor를 userId로 디코딩
       let startFromUserId: bigint | null = null;
       if (query.cursor) {
         try {
@@ -55,7 +54,7 @@ export class MatchesController {
             'utf-8',
           );
           startFromUserId = BigInt(decodedCursor);
-        } catch (err) {
+        } catch {
           throw new AppException('VALIDATION_INVALID_FORMAT', {
             details: 'Invalid cursor format',
           });

@@ -5,4 +5,4 @@
 
 */
 -- AlterTable
-ALTER TABLE `userinterest` DROP COLUMN `vibeVector`;
+ALTER TABLE `UserInterest` DROP COLUMN `vibeVector`;

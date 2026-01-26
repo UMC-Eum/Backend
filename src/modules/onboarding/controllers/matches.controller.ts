@@ -70,12 +70,12 @@ export class MatchesController {
         startFromUserId,
       );
       return result;
-    } catch (err) {
-      if (err instanceof AppException) {
-        throw err;
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
       }
       throw new AppException('SERVER_TEMPORARY_ERROR', {
-        details: err,
+        details: error,
       });
     }
   }

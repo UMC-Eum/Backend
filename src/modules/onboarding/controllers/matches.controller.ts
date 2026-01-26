@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
 import { MatchesService } from '../services/matches.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { GetRecommendedMatchesQueryDto } from '../dtos/matches.dto';
@@ -15,6 +15,12 @@ export class MatchesController {
 
   @Get('recommended')
   @UseGuards(AccessTokenGuard)
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    type: String,
+    description: '다음 페이지 커서',
+  })
   @ApiQuery({
     name: 'size',
     required: false,
@@ -41,20 +47,33 @@ export class MatchesController {
     @Query() query: GetRecommendedMatchesQueryDto,
   ) {
     try {
+      let startFromUserId: bigint | null = null;
+      if (query.cursor) {
+        try {
+          const decodedCursor = Buffer.from(query.cursor, 'base64').toString(
+            'utf-8',
+          );
+          startFromUserId = BigInt(decodedCursor);
+        } catch (err) {
+          throw new AppException('VALIDATION_INVALID_FORMAT', {
+            details: 'Invalid cursor format',
+          });
+        }
+      }
+
       const result = await this.matchesService.getRecommendedMatches(
         BigInt(userId),
         query.size ?? 20,
         query.ageMin,
         query.ageMax,
+        startFromUserId,
       );
-
       return result;
     } catch (err) {
       if (err instanceof AppException) {
         throw err;
       }
-
-      throw new AppException('MATCH_NOT_FOUND', {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
         details: err,
       });
     }

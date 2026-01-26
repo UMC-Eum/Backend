@@ -9,9 +9,11 @@ import { HeartRepository } from './repositories/heart.repository';
 import { BlockRepository } from './repositories/block.repository';
 import { ReportRepository } from './repositories/report.repository';
 import { AuthModule } from '../auth/auth.module';
+import { BlockFilterInterceptor } from '../../common/interceptors/block-filter.interceptor';
+import { PrismaModule } from '../../infra/prisma/prisma.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PrismaModule],
   controllers: [HeartController, BlockController, ReportController],
   providers: [
     BlockService,
@@ -20,6 +22,7 @@ import { AuthModule } from '../auth/auth.module';
     HeartRepository,
     BlockRepository,
     ReportRepository,
+    BlockFilterInterceptor,
   ],
 })
 export class SocialModule {}

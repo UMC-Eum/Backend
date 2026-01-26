@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -29,6 +30,7 @@ import { RequiredUserId } from '../../../auth/decorators';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
+import { BlockFilterInterceptor } from '../../../../common/interceptors/block-filter.interceptor';
 
 @ApiTags('Heart')
 @ApiBearerAuth('access-token')
@@ -116,6 +118,7 @@ export class HeartController {
       },
     },
   })
+  @UseInterceptors(BlockFilterInterceptor)
   public async getReceived(
     @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,
@@ -157,6 +160,7 @@ export class HeartController {
       },
     },
   })
+  @UseInterceptors(BlockFilterInterceptor)
   public async getSent(
     @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,

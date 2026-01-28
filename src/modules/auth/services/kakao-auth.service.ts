@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AddressLevel, AuthProvider, Prisma } from '@prisma/client';
+import {
+  ActiveStatus,
+  AddressLevel,
+  AuthProvider,
+  Prisma,
+} from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
@@ -79,6 +84,7 @@ export class KakaoAuthService {
     });
 
     const userId = Number(userRecord.user.id) || 0;
+    await this.ensureUserCanLogin(userId, userRecord.user.status);
 
     const payload = {
       sub: userId,
@@ -218,6 +224,34 @@ export class KakaoAuthService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  private async ensureUserCanLogin(
+    userId: number,
+    status: ActiveStatus,
+  ): Promise<void> {
+    if (status !== ActiveStatus.ACTIVE) {
+      throw new AppException('AUTH_USER_BLOCKED');
+    }
+
+    const reportLimit = Number(
+      this.configService.get('MAX_REPORTS_BEFORE_BLOCK', '5'),
+    );
+    if (!Number.isFinite(reportLimit) || reportLimit <= 0) {
+      return;
+    }
+
+    const reportCount = await this.prismaService.report.count({
+      where: { reportedId: BigInt(userId), deletedAt: null },
+    });
+
+    if (reportCount >= reportLimit) {
+      await this.prismaService.user.update({
+        where: { id: BigInt(userId) },
+        data: { status: ActiveStatus.INACTIVE },
+      });
+      throw new AppException('AUTH_USER_BLOCKED');
+    }
   }
 
   private isOnboardingRequired(user: {

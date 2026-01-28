@@ -38,6 +38,26 @@ export class UserRepository {
             },
           },
         },
+        personalities: {
+          where: { deletedAt: null },
+          select: {
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        idealPersonalities: {
+          where: { deletedAt: null },
+          select: {
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
       },
     });
   }

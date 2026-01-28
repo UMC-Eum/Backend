@@ -30,4 +30,12 @@ export class AgreementService {
       isAgreed,
     );
   }
+  async getUserAgreementHistory(userId: number) {
+    const result =
+      await this.agreementRepository.getUserAgreementHistory(userId);
+    console.log('in service');
+    console.log(result);
+    if (result) return { hasPassed: true };
+    else return { hasPassed: false };
+  }
 }

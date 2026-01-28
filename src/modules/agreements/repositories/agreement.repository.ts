@@ -41,4 +41,14 @@ export class AgreementRepository {
       },
     });
   }
+  // GET api/v1/me/agreements
+  getUserAgreementHistory(userId: number) {
+    const result = this.prisma.userMarketingAgreement.findFirst({
+      where: {
+        userId,
+      },
+    });
+    console.log(result);
+    return result;
+  }
 }

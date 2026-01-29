@@ -3,7 +3,6 @@ import { IsNumber, IsBoolean, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-// db이름이 서로 swap되어서 (userMarketingAgreement<->MarketingAgreement) 추후 수정 예정
 export class AgreementResponseDto {
   agreementId: string;
   body: string;
@@ -35,4 +34,10 @@ export class CreateUserAgreementRequestDto {
     description: '마케팅 동의 약관',
   })
   marketingAgreements: AgreementItemDto[];
+}
+
+export class hasPassedResponseDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  hasPassed: boolean;
 }

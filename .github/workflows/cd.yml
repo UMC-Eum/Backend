@@ -57,7 +57,7 @@ jobs:
               -e REDIS_URL='${{ secrets.PROD_REDIS_URL }}' \
               -e JWT_SECRET='${{ secrets.PROD_JWT_SECRET }}' \
               -e JWT_ACCESS_SECRET='${{ secrets.PROD_JWT_ACCESS_SECRET }}' \
-              -e JWT_ACCESS_EXPIRES_IN='${{ secrets.PROD_JWT_ACCESS_EXPIRES_IN }}'
+              -e JWT_ACCESS_EXPIRES_IN='${{ secrets.PROD_JWT_ACCESS_EXPIRES_IN }}' \
               -e JWT_REFRESH_SECRET='${{ secrets.PROD_JWT_REFRESH_SECRET }}' \
               -e KAKAO_CLIENT_ID='${{ secrets.PROD_KAKAO_CLIENT_ID }}' \
               -e KAKAO_CLIENT_SECRET='${{ secrets.PROD_KAKAO_CLIENT_SECRET }}' \

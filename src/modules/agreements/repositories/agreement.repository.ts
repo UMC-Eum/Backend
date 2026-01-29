@@ -48,7 +48,6 @@ export class AgreementRepository {
         userId,
       },
     });
-    console.log(result);
     return result;
   }
 }

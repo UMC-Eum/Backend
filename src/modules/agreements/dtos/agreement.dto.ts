@@ -36,7 +36,7 @@ export class CreateUserAgreementRequestDto {
   marketingAgreements: AgreementItemDto[];
 }
 
-export class hasPassedResponseDto {
+export class HasPassedResponseDto {
   @ApiProperty({ example: true })
   @IsBoolean()
   hasPassed: boolean;

@@ -6,7 +6,10 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
-import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
+import {
+  CreateUserAgreementRequestDto,
+  HasPassedResponseDto,
+} from '../dtos/agreement.dto';
 import { RequiredUserId } from '../../../modules/auth/decorators';
 import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guard';
 
@@ -113,7 +116,9 @@ export class AgreementController {
   })
   @Get('me/agreements')
   @UseGuards(AccessTokenGuard)
-  async getUserAgreementHistory(@RequiredUserId() userId: number) {
+  async getUserAgreementHistory(
+    @RequiredUserId() userId: number,
+  ): Promise<HasPassedResponseDto> {
     return this.agreementService.getUserAgreementHistory(userId);
   }
 }

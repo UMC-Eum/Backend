@@ -45,7 +45,7 @@ export class AgreementRepository {
   getUserAgreementHistory(userId: number) {
     const result = this.prisma.userMarketingAgreement.findFirst({
       where: {
-        userId,
+        userId: BigInt(userId),
       },
     });
     return result;

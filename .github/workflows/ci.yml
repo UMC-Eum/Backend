@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ['main', 'dev']
   pull_request:
-    branches: ["main", "dev"]
+    branches: ['main', 'dev']
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -50,8 +50,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install
         run: npm ci

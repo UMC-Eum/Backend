@@ -35,6 +35,7 @@ NestJS 기반으로 구성되어 있으며, 초기 프로젝트 세팅과 공통
 
 ```bash
 npm install
+```
 ````
 
 > `postinstall`로 `prisma generate`가 자동 실행됩니다.
@@ -45,6 +46,7 @@ npm install
 
 프로젝트 루트에 `.env` 파일을 생성해주세요.
 `.env.example` 파일의 골격을 참고해주세요.
+
 > ⚠️ `.env` 파일은 Git에 커밋하지 않습니다.
 
 ---
@@ -69,8 +71,8 @@ npm run start:dev
 docker compose up -d
 ```
 
-* MySQL: `localhost:3307` → 컨테이너 내부 `3306`
-* Redis: `localhost:6379`
+- MySQL: `localhost:3307` → 컨테이너 내부 `3306`
+- Redis: `localhost:6379`
 
 > 로컬에 기존 MySQL이 3306을 사용 중인 경우를 피하기 위해 MySQL은 3307 포트를 사용합니다.
 
@@ -96,9 +98,9 @@ docker compose down -v
 
 ## 🧩 Prisma
 
-* Prisma 설정 파일: `prisma/schema.prisma`
-* Prisma Client 생성: `npm run prisma:generate`
-* 생성된 Prisma Client(예: `@prisma/client` 기반 생성물)는 **커밋하지 않고**, 필요 시 install/build 단계에서 생성합니다.
+- Prisma 설정 파일: `prisma/schema.prisma`
+- Prisma Client 생성: `npm run prisma:generate`
+- 생성된 Prisma Client(예: `@prisma/client` 기반 생성물)는 **커밋하지 않고**, 필요 시 install/build 단계에서 생성합니다.
 
 > Prisma 관련 변경 후에는 `npm run prisma:generate`를 한 번 실행하는 것을 권장합니다.
 
@@ -108,10 +110,10 @@ docker compose down -v
 
 Swagger를 통해 API 문서를 확인할 수 있습니다.
 
-* **Swagger UI**
+- **Swagger UI**
   👉 [http://localhost:3000/api/v1/docs](http://localhost:3000/api/v1/docs)
 
-* **OpenAPI JSON**
+- **OpenAPI JSON**
   👉 [http://localhost:3000/api/v1/docs-json](http://localhost:3000/api/v1/docs-json)
 
 ---
@@ -138,12 +140,12 @@ Response:
 
 PR 또는 `main/dev` 브랜치에 push 시 CI가 자동 실행됩니다.
 
-* Install (`npm ci`)
-* Prisma generate
-* Lint
-* Typecheck
-* Unit tests
-* Build
+- Install (`npm ci`)
+- Prisma generate
+- Lint
+- Typecheck
+- Unit tests
+- Build
 
 CI 워크플로우 파일: `.github/workflows/ci.yml`
 
@@ -179,12 +181,12 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 
 ## 🧑‍💻 Notes
 
-* 모든 API는 **Global Prefix `/api/v1`** 를 사용합니다.
-* HTTP 요청/응답 로그는 **pino 기반으로 자동 기록**됩니다.
-* Swagger는 크로스 브라우저 호환성을 위해 prefix 내부(`/api/v1/docs`)에 위치합니다.
-* Prisma 및 도메인 비즈니스 로직은 이후 단계에서 추가됩니다.
-* 개발 환경 DB는 docker-compose 기준으로 `DATABASE_URL`이 `3307`을 사용합니다.
-* CI 환경에서는 MySQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `3306/6379`입니다.
+- 모든 API는 **Global Prefix `/api/v1`** 를 사용합니다.
+- HTTP 요청/응답 로그는 **pino 기반으로 자동 기록**됩니다.
+- Swagger는 크로스 브라우저 호환성을 위해 prefix 내부(`/api/v1/docs`)에 위치합니다.
+- Prisma 및 도메인 비즈니스 로직은 이후 단계에서 추가됩니다.
+- 개발 환경 DB는 docker-compose 기준으로 `DATABASE_URL`이 `3307`을 사용합니다.
+- CI 환경에서는 MySQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `3306/6379`입니다.
 
 ---
 
@@ -192,7 +194,7 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 
 > `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.
 
-````
+```
 
 =======
 
@@ -212,13 +214,15 @@ npm run prisma:generate # prisma client generate
 
 ## 👥 Contribution
 
-* 초기 세팅 PR 이후 기능 단위로 PR을 생성해주세요.
-* 커밋 메시지는 Conventional Commits를 권장합니다.
+- 초기 세팅 PR 이후 기능 단위로 PR을 생성해주세요.
+- 커밋 메시지는 Conventional Commits를 권장합니다.
 
 ---
 
 ## 📎 License
 
 Private project.
+
+```
 
 ```

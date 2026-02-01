@@ -6,7 +6,10 @@ import {
   ApiOperation,
   ApiResponse,
 } from '@nestjs/swagger';
-import { CreateUserAgreementRequestDto } from '../dtos/agreement.dto';
+import {
+  CreateUserAgreementRequestDto,
+  HasPassedResponseDto,
+} from '../dtos/agreement.dto';
 import { RequiredUserId } from '../../../modules/auth/decorators';
 import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guard';
 
@@ -90,5 +93,32 @@ export class AgreementController {
         isAgreed,
       );
     }
+  }
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: '한 번이라도 동의한 적 있는지 조회' })
+  @ApiResponse({
+    description: '한 번이라도 동의한 적 있는지 조회',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            hasPassed: true,
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-01-10T09:53:11.014Z',
+          path: '/api/v1/users/me/agreements',
+        },
+      },
+    },
+  })
+  @Get('me/agreements')
+  @UseGuards(AccessTokenGuard)
+  async getUserAgreementHistory(
+    @RequiredUserId() userId: number,
+  ): Promise<HasPassedResponseDto> {
+    return this.agreementService.getUserAgreementHistory(userId);
   }
 }

@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AgreementRepository } from '../repositories/agreement.repository';
-import { AgreementResponseDto } from '../dtos/agreement.dto';
+import {
+  AgreementResponseDto,
+  HasPassedResponseDto,
+} from '../dtos/agreement.dto';
 import { AppException } from '../../../common/errors/app.exception';
 
 @Injectable()
@@ -29,5 +32,11 @@ export class AgreementService {
       marketingAgreementId,
       isAgreed,
     );
+  }
+  async getUserAgreementHistory(userId: number): Promise<HasPassedResponseDto> {
+    const result =
+      await this.agreementRepository.getUserAgreementHistory(userId);
+    if (result) return { hasPassed: true };
+    else return { hasPassed: false };
   }
 }

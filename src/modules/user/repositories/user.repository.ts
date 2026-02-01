@@ -76,6 +76,13 @@ export class UserRepository {
     });
   }
 
+  findPersonalitiesByBodies(bodies: string[]) {
+    return this.prismaService.personality.findMany({
+      where: { body: { in: bodies } },
+      select: { id: true, body: true },
+    });
+  }
+
   updateProfile(
     userId: number,
     data: {

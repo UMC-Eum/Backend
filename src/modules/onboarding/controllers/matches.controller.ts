@@ -16,6 +16,12 @@ export class MatchesController {
   @Get('recommended')
   @UseGuards(AccessTokenGuard)
   @ApiQuery({
+    name: 'cursor',
+    required: false,
+    type: String,
+    description: '다음 페이지 커서',
+  })
+  @ApiQuery({
     name: 'size',
     required: false,
     type: Number,
@@ -41,21 +47,34 @@ export class MatchesController {
     @Query() query: GetRecommendedMatchesQueryDto,
   ) {
     try {
+      let startFromUserId: bigint | null = null;
+      if (query.cursor) {
+        try {
+          const decodedCursor = Buffer.from(query.cursor, 'base64').toString(
+            'utf-8',
+          );
+          startFromUserId = BigInt(decodedCursor);
+        } catch {
+          throw new AppException('VALIDATION_INVALID_FORMAT', {
+            details: 'Invalid cursor format',
+          });
+        }
+      }
+
       const result = await this.matchesService.getRecommendedMatches(
         BigInt(userId),
         query.size ?? 20,
         query.ageMin,
         query.ageMax,
+        startFromUserId,
       );
-
       return result;
-    } catch (err) {
-      if (err instanceof AppException) {
-        throw err;
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
       }
-
-      throw new AppException('MATCH_NOT_FOUND', {
-        details: err,
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: error,
       });
     }
   }

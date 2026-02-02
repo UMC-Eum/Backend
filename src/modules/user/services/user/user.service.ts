@@ -121,6 +121,17 @@ export class UserService {
       await this.updateKeywordsByBodies(userId, payload.keywords);
     }
 
+    if (payload.personalities !== undefined) {
+      await this.updatePersonalitiesByBodies(userId, payload.personalities);
+    }
+
+    if (payload.idealPersonalities !== undefined) {
+      await this.updateIdealPersonalitiesByBodies(
+        userId,
+        payload.idealPersonalities,
+      );
+    }
+
     return this.getMe(userId);
   }
 
@@ -210,5 +221,67 @@ export class UserService {
 
     const ids = interests.map((interest) => Number(interest.id));
     await this.userRepository.updateKeywords(userId, ids);
+  }
+
+  private async updatePersonalitiesByBodies(
+    userId: number,
+    personalities: string[],
+  ): Promise<void> {
+    const trimmed = personalities
+      .map((personality) => personality.trim())
+      .filter(Boolean);
+    const uniquePersonalities = Array.from(new Set(trimmed));
+
+    if (uniquePersonalities.length === 0) {
+      await this.userRepository.updatePersonalities(userId, []);
+      return;
+    }
+
+    const entries =
+      await this.userRepository.findPersonalitiesByBodies(uniquePersonalities);
+    const matched = new Map(entries.map((entry) => [entry.body, entry]));
+    const missing = uniquePersonalities.filter(
+      (personality) => !matched.has(personality),
+    );
+
+    if (missing.length > 0) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: `유효하지 않은 성격입니다: ${missing.join(', ')}`,
+      });
+    }
+
+    const ids = entries.map((entry) => Number(entry.id));
+    await this.userRepository.updatePersonalities(userId, ids);
+  }
+
+  private async updateIdealPersonalitiesByBodies(
+    userId: number,
+    personalities: string[],
+  ): Promise<void> {
+    const trimmed = personalities
+      .map((personality) => personality.trim())
+      .filter(Boolean);
+    const uniquePersonalities = Array.from(new Set(trimmed));
+
+    if (uniquePersonalities.length === 0) {
+      await this.userRepository.updateIdealPersonalities(userId, []);
+      return;
+    }
+
+    const entries =
+      await this.userRepository.findPersonalitiesByBodies(uniquePersonalities);
+    const matched = new Map(entries.map((entry) => [entry.body, entry]));
+    const missing = uniquePersonalities.filter(
+      (personality) => !matched.has(personality),
+    );
+
+    if (missing.length > 0) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: `유효하지 않은 이상형 성격입니다: ${missing.join(', ')}`,
+      });
+    }
+
+    const ids = entries.map((entry) => Number(entry.id));
+    await this.userRepository.updateIdealPersonalities(userId, ids);
   }
 }

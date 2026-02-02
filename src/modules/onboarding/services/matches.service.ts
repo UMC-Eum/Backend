@@ -10,13 +10,16 @@ export class MatchesService {
     size = 20,
     ageMin?: number,
     ageMax?: number,
+    cursorUserId?: bigint | null,
   ) {
     const items = await this.matchesRepository.findRecommendedMatches(
       userId,
       size,
       ageMin,
       ageMax,
+      cursorUserId,
     );
+
     return {
       nextCursor:
         items.length > 0
@@ -25,6 +28,7 @@ export class MatchesService {
       items,
     };
   }
+
   private generatorCursor(userId: bigint | number): string {
     return Buffer.from(userId.toString()).toString('base64');
   }

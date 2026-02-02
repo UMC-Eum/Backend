@@ -45,6 +45,24 @@ export class UserProfileUpdateRequestDto {
   @IsString({ each: true })
   keywords?: string[];
 
+  @ApiPropertyOptional({
+    example: ['다정함', '배려'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  personalities?: string[];
+
+  @ApiPropertyOptional({
+    example: ['유머', '성실'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  idealPersonalities?: string[];
+
   @ApiPropertyOptional({ example: 'https://cdn.example.com/files/intro.m4a' })
   @IsOptional()
   @IsUrl()

@@ -17,6 +17,7 @@ export class MatchesRepository {
       include: {
         interests: { select: { interestId: true } },
         personalities: { select: { personalityId: true } },
+        sentHearts: { select: { sentToId: true } },
       },
     });
     if (!me || !me.vibeVector) {
@@ -28,6 +29,8 @@ export class MatchesRepository {
       ...me.interests.map((i) => i.interestId),
       ...me.personalities.map((p) => p.personalityId),
     ];
+    // 이미 마음을 누른 사용자 ID 집합
+    const likedUserIds = new Set(me.sentHearts.map((h) => h.sentToId));
     // 1차 하드필터링으로 후보 조회
     const candidates = await this.prisma.user.findMany({
       where: {
@@ -120,6 +123,7 @@ export class MatchesRepository {
           profileImageUrl: user.profileImageUrl,
           matchScore: similarity,
           matchReasons: reasons,
+          isLiked: likedUserIds.has(user.id),
         };
       })
       .sort((a, b) => b.matchScore - a.matchScore)

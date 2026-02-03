@@ -1,0 +1,11 @@
+﻿id,messageId,url,type,text
+1,1,,TEXT,안녕! 오늘 뭐해?
+2,2,,TEXT,지금 카페야. 너는?
+3,3,https://cdn.example.com/chat/2025/12/photo_0001.jpg,PHOTO,
+4,4,https://cdn.example.com/chat/2025/12/photo_0002.jpg,PHOTO,
+5,5,https://cdn.example.com/chat/2025/12/voice_0001.m4a,AUDIO,
+6,6,https://cdn.example.com/chat/2025/12/video_0001.mp4,VIDEO,
+7,7,,TEXT,프로필 사진 너무 잘 나왔다 ㅋㅋ
+8,8,https://cdn.example.com/chat/2025/12/photo_0003.jpg,PHOTO,
+9,9,,TEXT,오늘 저녁에 시간 돼?
+10,10,https://cdn.example.com/chat/2025/12/voice_0002.m4a,AUDIO,

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ReportRepository } from '../../repositories/report.repository';
+import { AppException } from '../../../../common/errors/app.exception';
+import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 
 @Injectable()
 export class ReportService {
@@ -12,12 +14,18 @@ export class ReportService {
     category: string,
     chatRoomId: string,
   ) {
-    return this.reportRepository.createReport(
+    const result = await this.reportRepository.createReport(
       userId,
       targetUserId,
       reason,
       category,
       chatRoomId,
     );
+    if (result.reason === 'Already reported.') {
+      throw new AppException('SOCIAL_REPORT_EXISTS', {
+        message: ERROR_DEFINITIONS.SOCIAL_REPORT_EXISTS.message,
+        details: { field: 'targetUserId' },
+      });
+    } else return result;
   }
 }

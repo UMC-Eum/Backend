@@ -134,7 +134,7 @@ export const ERROR_DEFINITIONS = {
   SOCIAL_REPORT_EXISTS: {
     status: HttpStatus.CONFLICT,
     code: 'SOCIAL-007',
-    message: '이미 신고한 사용자입니다.',
+    message: '이미 동일한 카테고리로 신고한 사용자입니다.',
   },
   SOCIAL_BLOCK_ALREADY_EXISTS: {
     status: HttpStatus.CONFLICT,

@@ -26,6 +26,12 @@ export class BlockService {
         message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
         details: { targetUserId: targetUserId },
       });
+    }
+    if (result.blockId === 0) {
+      throw new AppException('SOCIAL_BLOCK_ALREADY_EXISTS', {
+        message: ERROR_DEFINITIONS.SOCIAL_BLOCK_ALREADY_EXISTS.message,
+        details: { targetUserId: targetUserId },
+      });
     } else return result;
   }
   async unActivateBlock(blockId: string) {

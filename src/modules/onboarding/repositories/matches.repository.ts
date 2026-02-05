@@ -9,8 +9,6 @@ export class MatchesRepository {
   async findRecommendedMatches(
     userId: bigint,
     size = 20,
-    ageMin?: number,
-    ageMax?: number,
     cursorUserId?: bigint | null,
   ) {
     // 현재 유저 정보
@@ -31,6 +29,12 @@ export class MatchesRepository {
     if (!me || !me.vibeVector) {
       throw new Error('사용자 정보가 없거나 vibeVector가 없습니다.');
     }
+    if (!Array.isArray(me.vibeVector)) {
+      throw new Error('vibeVector 형식이 올바르지 않습니다.');
+    }
+    if (!me.code) {
+      throw new Error('사용자 주소 정보(code)가 없습니다.');
+    }
 
     const myVector = me.vibeVector as number[];
     const myKeywordIds = [
@@ -46,28 +50,17 @@ export class MatchesRepository {
       (ip) => ip.personalityId,
     );
 
-    // 필터링 조건 구성
+    // 필터링 조건: 같은 지역 
     const whereCondition: Record<string, unknown> = {
       id: { not: userId },
       status: 'ACTIVE',
       deletedAt: null,
-      // 1단계: 주소 기반 필터링
-      address: {
-        parentCode: me.address?.parentCode,
-      },
-      birthdate: {
-        gte: ageMax
-          ? new Date(`${new Date().getFullYear() - ageMax}-01-01`)
-          : undefined,
-        lte: ageMin
-          ? new Date(`${new Date().getFullYear() - ageMin}-12-31`)
-          : undefined,
-      },
+      code: me.code, 
     };
 
     // 2단계: 이상형 등록 여부에 따른 추가 필터링
     if (hasIdealTypes) {
-      // 이상형이 등록된 경우: 관심사/성향 또는 이상형 조건
+      // 이상형이 등록된 경우: 같은 동네이면서 이상형 조건도 만족
       whereCondition.OR = [
         {
           interests: {

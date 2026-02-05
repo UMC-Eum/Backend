@@ -8,15 +8,11 @@ export class MatchesService {
   async getRecommendedMatches(
     userId: bigint,
     size = 20,
-    ageMin?: number,
-    ageMax?: number,
     cursorUserId?: bigint | null,
   ) {
     const items = await this.matchesRepository.findRecommendedMatches(
       userId,
       size,
-      ageMin,
-      ageMax,
       cursorUserId,
     );
 

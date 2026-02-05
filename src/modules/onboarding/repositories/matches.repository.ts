@@ -50,12 +50,12 @@ export class MatchesRepository {
       (ip) => ip.personalityId,
     );
 
-    // 필터링 조건: 같은 지역 
+    // 필터링 조건: 같은 지역
     const whereCondition: Record<string, unknown> = {
       id: { not: userId },
       status: 'ACTIVE',
       deletedAt: null,
-      code: me.code, 
+      code: me.code,
     };
 
     // 2단계: 이상형 등록 여부에 따른 추가 필터링

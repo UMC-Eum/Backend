@@ -52,6 +52,26 @@ export class HeartRepository {
     if (exist != null) {
       return { ok: false, reason: 'ALREADY_EXISTS' };
     }
+    const inactiveExist = await this.prisma.heart.findFirst({
+      where: {
+        sentById: payload.sentById,
+        sentToId: payload.sentToId,
+        status: ActiveStatus.INACTIVE,
+      },
+    });
+    if (inactiveExist != null) {
+      await this.prisma.heart.update({
+        where: { id: inactiveExist.id },
+        data: { status: ActiveStatus.ACTIVE },
+      });
+      return {
+        ok: true,
+        heart: {
+          heartId: Number(inactiveExist.id),
+          createdAt: inactiveExist.createdAt.toISOString(),
+        },
+      };
+    }
     const response = await this.prisma.heart.create({ data: payload });
     return {
       ok: true,

@@ -5,7 +5,7 @@
 Table User {
   id BigInt [pk, increment]
   birthdate DateTime [not null]
-  age Int [not null, default: 0]
+  age Int [not null, default: 50]
   email String [unique, not null]
   sex Sex [not null, default: 'M']
   createdAt DateTime [default: `now()`, not null]

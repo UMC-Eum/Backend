@@ -66,7 +66,7 @@ enum NotificationType {
 model User {
   id              BigInt        @id @default(autoincrement())
   birthdate       DateTime      @db.DateTime(6)
-  age             Int           @default(0) @db.Int
+  age             Int           @default(50) @db.Int
   email           String        @unique @db.VarChar(255)
   sex             Sex           @default(M)
   createdAt       DateTime      @default(now()) @db.DateTime(6)

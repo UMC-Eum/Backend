@@ -131,6 +131,16 @@ export const ERROR_DEFINITIONS = {
     message:
       '이미 마음을 표현한 사용자입니다. 다른 사용자에게 마음을 전해보세요.',
   },
+  SOCIAL_REPORT_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'SOCIAL-007',
+    message: '이미 신고한 사용자입니다.',
+  },
+  SOCIAL_BLOCK_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'SOCIAL_008',
+    message: '이미 차단된 사용자입니다.',
+  },
 
   // PROF
   PROFILE_NOT_REGISTERED: {

@@ -13,6 +13,24 @@ export class ReportRepository {
     category: string,
     chatRoomId: string,
   ): Promise<ReportResponseDto> {
+    const exist = await this.prisma.report.findUnique({
+      where: {
+        reportedById_reportedId: {
+          reportedById: BigInt(userId),
+          reportedId: BigInt(targetUserId),
+        },
+        category: category,
+      },
+      select: { id: true },
+    });
+    if (exist != null) {
+      return {
+        reportId: Number(exist.id),
+        category: category,
+        reason: 'Already reported.',
+        chatRoomId: Number(chatRoomId),
+      };
+    }
     const response = await this.prisma.report.create({
       data: {
         reportedById: BigInt(userId),

@@ -37,7 +37,38 @@ export class BlockRepository {
     ) {
       return null;
     }
-
+    const exist = await this.prisma.block.findUnique({
+      where: {
+        blockedById_blockedId: { blockedById, blockedId },
+      },
+      select: { id: true, status: true, blockedAt: true },
+    });
+    // UNBLOCKED 상태인 경우 다시 BLOCKED로 업데이트
+    if (exist != null && exist.status === BlockStatus.UNBLOCKED) {
+      const existResult = await this.prisma.block.update({
+        where: {
+          blockedById_blockedId: { blockedById, blockedId },
+        },
+        data: {
+          status: BlockStatus.BLOCKED,
+          blockedAt: new Date(),
+          reason: reason,
+        },
+      });
+      return {
+        blockId: Number(existResult.id),
+        status: existResult.status,
+        blockedAt: existResult.blockedAt.toISOString(),
+      };
+    }
+    //존재하고, 차단되어있는 상태에서는 존재하는 값 리턴.
+    if (exist != null && exist.status === BlockStatus.BLOCKED)
+      return {
+        blockId: 0,
+        status: exist.status,
+        blockedAt: exist.blockedAt.toISOString(),
+      };
+    // 존재하지 않는 경우 새로 생성
     const created = await this.prisma.block.create({
       data: {
         blockedById,

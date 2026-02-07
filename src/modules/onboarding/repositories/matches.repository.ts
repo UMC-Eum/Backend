@@ -21,7 +21,7 @@ export class MatchesRepository {
         idealPersonalities: { select: { personalityId: true } },
         sentHearts: {
           where: { status: 'ACTIVE', deletedAt: null },
-          select: { sentToId: true },
+          select: { sentToId: true, id: true },
         },
       },
     });
@@ -42,7 +42,7 @@ export class MatchesRepository {
       ...me.personalities.map((p) => p.personalityId),
     ];
     // 이미 마음을 누른 사용자 ID 집합
-    const likedUserIds = new Set(me.sentHearts.map((h) => h.sentToId));
+    const likedUserMap = new Map(me.sentHearts.map((h) => [h.sentToId, h.id]));
     // 이상형 등록 여부 확인
     const hasIdealTypes =
       me.idealPersonalities && me.idealPersonalities.length > 0;
@@ -149,6 +149,8 @@ export class MatchesRepository {
           }
         }
 
+        const heartId = likedUserMap.get(user.id);
+
         return {
           userId: user.id,
           nickname: user.nickname,
@@ -163,7 +165,8 @@ export class MatchesRepository {
           profileImageUrl: user.profileImageUrl,
           matchScore: similarity,
           matchReasons: reasons,
-          isLiked: likedUserIds.has(user.id),
+          isLiked: !!heartId,
+          likedHeartId: heartId || null,
         };
       })
       .sort((a, b) => b.matchScore - a.matchScore)

@@ -42,7 +42,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            DATABASE_URL="${{ secrets.PROD_DATABASE_URL }}"
+            DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}'
 
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
 

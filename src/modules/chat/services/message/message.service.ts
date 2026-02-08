@@ -57,12 +57,11 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    const addr = await this.roomRepo.getAddressByCode(peerDetail.code);
     const areaName =
-      addr?.emdName ??
-      addr?.sigunguName ??
-      addr?.sidoName ??
-      addr?.fullName ??
+      peerDetail.address.emdName ??
+      peerDetail.address.sigunguName ??
+      peerDetail.address.sidoName ??
+      peerDetail.address.fullName ??
       null;
 
     const size = query.size ?? 30;

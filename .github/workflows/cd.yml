@@ -42,10 +42,15 @@ jobs:
           script: |
             set -euo pipefail
 
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
+
+            sudo docker run --rm \
+              -e DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}' \
+              ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest \
+              npx prisma migrate deploy
+
             sudo docker stop eum-backend || true
             sudo docker rm eum-backend || true
-
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
 
             sudo docker run -d \
               --name eum-backend \

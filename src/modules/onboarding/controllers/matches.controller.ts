@@ -28,20 +28,6 @@ export class MatchesController {
     description: '조회할 매치 개수',
     example: 20,
   })
-  @ApiQuery({
-    name: 'ageMin',
-    required: false,
-    type: Number,
-    description: '최소 나이',
-    example: 20,
-  })
-  @ApiQuery({
-    name: 'ageMax',
-    required: false,
-    type: Number,
-    description: '최대 나이',
-    example: 50,
-  })
   async getRecommendedMatches(
     @RequiredUserId() userId: number,
     @Query() query: GetRecommendedMatchesQueryDto,
@@ -64,8 +50,6 @@ export class MatchesController {
       const result = await this.matchesService.getRecommendedMatches(
         BigInt(userId),
         query.size ?? 20,
-        query.ageMin,
-        query.ageMax,
         startFromUserId,
       );
       return result;

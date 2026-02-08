@@ -14,16 +14,24 @@ import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
 
-function calcAge(birthdate: Date): number {
-  const now = new Date();
-  let age = now.getFullYear() - birthdate.getFullYear();
-  const m = now.getMonth() - birthdate.getMonth();
+type AddressLike =
+  | {
+      emdName?: string | null;
+      sigunguName?: string | null;
+      sidoName?: string | null;
+      fullName?: string | null;
+    }
+  | null
+  | undefined;
 
-  if (m < 0 || (m === 0 && now.getDate() < birthdate.getDate())) {
-    age -= 1;
-  }
-
-  return age;
+function pickAreaName(address: AddressLike): string | null {
+  return (
+    address?.emdName ??
+    address?.sigunguName ??
+    address?.sidoName ??
+    address?.fullName ??
+    null
+  );
 }
 
 @Injectable()
@@ -102,20 +110,15 @@ export class RoomService {
     const peer = await this.roomRepo.getPeerDetail(peerUserId);
     if (!peer) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    const addr = await this.roomRepo.getAddressByCode(peer.code);
-    const areaName =
-      addr?.emdName ??
-      addr?.sigunguName ??
-      addr?.sidoName ??
-      addr?.fullName ??
-      null;
+    const areaName = pickAreaName(peer.address);
 
     return {
       chatRoomId,
       peer: {
         userId: Number(peer.id),
         nickname: peer.nickname,
-        age: calcAge(peer.birthdate),
+        profileImageUrl: peer.profileImageUrl ?? null,
+        age: peer.age,
         areaName,
       },
     };
@@ -178,9 +181,15 @@ export class RoomService {
     const peerIds = Array.from(new Set(Array.from(peerIdByRoom.values())));
 
     const peerUsers = await this.roomRepo.getPeerBasicsByIds(peerIds);
+
     const peerMap = new Map<
       bigint,
-      { userId: number; nickname: string; profileImageUrl: string | null }
+      {
+        userId: number;
+        nickname: string;
+        profileImageUrl: string | null;
+        areaName: string | null;
+      }
     >();
 
     for (const u of peerUsers) {
@@ -188,6 +197,7 @@ export class RoomService {
         userId: Number(u.id),
         nickname: u.nickname,
         profileImageUrl: u.profileImageUrl ?? null,
+        areaName: pickAreaName(u.address),
       });
     }
 
@@ -196,7 +206,6 @@ export class RoomService {
       me,
     );
 
-    // never[] 방지: items 타입을 명시
     const items: ListRoomsRes['items'] = [];
 
     for (const p of page) {

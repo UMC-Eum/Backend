@@ -42,10 +42,12 @@ jobs:
           script: |
             set -euo pipefail
 
+            DATABASE_URL="${{ secrets.PROD_DATABASE_URL }}"
+
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
 
             sudo docker run --rm \
-              -e DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}' \
+              -e DATABASE_URL="$DATABASE_URL" \
               ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest \
               npx prisma migrate deploy
 
@@ -58,7 +60,7 @@ jobs:
               -p 3000:3000 \
               -e PORT=3000 \
               -e NODE_ENV=production \
-              -e DATABASE_URL='${{ secrets.PROD_DATABASE_URL }}' \
+              -e DATABASE_URL="$DATABASE_URL" \
               -e REDIS_URL='${{ secrets.PROD_REDIS_URL }}' \
               -e JWT_SECRET='${{ secrets.PROD_JWT_SECRET }}' \
               -e JWT_ACCESS_SECRET='${{ secrets.PROD_JWT_ACCESS_SECRET }}' \

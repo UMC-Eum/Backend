@@ -70,7 +70,13 @@ export class RoomRepository {
   async getPeerDetail(peerUserId: bigint) {
     return this.prisma.user.findUnique({
       where: { id: peerUserId },
-      select: { id: true, nickname: true, birthdate: true, code: true },
+      select: {
+        id: true,
+        nickname: true,
+        birthdate: true,
+        code: true,
+        profileImageUrl: true,
+      },
     });
   }
 
@@ -89,7 +95,7 @@ export class RoomRepository {
   async getPeerBasicsByIds(peerIds: bigint[]) {
     return this.prisma.user.findMany({
       where: { id: { in: peerIds } },
-      select: { id: true, nickname: true, profileImageUrl: true },
+      select: { id: true, nickname: true, profileImageUrl: true, code: true },
     });
   }
 }

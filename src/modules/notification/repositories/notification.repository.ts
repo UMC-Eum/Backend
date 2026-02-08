@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class NotificationRepository {
@@ -33,6 +34,24 @@ export class NotificationRepository {
         skip: 1,
       }),
       orderBy: { id: 'desc' },
+    });
+  }
+
+  // 알림 생성 로직
+  // param: userId,type,isRead,createdAt,deletedAt,title,body
+  createNotification(
+    userId: number,
+    type: NotificationType,
+    title: string,
+    body: string,
+  ) {
+    return this.prisma.notification.create({
+      data: {
+        userId: BigInt(userId),
+        type: type,
+        title: title,
+        body: body,
+      },
     });
   }
 }

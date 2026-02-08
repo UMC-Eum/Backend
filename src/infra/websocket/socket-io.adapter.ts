@@ -13,8 +13,13 @@ export class SocketIoAdapter extends IoAdapter {
   }
 
   override createIOServer(port: number, options?: ServerOptions): Server {
-    const corsOrigin =
-      this.config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000';
+    const corsOrigin = [
+      'https://eum-dating.com',
+      'https://back.eum-dating.com',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5000',
+    ];
 
     const mergedOptions: ServerOptions = {
       ...(options ?? ({} as ServerOptions)),

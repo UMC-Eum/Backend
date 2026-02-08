@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
 import { NotificationResponseDto } from '../dtos/notification.dto';
 import { AppException } from '../../../common/errors/app.exception';
-
+import { NotificationType } from '@prisma/client';
 @Injectable()
 export class NotificationService {
   constructor(
@@ -34,5 +34,20 @@ export class NotificationService {
       nextCursor: nextCursor !== null ? Number(nextCursor) : null,
       items: items.map((item) => NotificationResponseDto.from(item)),
     };
+  }
+
+  async createNotification(
+    userId: number,
+    type: NotificationType,
+    title: string,
+    body: string,
+  ) {
+    const result = await this.notificationRepository.createNotification(
+      userId,
+      type,
+      title,
+      body,
+    );
+    console.log(result);
   }
 }

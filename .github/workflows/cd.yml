@@ -49,7 +49,7 @@ jobs:
             sudo docker run --rm \
               -e DATABASE_URL="$DATABASE_URL" \
               ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest \
-              npx prisma migrate deploy
+              npx prisma@7.1.1 migrate deploy
 
             sudo docker stop eum-backend || true
             sudo docker rm eum-backend || true

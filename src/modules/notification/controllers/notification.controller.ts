@@ -5,6 +5,7 @@ import {
   Patch,
   Query,
   UseGuards,
+  Body,
 } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
 import {

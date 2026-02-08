@@ -1,14 +1,43 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
+const ADDRESS_SELECT = {
+  emdName: true,
+  sigunguName: true,
+  sidoName: true,
+  fullName: true,
+} as const;
+
+const USER_BASIC_SELECT = {
+  id: true,
+  nickname: true,
+  profileImageUrl: true,
+} as const;
+
+const USER_DETAIL_SELECT = {
+  ...USER_BASIC_SELECT,
+  birthdate: true,
+  age: true,
+  address: {
+    select: ADDRESS_SELECT,
+  },
+} as const;
+
+const USER_BASIC_WITH_ADDRESS_SELECT = {
+  ...USER_BASIC_SELECT,
+  address: {
+    select: ADDRESS_SELECT,
+  },
+} as const;
+
 @Injectable()
 export class RoomRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findPeerUserBasic(target: bigint) {
+  findPeerUserBasic(target: bigint) {
     return this.prisma.user.findUnique({
       where: { id: target },
-      select: { id: true, nickname: true, profileImageUrl: true },
+      select: USER_BASIC_SELECT,
     });
   }
 
@@ -16,16 +45,20 @@ export class RoomRepository {
     me: bigint,
     target: bigint,
   ): Promise<bigint | null> {
-    const myRoomIds = await this.prisma.chatParticipant.findMany({
+    const myParticipants = await this.prisma.chatParticipant.findMany({
       where: { userId: me, endedAt: null },
       select: { roomId: true },
     });
 
-    const ids = myRoomIds.map((x) => x.roomId);
-    if (ids.length === 0) return null;
+    const roomIds = myParticipants.map((p) => p.roomId);
+    if (roomIds.length === 0) return null;
 
     const existing = await this.prisma.chatParticipant.findFirst({
-      where: { roomId: { in: ids }, userId: target, endedAt: null },
+      where: {
+        roomId: { in: roomIds },
+        userId: target,
+        endedAt: null,
+      },
       select: { roomId: true },
     });
 
@@ -60,36 +93,32 @@ export class RoomRepository {
     });
   }
 
-  async getRoomsByIds(roomIds: bigint[]) {
+  getRoomsByIds(roomIds: bigint[]) {
     return this.prisma.chatRoom.findMany({
       where: { id: { in: roomIds }, endedAt: null, status: 'ACTIVE' },
       select: { id: true, startedAt: true },
     });
   }
 
-  async getPeerDetail(peerUserId: bigint) {
+  getPeerDetail(peerUserId: bigint) {
     return this.prisma.user.findUnique({
       where: { id: peerUserId },
-      select: { id: true, nickname: true, birthdate: true, code: true },
+      select: USER_DETAIL_SELECT,
     });
   }
 
-  async getAddressByCode(code: string) {
+  // 다른 코드에서 아직 호출 중이면 유지. (가능하면 User.address 관계로 대체 추천)
+  getAddressByCode(code: string) {
     return this.prisma.address.findUnique({
       where: { code },
-      select: {
-        emdName: true,
-        sigunguName: true,
-        sidoName: true,
-        fullName: true,
-      },
+      select: ADDRESS_SELECT,
     });
   }
 
-  async getPeerBasicsByIds(peerIds: bigint[]) {
+  getPeerBasicsByIds(peerIds: bigint[]) {
     return this.prisma.user.findMany({
       where: { id: { in: peerIds } },
-      select: { id: true, nickname: true, profileImageUrl: true },
+      select: USER_BASIC_WITH_ADDRESS_SELECT,
     });
   }
 }

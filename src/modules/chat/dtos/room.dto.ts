@@ -39,6 +39,10 @@ export type PeerBase = {
   profileImageUrl: string | null;
 };
 
+export type PeerWithArea = PeerBase & {
+  areaName: string | null;
+};
+
 export type CreateRoomRes = {
   chatRoomId: number;
   created: boolean;
@@ -47,7 +51,7 @@ export type CreateRoomRes = {
 
 export type RoomListItem = {
   chatRoomId: number;
-  peer: PeerBase;
+  peer: PeerWithArea;
   lastMessage: null | {
     type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
     textPreview: string;
@@ -68,5 +72,6 @@ export type RoomDetailRes = {
     nickname: string;
     age: number;
     areaName: string | null;
+    profileImageUrl: string | null;
   };
 };

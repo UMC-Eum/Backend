@@ -327,15 +327,12 @@ export class KakaoAuthService {
   }
 
   private isOnboardingRequired(user: {
-    birthdate: Date;
     introText: string;
     introVoiceUrl: string;
     profileImageUrl: string;
     code: string;
   }) {
     return (
-      user.birthdate.getTime() ===
-        KakaoAuthService.DEFAULT_BIRTHDATE.getTime() ||
       user.introText.trim() === '' ||
       user.introVoiceUrl === KakaoAuthService.DEFAULT_INTRO_VOICE_URL ||
       user.profileImageUrl === KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL ||

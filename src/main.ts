@@ -2,8 +2,7 @@ import { HttpStatus, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { ValidationError } from 'class-validator';
-import { parse as parseCookie } from 'cookie';
-import type { NextFunction, Request, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 
 import { AppModule } from './modules/app/app.module';
@@ -52,12 +51,7 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
   });
-  type CookieRequest = Request & { cookies: Record<string, string> };
-
-  app.use((req: CookieRequest, _res: Response, next: NextFunction) => {
-    req.cookies = parseCookie(req.headers.cookie ?? '');
-    next();
-  });
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({

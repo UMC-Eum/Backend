@@ -5,6 +5,7 @@ import {
   AddressLevel,
   AuthProvider,
   Prisma,
+  Sex,
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
@@ -34,6 +35,9 @@ interface KakaoProfileResponse {
     profile?: {
       nickname?: string;
     };
+    gender?: string;
+    birthday?: string;
+    birthyear?: string;
   };
 }
 
@@ -76,11 +80,19 @@ export class KakaoAuthService {
     const nickname = nicknameFromProfile ?? `kakao_${providerUserId}`;
     const email =
       profile.kakao_account?.email ?? `kakao-${providerUserId}@kakao.local`;
+    const { birthdate, age } = this.buildBirthInfo(
+      profile.kakao_account?.birthyear,
+      profile.kakao_account?.birthday,
+    );
+    const sex = this.mapSex(profile.kakao_account?.gender);
 
     const userRecord = await this.upsertUser({
       providerUserId,
       nickname,
       email,
+      birthdate,
+      age,
+      sex,
     });
 
     const userId = Number(userRecord.user.id) || 0;
@@ -135,10 +147,16 @@ export class KakaoAuthService {
     providerUserId,
     nickname,
     email,
+    birthdate,
+    age,
+    sex,
   }: {
     providerUserId: string;
     nickname: string;
     email: string;
+    birthdate?: Date;
+    age?: number;
+    sex?: Sex;
   }) {
     await this.ensureDefaultAddress();
     const where = {
@@ -151,7 +169,8 @@ export class KakaoAuthService {
     try {
       const createdUser = await this.prismaService.user.create({
         data: {
-          birthdate: KakaoAuthService.DEFAULT_BIRTHDATE,
+          birthdate: birthdate ?? KakaoAuthService.DEFAULT_BIRTHDATE,
+          age: age ?? undefined,
           email,
           nickname,
           introVoiceUrl: KakaoAuthService.DEFAULT_INTRO_VOICE_URL,
@@ -160,6 +179,7 @@ export class KakaoAuthService {
           code: KakaoAuthService.DEFAULT_ADDRESS_CODE,
           provider: AuthProvider.KAKAO,
           providerUserId,
+          sex: sex ?? undefined,
           vibeVector: {},
         },
       });
@@ -175,6 +195,9 @@ export class KakaoAuthService {
           data: {
             email,
             nickname,
+            ...(birthdate ? { birthdate } : {}),
+            ...(typeof age === 'number' ? { age } : {}),
+            ...(sex ? { sex } : {}),
           },
         });
 
@@ -252,6 +275,55 @@ export class KakaoAuthService {
       });
       throw new AppException('AUTH_USER_BLOCKED');
     }
+  }
+
+  private buildBirthInfo(
+    birthyear?: string,
+    birthday?: string,
+  ): { birthdate?: Date; age?: number } {
+    if (!birthyear || !birthday || birthday.length !== 4) {
+      return {};
+    }
+
+    const year = Number(birthyear);
+    const month = Number(birthday.slice(0, 2));
+    const day = Number(birthday.slice(2));
+    if (!Number.isInteger(year) || !Number.isInteger(month)) {
+      return {};
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return {};
+    }
+
+    const birthdate = new Date(Date.UTC(year, month - 1, day));
+    if (Number.isNaN(birthdate.getTime())) {
+      return {};
+    }
+
+    const today = new Date();
+    const currentYear = today.getUTCFullYear();
+    const currentMonth = today.getUTCMonth() + 1;
+    const currentDay = today.getUTCDate();
+    let age = currentYear - year;
+    if (currentMonth < month || (currentMonth === month && currentDay < day)) {
+      age -= 1;
+    }
+    if (age < 0) {
+      return {};
+    }
+
+    return { birthdate, age };
+  }
+
+  private mapSex(gender?: string): Sex | undefined {
+    const normalized = gender?.toLowerCase();
+    if (normalized === 'male') {
+      return Sex.M;
+    }
+    if (normalized === 'female') {
+      return Sex.F;
+    }
+    return undefined;
   }
 
   private isOnboardingRequired(user: {

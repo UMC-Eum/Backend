@@ -32,8 +32,7 @@ export class UserService {
     const idealPersonalities = user.idealPersonalities
       .map((item) => item.personality.body)
       .filter((body): body is string => Boolean(body));
-    const age = this.calculateAge(user.birthdate);
-
+    const age = user.age;
     return {
       userId: Number(user.id),
       nickname: user.nickname,
@@ -283,20 +282,5 @@ export class UserService {
 
     const ids = entries.map((entry) => Number(entry.id));
     await this.userRepository.updateIdealPersonalities(userId, ids);
-  }
-
-  private calculateAge(birthdate: Date): number {
-    const now = new Date();
-    let age = now.getUTCFullYear() - birthdate.getUTCFullYear();
-    const monthDiff = now.getUTCMonth() - birthdate.getUTCMonth();
-
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && now.getUTCDate() < birthdate.getUTCDate())
-    ) {
-      age -= 1;
-    }
-
-    return age;
   }
 }

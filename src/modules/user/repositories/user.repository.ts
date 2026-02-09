@@ -17,7 +17,7 @@ export class UserRepository {
         id: true,
         nickname: true,
         sex: true,
-        birthdate: true,
+        age: true,
         introText: true,
         introVoiceUrl: true,
         profileImageUrl: true,

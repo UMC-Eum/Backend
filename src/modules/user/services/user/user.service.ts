@@ -185,9 +185,9 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.userRepository.updateIdealPersonalities(
+    await this.updateIdealPersonalitiesByBodies(
       userId,
-      payload.personalityIds,
+      payload.personalityKeywords,
     );
 
     return null;

@@ -32,13 +32,13 @@ export class UserService {
     const idealPersonalities = user.idealPersonalities
       .map((item) => item.personality.body)
       .filter((body): body is string => Boolean(body));
-    const birthDate = user.birthdate.toISOString().split('T')[0];
+    const age = user.age;
 
     return {
       userId: Number(user.id),
       nickname: user.nickname,
       gender: user.sex,
-      birthDate,
+      age,
       area: {
         code: user.address.code,
         name: areaName,
@@ -63,7 +63,7 @@ export class UserService {
     const updateData: {
       nickname?: string;
       sex?: UserMeResponseDto['gender'];
-      birthdate?: Date;
+      age?: number;
       code?: string;
       introText?: string;
       introVoiceUrl?: string;
@@ -78,8 +78,8 @@ export class UserService {
       updateData.sex = payload.gender;
     }
 
-    if (payload.birthDate !== undefined) {
-      updateData.birthdate = new Date(payload.birthDate);
+    if (payload.age !== undefined) {
+      updateData.age = payload.age;
     }
 
     if (payload.areaCode !== undefined) {
@@ -186,14 +186,15 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.userRepository.updateIdealPersonalities(
+    await this.updateIdealPersonalitiesByBodies(
       userId,
-      payload.personalityIds,
+      payload.personalityKeywords,
     );
 
     return null;
   }
 
+  // 키워드 검증 + 에러 처리
   private async updateKeywordsByBodies(
     userId: number,
     keywords: string[],
@@ -214,8 +215,10 @@ export class UserService {
     const missing = uniqueKeywords.filter((keyword) => !matched.has(keyword));
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 키워드입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 
@@ -223,6 +226,7 @@ export class UserService {
     await this.userRepository.updateKeywords(userId, ids);
   }
 
+  // 성향 검증 + 에러 처리
   private async updatePersonalitiesByBodies(
     userId: number,
     personalities: string[],
@@ -245,8 +249,10 @@ export class UserService {
     );
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 성격입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 
@@ -254,34 +260,47 @@ export class UserService {
     await this.userRepository.updatePersonalities(userId, ids);
   }
 
+  // 이상형 성향 검증 + 에러 처리
   private async updateIdealPersonalitiesByBodies(
     userId: number,
     personalities: string[],
   ): Promise<void> {
-    const trimmed = personalities
+    const normalized = personalities
       .map((personality) => personality.trim())
       .filter(Boolean);
-    const uniquePersonalities = Array.from(new Set(trimmed));
+    const uniquePersonalities = Array.from(new Set(normalized));
 
     if (uniquePersonalities.length === 0) {
       await this.userRepository.updateIdealPersonalities(userId, []);
       return;
     }
 
-    const entries =
-      await this.userRepository.findPersonalitiesByBodies(uniquePersonalities);
-    const matched = new Map(entries.map((entry) => [entry.body, entry]));
+    const entries = await this.userRepository.findAllPersonalities();
+    const matched = new Map<string, (typeof entries)[number]>();
+
+    for (const entry of entries) {
+      const body = entry.body?.trim();
+      if (!body || matched.has(body)) {
+        continue;
+      }
+      matched.set(body, entry);
+    }
     const missing = uniquePersonalities.filter(
       (personality) => !matched.has(personality),
     );
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 이상형 성격입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 
-    const ids = entries.map((entry) => Number(entry.id));
+    const ids = uniquePersonalities.map((personality) => {
+      const entry = matched.get(personality);
+      return Number(entry!.id);
+    });
     await this.userRepository.updateIdealPersonalities(userId, ids);
   }
 }

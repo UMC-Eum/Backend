@@ -46,38 +46,41 @@ export class OnboardingRepository {
       select: { id: true, body: true },
     });
 
-    // 중복 저장 방지
-    await this.prisma.$transaction([
-      ...matchedInterests.map(({ id }) =>
-        this.prisma.userInterest.upsert({
-          where: {
-            interestId_userId: {
-              interestId: id,
-              userId,
-            },
-          },
-          update: {},
-          create: {
+    console.log(
+      `[ONBOARDING] matchedInterests=${matchedInterests.length}개, matchedPersonalities=${matchedPersonalities.length}개`,
+    );
+
+    // 기존 키워드 삭제 + 새 키워드 저장
+    await this.prisma.$transaction(async (tx) => {
+      // 기존 관심사 삭제
+      await tx.userInterest.deleteMany({
+        where: { userId },
+      });
+
+      // 기존 성향 삭제
+      await tx.userPersonality.deleteMany({
+        where: { userId },
+      });
+
+      // 새로운 관심사 저장
+      if (matchedInterests.length > 0) {
+        await tx.userInterest.createMany({
+          data: matchedInterests.map(({ id }) => ({
             interestId: id,
             userId,
-          },
-        }),
-      ),
-      ...matchedPersonalities.map(({ id }) =>
-        this.prisma.userPersonality.upsert({
-          where: {
-            userId_personalityId: {
-              personalityId: id,
-              userId,
-            },
-          },
-          update: {},
-          create: {
+          })),
+        });
+      }
+
+      // 새로운 성향 저장
+      if (matchedPersonalities.length > 0) {
+        await tx.userPersonality.createMany({
+          data: matchedPersonalities.map(({ id }) => ({
             personalityId: id,
             userId,
-          },
-        }),
-      ),
-    ]);
+          })),
+        });
+      }
+    });
   }
 }

@@ -19,8 +19,8 @@ export class UserMeResponseDto {
   @ApiProperty({ example: 'F', enum: Sex })
   gender: Sex;
 
-  @ApiProperty({ example: '1972-03-01' })
-  birthDate: string;
+  @ApiProperty({ example: 53, description: '만 나이' })
+  age: number;
 
   @ApiProperty({ type: UserAreaDto })
   area: UserAreaDto;

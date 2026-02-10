@@ -112,7 +112,7 @@
   <div class="section">
     <h2>⚙️ 설정</h2>
     <div class="controls">
-      <input type="text" id="apiBaseUrl" placeholder="API URL" value="http://localhost:3000/api/v1">
+      <input type="text" id="apiBaseUrl" placeholder="API URL" value="https://back.eum-dating.com">
       <input type="password" id="accessToken" placeholder="Access Token (JWT)">
     </div>
   </div>
@@ -193,6 +193,24 @@
         <button onclick="listMessages()">조회</button>
       </div>
       <div id="listMessagesResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>PATCH /chats/messages/{messageId}/read - 메시지 읽음 처리</h3>
+      <div class="controls">
+        <input type="number" id="readMessageId" placeholder="메시지 ID" value="555" min="1">
+        <button onclick="markAsReadRest()">읽음 처리</button>
+      </div>
+      <div id="markAsReadResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>PATCH /chats/messages/{messageId} - 메시지 삭제</h3>
+      <div class="controls">
+        <input type="number" id="deleteMessageId" placeholder="메시지 ID" value="555" min="1">
+        <button onclick="deleteMessageRest()" class="danger">삭제</button>
+      </div>
+      <div id="deleteMessageResponse" class="response-box"></div>
     </div>
   </div>
 
@@ -281,6 +299,24 @@
       socket.on('exception', (error) => {
         addLog(`❌ 오류: ${JSON.stringify(error)}`, 'error');
       });
+
+      socket.on('message.read', (payload) => {
+        addLog(
+          `👀 읽음: room=${payload.chatRoomId} msg=${payload.messageId} reader=${payload.readerUserId} at=${payload.readAt}`,
+          'success',
+        );
+      });
+
+      socket.on('message.deleted', (payload) => {
+        addLog(
+          `🗑️ 삭제: room=${payload.chatRoomId} msg=${payload.messageId} by=${payload.deletedByUserId} at=${payload.deletedAt}`,
+          'warning',
+        );
+      });
+
+      socket.on('notification.new', (payload) => {
+        addLog(`🔔 알림: ${payload.title} - ${payload.body}`, 'success');
+      });
     }
 
     function disconnectWebSocket() {
@@ -345,7 +381,7 @@
         type,
         text: type === 'TEXT' ? text : null,
         mediaUrl: type !== 'TEXT' ? mediaUrl : null,
-        durationSec: type === 'AUDIO' ? durationSec : null,
+        durationSec: type === 'AUDIO' || type === 'VIDEO' ? durationSec : null,
       };
 
       socket.emit('message.send', payload, (res) => {
@@ -421,6 +457,28 @@
 
       const result = await apiCall('GET', `/chats/rooms/${roomId}/messages`);
       showResponse('listMessagesResponse', result.data, !result.ok);
+    }
+
+    async function markAsReadRest() {
+      const messageId = parseInt(document.getElementById('readMessageId').value);
+      if (!messageId) {
+        addLog('❌ 메시지 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('PATCH', `/chats/messages/${messageId}/read`);
+      showResponse('markAsReadResponse', result.data, !result.ok);
+    }
+
+    async function deleteMessageRest() {
+      const messageId = parseInt(document.getElementById('deleteMessageId').value);
+      if (!messageId) {
+        addLog('❌ 메시지 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('PATCH', `/chats/messages/${messageId}`);
+      showResponse('deleteMessageResponse', result.data, !result.ok);
     }
 
     // 초기화

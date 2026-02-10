@@ -233,49 +233,45 @@ flowchart TD
         Health[/health endpoint/]
     end
 
-    subgraph Server
-        Pino[Pino HTTP Logger Middleware]
+    subgraph Server [NestJS Application]
+        Pino[Pino HTTP Logger (Middleware)]
 
         subgraph Cross Cutting
             Exception[Global Exception Filter]
         end
 
         subgraph Presentation Layer
-            Controller["Controller (/api/v1)"]
+            Controller[Controller (/api/v1)]
         end
 
         subgraph Application Layer
             Guard[Auth Guard]
             Pipe[Validation Pipe]
-            Service["Service (Business Logic)"]
+            Service[Service (Business Logic)]
         end
 
         subgraph Infrastructure Layer
             Repo[Prisma Repository]
-            Cache["Redis (Cache / RateLimit)"]
+            Cache[(Redis :6379)]
         end
 
         subgraph Data Layer
-            DB[(MySQL)]
+            DB[(MySQL :3307)]
         end
     end
 
-    subgraph Configuration
+    subgraph Configuration (Global)
         Env[.env]
         Config[Config Module]
     end
 
     subgraph CI/CD
-        CI["GitHub Actions<br/>lint · typecheck · test · build"]
+        CI[GitHub Actions\nlint · typecheck · test · build]
     end
 
 
     Client -->|HTTP Request| Pino
-    Pino --> Exception
-    Exception --> Controller
-
-    Client --> Swagger
-
+    Pino --> Controller
     Controller --> Guard
     Guard --> Pipe
     Pipe --> Service
@@ -288,5 +284,7 @@ flowchart TD
     Health --> Cache
 
     Env --> Config
-    Config --> Repo
+    Config -.provides settings.-> Server
+
+    Client --> Swagger
 ```

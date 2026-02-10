@@ -68,7 +68,11 @@ export const ERROR_DEFINITIONS = {
     code: 'VALID-002',
     message: '필수 입력값이 누락되었습니다. 입력 내용을 확인해 주세요.',
   },
-
+  KEYWORD_NOT_FOUND: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    code: 'KEYWORD-001',
+    message: 'DB에 존재하지 않는 키워드가 포함되어 있습니다. 키워드 목록을 다시 확인해 주세요.',
+  },
   // VOICE
   VOICE_RECORD_FAILED: {
     status: HttpStatus.BAD_REQUEST,

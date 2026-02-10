@@ -97,7 +97,27 @@ export class HeartService {
         message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
-    return result as HeartListPayload<HeartReceivedItem>;
+
+    // 각 하트를 보낸 사용자의 프로필 정보를 가져옴
+    const itemsWithProfile = await Promise.all(
+      result.items.map(async (item) => {
+        const fromUserId = Number(item.fromUserId);
+        const fromUser = await this.userService.getMe(fromUserId);
+        return {
+          ...item,
+          fromUser: {
+            profileImageUrl: fromUser.profileImageUrl,
+            nickname: fromUser.nickname,
+            age: fromUser.age,
+          },
+        };
+      }),
+    );
+
+    return {
+      nextCursor: result.nextCursor,
+      items: itemsWithProfile,
+    };
   }
 
   async getSentHearts(
@@ -116,7 +136,27 @@ export class HeartService {
         message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
-    return result as HeartListPayload<HeartSentItem>;
+
+    // 각 하트를 받은 사용자의 프로필 정보를 가져옴
+    const itemsWithProfile = await Promise.all(
+      result.items.map(async (item) => {
+        const targetUserId = Number(item.targetUserId);
+        const targetUser = await this.userService.getMe(targetUserId);
+        return {
+          ...item,
+          targetUser: {
+            profileImageUrl: targetUser.profileImageUrl,
+            nickname: targetUser.nickname,
+            age: targetUser.age,
+          },
+        };
+      }),
+    );
+
+    return {
+      nextCursor: result.nextCursor,
+      items: itemsWithProfile,
+    };
   }
 
   private parseSize(size?: string) {

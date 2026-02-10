@@ -224,35 +224,69 @@ Private project.
 ## 🏗️ Server Architecture Diagram
 
 ```mermaid
-graph TD
-    User([User / Client]) -.->|HTTP Request api v1| Gateway
+flowchart TD
 
-    subgraph NestJS Application Context
-        Gateway[main.ts / Global Prefix]
-        
-        subgraph Middleware & Global
-            Pino[[Pino Logging]]
-            Config[Nest Config]
-            Swagger[Swagger UI /docs]
+    Client[Client / Browser / App]
+
+    subgraph Entry Points
+        Swagger[Swagger UI]
+        Health[/health endpoint/]
+    end
+
+    subgraph Server
+        Pino[Pino HTTP Logger Middleware]
+
+        subgraph Cross Cutting
+            Exception[Global Exception Filter]
         end
 
-        subgraph Modules src/modules
-            AppMod[App Module]
-            HealthMod[Health Module]
+        subgraph Presentation Layer
+            Controller["Controller (/api/v1)"]
         end
 
-        subgraph Infrastructure src/infra
-            PrismaSvc[Prisma Service]
+        subgraph Application Layer
+            Guard[Auth Guard]
+            Pipe[Validation Pipe]
+            Service["Service (Business Logic)"]
+        end
+
+        subgraph Infrastructure Layer
+            Repo[Prisma Repository]
+            Cache["Redis (Cache / RateLimit)"]
+        end
+
+        subgraph Data Layer
+            DB[(MySQL)]
         end
     end
 
-    subgraph External Infrastructure Docker
-        MySQL[(MySQL :3307)]
-        Redis[(Redis :6379)]
+    subgraph Configuration
+        Env[.env]
+        Config[Config Module]
     end
 
-    Gateway --> AppMod
-    AppMod --> PrismaSvc
-    PrismaSvc --> MySQL
-    AppMod --> Redis
+    subgraph CI/CD
+        CI["GitHub Actions<br/>lint · typecheck · test · build"]
+    end
+
+
+    Client -->|HTTP Request| Pino
+    Pino --> Exception
+    Exception --> Controller
+
+    Client --> Swagger
+
+    Controller --> Guard
+    Guard --> Pipe
+    Pipe --> Service
+
+    Service --> Repo
+    Service --> Cache
+    Repo --> DB
+
+    Health --> DB
+    Health --> Cache
+
+    Env --> Config
+    Config --> Repo
 ```

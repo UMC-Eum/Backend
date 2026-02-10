@@ -2,7 +2,7 @@ import { HttpStatus, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { ValidationError } from 'class-validator';
-import type { Request, NextFunction, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 
 import { AppModule } from './modules/app/app.module';
@@ -23,34 +23,6 @@ function isRequiredError(errors: ValidationError[]): boolean {
 
     return Object.keys(constraints).some((k) => requiredKeys.has(k));
   });
-}
-
-function parseCookieHeader(
-  cookieHeader: string | undefined,
-): Record<string, string> {
-  if (!cookieHeader) {
-    return {};
-  }
-
-  const decodeValue = (value: string): string => {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  };
-
-  return cookieHeader
-    .split(';')
-    .reduce<Record<string, string>>((acc, entry) => {
-      const [rawKey, ...valueParts] = entry.trim().split('=');
-      if (!rawKey) {
-        return acc;
-      }
-
-      acc[rawKey] = decodeValue(valueParts.join('='));
-      return acc;
-    }, {});
 }
 
 async function bootstrap() {
@@ -79,12 +51,7 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
   });
-  type CookieRequest = Request & { cookies: Record<string, string> };
-
-  app.use((req: CookieRequest, _res: Response, next: NextFunction) => {
-    req.cookies = parseCookieHeader(req.headers.cookie);
-    next();
-  });
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({

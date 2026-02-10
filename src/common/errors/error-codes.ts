@@ -71,7 +71,8 @@ export const ERROR_DEFINITIONS = {
   KEYWORD_NOT_FOUND: {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     code: 'KEYWORD-001',
-    message: 'DB에 존재하지 않는 키워드가 포함되어 있습니다. 키워드 목록을 다시 확인해 주세요.',
+    message:
+      'DB에 존재하지 않는 키워드가 포함되어 있습니다. 키워드 목록을 다시 확인해 주세요.',
   },
   // VOICE
   VOICE_RECORD_FAILED: {

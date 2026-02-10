@@ -48,7 +48,7 @@ export class NotificationService {
       title,
       body,
     );
-    console.log(result);
+    return result;
   }
 
   async findNotificationByFilter(

@@ -188,7 +188,7 @@ export class MatchesRepository {
         const heartId = likedUserMap.get(user.id);
 
         return {
-          userId: user.id,
+          userId: user.id.toString(),
           nickname: user.nickname,
           age: this.calculateAge(user.birthdate),
           areaName: user.address?.fullName ?? '',
@@ -202,7 +202,7 @@ export class MatchesRepository {
           matchScore: similarity,
           matchReasons: reasons,
           isLiked: !!heartId,
-          likedHeartId: heartId || null,
+          likedHeartId: heartId ? heartId.toString() : null,
         };
       })
       .sort((a, b) => b.matchScore - a.matchScore)

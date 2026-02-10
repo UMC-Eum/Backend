@@ -12,6 +12,7 @@ import {
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 import { UserService } from '../../../user/services/user/user.service';
+import { NotificationService } from '../../../notification/services/notification.service';
 
 interface PaginationParams {
   userId: string;
@@ -26,6 +27,7 @@ export class HeartService {
 
   constructor(
     private readonly heartRepository: HeartRepository,
+    private readonly notificationService: NotificationService,
     private readonly userService: UserService,
   ) {}
 
@@ -34,6 +36,22 @@ export class HeartService {
     targetUserId: string,
   ): Promise<HeartItemBase> {
     const result = await this.heartRepository.postHeart(userId, targetUserId);
+    const targetUserName = await this.userService
+      .getMe(Number(targetUserId))
+      .then((user) => user.nickname);
+    try {
+      await this.notificationService.createNotification(
+        Number(targetUserId),
+        'HEART',
+        '마음을 누른 사람이 생겼습니다!',
+        `${targetUserName}님이 회원님에게 마음을 보냈습니다.`,
+      );
+    } catch {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: ERROR_DEFINITIONS.SERVER_TEMPORARY_ERROR.message,
+        details: { field: 'targetUserId' },
+      });
+    }
     if (result.ok) {
       return result.heart;
     } else {

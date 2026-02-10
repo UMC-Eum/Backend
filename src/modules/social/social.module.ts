@@ -9,12 +9,17 @@ import { HeartRepository } from './repositories/heart.repository';
 import { BlockRepository } from './repositories/block.repository';
 import { ReportRepository } from './repositories/report.repository';
 import { AuthModule } from '../auth/auth.module';
-import { UserModule } from '../user/user.module';
 import { BlockFilterInterceptor } from '../../common/interceptors/block-filter.interceptor';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
+import { NotificationModule } from '../notification/notification.module';
+import { NotificationService } from '../notification/services/notification.service';
+import { NotificationRepository } from '../notification/repositories/notification.repository';
+import { UserService } from '../user/services/user/user.service';
+import { UserRepository } from '../user/repositories/user.repository';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [AuthModule, UserModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, NotificationModule, UserModule],
   controllers: [HeartController, BlockController, ReportController],
   providers: [
     BlockService,
@@ -24,6 +29,10 @@ import { PrismaModule } from '../../infra/prisma/prisma.module';
     BlockRepository,
     ReportRepository,
     BlockFilterInterceptor,
+    NotificationService,
+    NotificationRepository,
+    UserService,
+    UserRepository,
   ],
 })
 export class SocialModule {}

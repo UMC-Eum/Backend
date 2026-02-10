@@ -32,13 +32,13 @@ export class UserService {
     const idealPersonalities = user.idealPersonalities
       .map((item) => item.personality.body)
       .filter((body): body is string => Boolean(body));
-    const birthDate = user.birthdate.toISOString().split('T')[0];
+    const age = user.age;
 
     return {
       userId: Number(user.id),
       nickname: user.nickname,
       gender: user.sex,
-      birthDate,
+      age,
       area: {
         code: user.address.code,
         name: areaName,
@@ -63,7 +63,7 @@ export class UserService {
     const updateData: {
       nickname?: string;
       sex?: UserMeResponseDto['gender'];
-      birthdate?: Date;
+      age?: number;
       code?: string;
       introText?: string;
       introVoiceUrl?: string;
@@ -78,8 +78,8 @@ export class UserService {
       updateData.sex = payload.gender;
     }
 
-    if (payload.birthDate !== undefined) {
-      updateData.birthdate = new Date(payload.birthDate);
+    if (payload.age !== undefined) {
+      updateData.age = payload.age;
     }
 
     if (payload.areaCode !== undefined) {
@@ -186,9 +186,9 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.userRepository.updateIdealPersonalities(
+    await this.updateIdealPersonalitiesByBodies(
       userId,
-      payload.personalityIds,
+      payload.personalityKeywords,
     );
 
     return null;
@@ -265,19 +265,26 @@ export class UserService {
     userId: number,
     personalities: string[],
   ): Promise<void> {
-    const trimmed = personalities
+    const normalized = personalities
       .map((personality) => personality.trim())
       .filter(Boolean);
-    const uniquePersonalities = Array.from(new Set(trimmed));
+    const uniquePersonalities = Array.from(new Set(normalized));
 
     if (uniquePersonalities.length === 0) {
       await this.userRepository.updateIdealPersonalities(userId, []);
       return;
     }
 
-    const entries =
-      await this.userRepository.findPersonalitiesByBodies(uniquePersonalities);
-    const matched = new Map(entries.map((entry) => [entry.body, entry]));
+    const entries = await this.userRepository.findAllPersonalities();
+    const matched = new Map<string, (typeof entries)[number]>();
+
+    for (const entry of entries) {
+      const body = entry.body?.trim();
+      if (!body || matched.has(body)) {
+        continue;
+      }
+      matched.set(body, entry);
+    }
     const missing = uniquePersonalities.filter(
       (personality) => !matched.has(personality),
     );
@@ -290,7 +297,10 @@ export class UserService {
       });
     }
 
-    const ids = entries.map((entry) => Number(entry.id));
+    const ids = uniquePersonalities.map((personality) => {
+      const entry = matched.get(personality);
+      return Number(entry!.id);
+    });
     await this.userRepository.updateIdealPersonalities(userId, ids);
   }
 }

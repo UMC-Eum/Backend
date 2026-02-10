@@ -19,7 +19,6 @@ export class ReportRepository {
           reportedById: BigInt(userId),
           reportedId: BigInt(targetUserId),
         },
-        category: category,
       },
       select: { id: true },
     });

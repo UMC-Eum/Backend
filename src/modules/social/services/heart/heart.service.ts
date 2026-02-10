@@ -5,9 +5,13 @@ import {
   HeartSentItem,
   HeartListPayload,
   HeartItemBase,
+  UserProfileInfo,
+  HeartReceivedItemBasic,
+  HeartSentItemBasic,
 } from '../../dtos/heart.dto';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
+import { UserService } from '../../../user/services/user/user.service';
 
 interface PaginationParams {
   userId: string;
@@ -20,7 +24,10 @@ interface PaginationParams {
 export class HeartService {
   private readonly logger = new Logger(HeartService.name);
 
-  constructor(private readonly heartRepository: HeartRepository) {}
+  constructor(
+    private readonly heartRepository: HeartRepository,
+    private readonly userService: UserService,
+  ) {}
 
   async createHeart(
     userId: string,
@@ -75,7 +82,28 @@ export class HeartService {
         message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
-    return result as HeartListPayload<HeartReceivedItem>;
+
+    // 각 하트의 보낸 사람 정보를 가져와서 추가
+    const itemsWithProfile = await Promise.all(
+      result.items.map(async (item) => {
+        // HeartReceivedItemBasic 타입으로 캐스팅
+        const receivedItem = item as HeartReceivedItemBasic;
+        const fromUserProfile = await this.getUserProfile(
+          receivedItem.fromUserId,
+        );
+        return {
+          heartId: receivedItem.heartId,
+          createdAt: receivedItem.createdAt,
+          fromUserId: receivedItem.fromUserId,
+          fromUser: fromUserProfile,
+        };
+      }),
+    );
+
+    return {
+      nextCursor: result.nextCursor,
+      items: itemsWithProfile,
+    };
   }
 
   async getSentHearts(
@@ -94,7 +122,37 @@ export class HeartService {
         message: ERROR_DEFINITIONS.SOCIAL_NO_HEART.message,
         details: { field: 'cursor' },
       });
-    return result as HeartListPayload<HeartSentItem>;
+
+    // 각 하트의 받은 사람 정보를 가져와서 추가
+    const itemsWithProfile = await Promise.all(
+      result.items.map(async (item) => {
+        // HeartSentItemBasic 타입으로 캐스팅
+        const sentItem = item as HeartSentItemBasic;
+        const targetUserProfile = await this.getUserProfile(
+          sentItem.targetUserId,
+        );
+        return {
+          heartId: sentItem.heartId,
+          createdAt: sentItem.createdAt,
+          targetUserId: sentItem.targetUserId,
+          targetUser: targetUserProfile,
+        };
+      }),
+    );
+
+    return {
+      nextCursor: result.nextCursor,
+      items: itemsWithProfile,
+    };
+  }
+
+  private async getUserProfile(userId: number): Promise<UserProfileInfo> {
+    const userMe = await this.userService.getMe(userId);
+    return {
+      profileImageUrl: userMe.profileImageUrl,
+      nickname: userMe.nickname,
+      age: Number(userMe.age),
+    };
   }
 
   private parseSize(size?: string) {

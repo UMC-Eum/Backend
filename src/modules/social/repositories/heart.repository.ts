@@ -6,8 +6,8 @@ import { ERROR_DEFINITIONS } from '../../../common/errors/error-codes';
 import {
   HeartItemBase,
   HeartListPayload,
-  HeartReceivedItem,
-  HeartSentItem,
+  HeartReceivedItemBasic,
+  HeartSentItemBasic,
 } from '../dtos/heart.dto';
 type PostHeartResult =
   | { ok: true; heart: HeartItemBase }
@@ -109,7 +109,9 @@ export class HeartRepository {
     cursor?: string;
     size?: number;
     isSent: boolean;
-  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
+  }): Promise<HeartListPayload<
+    HeartSentItemBasic | HeartReceivedItemBasic
+  > | null> {
     const take = Math.min(Math.max(params.size ?? 20, 1), 50);
     let parsedCursor: bigint | undefined;
     if (params.cursor !== undefined) {
@@ -145,14 +147,14 @@ export class HeartRepository {
     );
 
     if (params.isSent) {
-      const mappedItems: HeartSentItem[] = items.map((item) => ({
+      const mappedItems: HeartSentItemBasic[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
         targetUserId: Number(item.sentToId),
       }));
       return { nextCursor, items: mappedItems };
     } else {
-      const mappedItems: HeartReceivedItem[] = items.map((item) => ({
+      const mappedItems: HeartReceivedItemBasic[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
         fromUserId: Number(item.sentById),
@@ -165,7 +167,9 @@ export class HeartRepository {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }): Promise<HeartListPayload<HeartReceivedItem | HeartSentItem> | null> {
+  }): Promise<HeartListPayload<
+    HeartReceivedItemBasic | HeartSentItemBasic
+  > | null> {
     const sentToId = this.toBigInt(params.userId);
     this.logger.debug(
       `getReceivedHeartsByUserId userId=${sentToId} cursor=${params.cursor} size=${params.size}`,
@@ -185,7 +189,9 @@ export class HeartRepository {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
+  }): Promise<HeartListPayload<
+    HeartSentItemBasic | HeartReceivedItemBasic
+  > | null> {
     const sentById = this.toBigInt(params.userId);
     this.logger.debug(
       `getSentHeartsByUserId userId=${sentById} cursor=${params.cursor} size=${params.size}`,

@@ -223,8 +223,8 @@ Private project.
 
 ```
 
+```mermaid
 graph TD
-    %% 사용자 및 외부 환경
     User([User / Client]) -.-> |"HTTP Request (/api/v1)"| Gateway
 
     subgraph "NestJS Application Context"
@@ -239,38 +239,20 @@ graph TD
         subgraph "Modules (src/modules)"
             AppMod[App Module]
             HealthMod[Health Module]
-            DomainMod[Domain/Business Modules]
         end
 
         subgraph "Infrastructure (src/infra)"
             PrismaSvc[Prisma Service]
-            LoggerSvc[Pino Logger Service]
         end
     end
 
-    %% 데이터 저장소 (Docker Compose)
-    subgraph "External Infrastructure (Docker Compose)"
+    subgraph "External Infrastructure (Docker)"
         MySQL[(MySQL :3307)]
         Redis[(Redis :6379)]
     end
 
-    %% CI 파이프라인
-    subgraph "CI Pipeline (GitHub Actions)"
-        Actions{GitHub Actions}
-        Actions --> |1. Lint/Typecheck| Actions
-        Actions --> |2. Prisma Generate| Actions
-        Actions --> |3. Unit Test| Actions
-        Actions --> |4. Build| Actions
-    end
-
-    %% 연결 관계
-    Gateway --> Pino
     Gateway --> AppMod
-    AppMod --> HealthMod
-    AppMod --> DomainMod
-    
-    DomainMod --> PrismaSvc
-    DomainMod --> Redis
+    AppMod --> PrismaSvc
     PrismaSvc --> MySQL
-    
-    Actions -.-> |"Validate Code"| Gateway
+    AppMod --> Redis
+```

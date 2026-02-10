@@ -15,26 +15,39 @@ import {
 import { ChatMediaType } from '@prisma/client';
 
 export class SendMessageDto {
-  @ApiProperty({ enum: ChatMediaType, example: 'AUDIO' })
+  @ApiProperty({
+    enum: ChatMediaType,
+    example: 'AUDIO',
+    description: '메시지 타입 (TEXT/AUDIO/PHOTO/VIDEO)',
+  })
   @IsEnum(ChatMediaType)
   @IsNotEmpty()
   type!: ChatMediaType;
 
-  @ApiPropertyOptional({ example: null })
+  @ApiPropertyOptional({
+    example: null,
+    description: 'TEXT 타입일 때 필수 (미디어 타입일 때는 null)',
+  })
   @IsOptional()
   @ValidateIf((o) => (o as SendMessageDto).type === 'TEXT')
   @IsString()
   @IsNotEmpty({ message: 'TEXT 타입일 때 text는 필수입니다.' })
   text?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/m9001.m4a' })
+  @ApiPropertyOptional({
+    example: 'https://cdn.example.com/m9001.m4a',
+    description: 'TEXT를 제외한 타입일 때 필수 (미디어 URL)',
+  })
   @IsOptional()
   @ValidateIf((o) => (o as SendMessageDto).type !== 'TEXT')
   @IsUrl({}, { message: 'mediaUrl은 유효한 URL 형식이어야 합니다.' })
   @IsNotEmpty({ message: '미디어 메시지일 때 mediaUrl은 필수입니다.' })
   mediaUrl?: string | null;
 
-  @ApiPropertyOptional({ example: 4, description: 'AUDIO 타입일 때 필수' })
+  @ApiPropertyOptional({
+    example: 4,
+    description: 'AUDIO 타입일 때 필수 (초 단위)',
+  })
   @IsOptional()
   @ValidateIf((o) => (o as SendMessageDto).type === 'AUDIO')
   @Type(() => Number)
@@ -42,13 +55,20 @@ export class SendMessageDto {
   @Min(1)
   durationSec?: number | null;
 }
+
 export class ListMessagesQueryDto {
   @ApiPropertyOptional({ description: 'opaque cursor (base64url)' })
   @IsOptional()
   @IsString()
   cursor?: string;
 
-  @ApiPropertyOptional({ example: 30, default: 30, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: '가져올 아이템 수 (기본 30, 최대 100)',
+    example: 30,
+    default: 30,
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

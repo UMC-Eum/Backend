@@ -32,13 +32,12 @@ export class UserService {
     const idealPersonalities = user.idealPersonalities
       .map((item) => item.personality.body)
       .filter((body): body is string => Boolean(body));
-    const birthDate = user.birthdate.toISOString().split('T')[0];
-
+    const age = user.age;
     return {
       userId: Number(user.id),
       nickname: user.nickname,
       gender: user.sex,
-      birthDate,
+      age,
       area: {
         code: user.address.code,
         name: areaName,

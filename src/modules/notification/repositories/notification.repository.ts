@@ -54,4 +54,35 @@ export class NotificationRepository {
       },
     });
   }
+
+  // GET v1/notifications/hearts & GET v1/notifications/chats
+  findNotificationByFilter(
+    userId: number,
+    type: NotificationType,
+    cursor?: string,
+    limit = 20,
+  ) {
+    return this.prisma.notification.findMany({
+      where: {
+        userId: BigInt(userId),
+        type: type,
+      },
+      take: limit,
+      ...(cursor && {
+        cursor: { id: BigInt(cursor) },
+        skip: 1,
+      }),
+      orderBy: { id: 'desc' },
+    });
+  }
+
+  // DELETE v1/notifications/{notificationId}
+  deleteNotificationById(userId: number, notificationId: string) {
+    return this.prisma.notification.delete({
+      where: {
+        userId: BigInt(userId),
+        id: BigInt(notificationId),
+      },
+    });
+  }
 }

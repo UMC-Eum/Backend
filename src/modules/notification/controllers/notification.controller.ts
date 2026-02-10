@@ -5,7 +5,7 @@ import {
   Patch,
   Query,
   UseGuards,
-  Body,
+  Delete,
 } from '@nestjs/common';
 import { NotificationService } from '../services/notification.service';
 import {
@@ -14,9 +14,12 @@ import {
   ApiResponse,
   ApiQuery,
   ApiBearerAuth,
+  ApiOkResponse,
 } from '@nestjs/swagger';
 import { RequiredUserId } from '../../../modules/auth/decorators';
 import { AccessTokenGuard } from '../../../modules/auth/guards/access-token.guard';
+import { NotificationResponseDto } from '../dtos/notification.dto';
+import { NotificationType } from '@prisma/client';
 
 @ApiBearerAuth('access-token')
 @Controller('notifications')
@@ -101,6 +104,81 @@ export class NotificationController {
       userId,
       cursor,
       size ? Number(size) : 20,
+    );
+  }
+
+  @ApiOperation({ description: '마음 알림 목록 조회' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: '페이지네이션 커서',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    description: '한 페이지당 보여줄 알림 개수',
+    example: 20,
+  })
+  @ApiOkResponse({ type: NotificationResponseDto })
+  @Get('hearts')
+  @UseGuards(AccessTokenGuard)
+  findHeartNotifications(
+    @RequiredUserId() userId: number,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.notificationService.findNotificationByFilter(
+      userId,
+      NotificationType.HEART,
+      cursor,
+      size ? Number(size) : 20,
+    );
+  }
+
+  @ApiOperation({ description: '채팅 알림 목록 조회' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: '페이지네이션 커서',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    description: '한 페이지당 보여줄 알림 개수',
+    example: 20,
+  })
+  @ApiOkResponse({ type: NotificationResponseDto })
+  @Get('chats')
+  @UseGuards(AccessTokenGuard)
+  findChatNotifications(
+    @RequiredUserId() userId: number,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.notificationService.findNotificationByFilter(
+      userId,
+      NotificationType.CHAT,
+      cursor,
+      size ? Number(size) : 20,
+    );
+  }
+
+  @ApiOperation({ description: '특정 알림 삭제' })
+  @ApiParam({
+    name: 'id',
+    description: '알림ID',
+    example: 1,
+  })
+  @ApiOkResponse()
+  @Delete(':id')
+  @UseGuards(AccessTokenGuard)
+  async deleteNotificationById(
+    @RequiredUserId() userId: number,
+    @Param('id') notificationId: string,
+  ) {
+    await this.notificationService.deleteNotificationById(
+      userId,
+      notificationId,
     );
   }
 }

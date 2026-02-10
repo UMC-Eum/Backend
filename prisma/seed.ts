@@ -40,6 +40,7 @@ interface RawUserRecord {
   provider: string;
   providerUserId: string;
   vibeVector: string;
+  age: string;
 }
 interface RawAddressRecord {
   code: string;
@@ -346,6 +347,7 @@ async function main() {
         vibeVector: user.vibeVector
           ? (JSON.parse(user.vibeVector) as unknown as Prisma.InputJsonValue)
           : Prisma.JsonNull,
+        age: Number(user.age),
       },
     });
   }

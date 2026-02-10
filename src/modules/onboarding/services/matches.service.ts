@@ -25,7 +25,7 @@ export class MatchesService {
     };
   }
 
-  private generatorCursor(userId: bigint | number): string {
+  private generatorCursor(userId: string | bigint | number): string {
     return Buffer.from(userId.toString()).toString('base64');
   }
 }

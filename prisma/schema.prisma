@@ -118,7 +118,7 @@ model RefreshToken {
   revokedAt DateTime? @db.DateTime(6)
   createdAt DateTime  @default(now()) @db.DateTime(6)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -131,7 +131,7 @@ model UserPhoto {
   deletedAt DateTime? @db.DateTime(6)
   createdAt DateTime  @default(now()) @db.DateTime(6)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -145,8 +145,8 @@ model Heart {
   deletedAt DateTime?    @db.DateTime(6)
   status    ActiveStatus @default(ACTIVE)
 
-  sentBy User @relation(name: "SentBy", fields: [sentById], references: [id])
-  sentTo User @relation(name: "SentTo", fields: [sentToId], references: [id])
+  sentBy User @relation(name: "SentBy", fields: [sentById], references: [id], onDelete: Cascade)
+  sentTo User @relation(name: "SentTo", fields: [sentToId], references: [id], onDelete: Cascade)
 
   @@unique([sentById, sentToId])
   @@index([sentById])
@@ -171,7 +171,7 @@ model UserInterest {
   createdAt  DateTime  @default(now()) @db.DateTime(6)
 
   interest Interest @relation(fields: [interestId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([interestId, userId])
   @@index([userId])
@@ -193,7 +193,7 @@ model UserIdealPersonality {
   updatedAt     DateTime  @updatedAt @db.DateTime(6)
   createdAt     DateTime  @default(now()) @db.DateTime(6)
 
-  user        User        @relation(fields: [userId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   personality Personality @relation(fields: [personalityId], references: [id])
 
   @@unique([userId, personalityId])
@@ -208,7 +208,7 @@ model UserPersonality {
   updatedAt     DateTime  @updatedAt @db.DateTime(6)
   createdAt     DateTime  @default(now()) @db.DateTime(6)
 
-  user        User        @relation(fields: [userId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   personality Personality @relation(fields: [personalityId], references: [id])
 
   @@unique([userId, personalityId])
@@ -247,8 +247,8 @@ model Block {
   status      BlockStatus @default(BLOCKED)
   deletedAt   DateTime?   @db.DateTime(6)
 
-  blockedBy User @relation(name: "UserBlocksBy", fields: [blockedById], references: [id])
-  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id])
+  blockedBy User @relation(name: "UserBlocksBy", fields: [blockedById], references: [id], onDelete: Cascade)
+  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([blockedById, blockedId])
   @@index([blockedById])
@@ -267,8 +267,8 @@ model Report {
   chatRoomId   BigInt?   @db.BigInt
   deletedAt    DateTime? @db.DateTime(6)
 
-  reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id])
-  reported   User @relation(name: "UserReports", fields: [reportedId], references: [id])
+  reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id], onDelete: Cascade)
+  reported   User @relation(name: "UserReports", fields: [reportedId], references: [id], onDelete: Cascade)
 
   @@unique([reportedById, reportedId])
   @@index([reportedById])
@@ -286,7 +286,7 @@ model Notification {
   title     String           @db.VarChar(50)
   body      String           @db.VarChar(100)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([createdAt])
@@ -301,7 +301,7 @@ model ChatRoom {
   participants ChatParticipant[]
   messages     ChatMessage[]
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -316,7 +316,7 @@ model ChatParticipant {
   endedAt  DateTime? @db.DateTime(6)
 
   room ChatRoom @relation(fields: [roomId], references: [id])
-  user User     @relation(fields: [userId], references: [id])
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([roomId, userId])
   @@index([userId])
@@ -333,8 +333,8 @@ model ChatMessage {
   roomId    BigInt    @db.BigInt
 
   room      ChatRoom    @relation(fields: [roomId], references: [id])
-  sentBy    User        @relation(name: "ChatMessagesSentBy", fields: [sentById], references: [id])
-  sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id])
+  sentBy    User        @relation(name: "ChatMessagesSentBy", fields: [sentById], references: [id], onDelete: Cascade)
+  sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id], onDelete: Cascade)
   chatMedia ChatMedia[]
 
   @@index([sentById])
@@ -371,7 +371,7 @@ model UserMarketingAgreement {
   isAgreed             Boolean   @default(true)
   deletedAt            DateTime? @db.DateTime(6)
 
-  user               User               @relation(fields: [userId], references: [id])
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
 
   @@unique([marketingAgreementId, userId])

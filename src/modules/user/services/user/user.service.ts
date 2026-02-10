@@ -194,6 +194,7 @@ export class UserService {
     return null;
   }
 
+  // 키워드 검증 + 에러 처리
   private async updateKeywordsByBodies(
     userId: number,
     keywords: string[],
@@ -214,8 +215,10 @@ export class UserService {
     const missing = uniqueKeywords.filter((keyword) => !matched.has(keyword));
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 키워드입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 
@@ -223,6 +226,7 @@ export class UserService {
     await this.userRepository.updateKeywords(userId, ids);
   }
 
+  // 성향 검증 + 에러 처리
   private async updatePersonalitiesByBodies(
     userId: number,
     personalities: string[],
@@ -245,8 +249,10 @@ export class UserService {
     );
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 성격입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 
@@ -254,6 +260,7 @@ export class UserService {
     await this.userRepository.updatePersonalities(userId, ids);
   }
 
+  // 이상형 성향 검증 + 에러 처리
   private async updateIdealPersonalitiesByBodies(
     userId: number,
     personalities: string[],
@@ -276,8 +283,10 @@ export class UserService {
     );
 
     if (missing.length > 0) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `유효하지 않은 이상형 성격입니다: ${missing.join(', ')}`,
+      throw new AppException('KEYWORD_NOT_FOUND', {
+        details: {
+          invalidKeywords: missing,
+        },
       });
     }
 

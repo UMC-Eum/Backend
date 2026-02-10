@@ -188,7 +188,7 @@ export class MatchesRepository {
         const heartId = likedUserMap.get(user.id);
 
         return {
-          userId: user.id.toString(),
+          userId: user.id,
           nickname: user.nickname,
           age: this.calculateAge(user.birthdate),
           areaName: user.address?.fullName ?? '',

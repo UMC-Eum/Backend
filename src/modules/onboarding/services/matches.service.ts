@@ -11,7 +11,7 @@ export class MatchesService {
     cursorUserId?: bigint | null,
   ) {
     const items = await this.matchesRepository.findRecommendedMatches(
-      userId,
+      BigInt(userId),
       size,
       cursorUserId,
     );

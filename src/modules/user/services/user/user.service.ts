@@ -33,6 +33,7 @@ export class UserService {
       .map((item) => item.personality.body)
       .filter((body): body is string => Boolean(body));
     const age = user.age;
+
     return {
       userId: Number(user.id),
       nickname: user.nickname,
@@ -62,7 +63,7 @@ export class UserService {
     const updateData: {
       nickname?: string;
       sex?: UserMeResponseDto['gender'];
-      birthdate?: Date;
+      age?: number;
       code?: string;
       introText?: string;
       introVoiceUrl?: string;
@@ -76,9 +77,9 @@ export class UserService {
     if (payload.gender !== undefined) {
       updateData.sex = payload.gender;
     }
-
-    if (payload.birthDate !== undefined) {
-      updateData.birthdate = new Date(payload.birthDate);
+    
+    if (payload.age !== undefined) {
+      updateData.age = payload.age;
     }
 
     if (payload.areaCode !== undefined) {

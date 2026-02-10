@@ -94,7 +94,7 @@ export class UserRepository {
     data: {
       nickname?: string;
       sex?: Sex;
-      birthdate?: Date;
+      age?: number;
       code?: string;
       introText?: string;
       introVoiceUrl?: string;

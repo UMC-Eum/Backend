@@ -1,86 +1,13 @@
-name: CI/CD Pipeline
+name: CD - Deploy to EC2
 
 on:
   push:
-    branches: ["main", "dev"]
-  pull_request:
-    branches: ["main", "dev"]
+    branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: ci-cd-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  ci:
-    name: CI - Test & Build
+  deploy:
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: eum_dev
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-    env:
-      NODE_ENV: test
-      DATABASE_URL: mysql://root:root@127.0.0.1:3306/eum_dev
-      REDIS_URL: redis://127.0.0.1:6379
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install
-        run: npm ci
-
-      - name: Prisma generate
-        run: npm run prisma:generate
-
-      - name: Prisma migrate (deploy)
-        run: npx prisma migrate deploy
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Unit tests
-        run: npm run test
-
-      - name: Build
-        run: npm run build
-
-  cd:
-    name: CD - Deploy to EC2
-    runs-on: ubuntu-latest
-    needs: ci
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Checkout code
@@ -183,4 +110,3 @@ jobs:
           else
             echo "❌ Deployment failed!"
           fi
-

@@ -81,18 +81,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-  private emitToRoom(
-    chatRoomId: number,
-    event: string,
-    payload: unknown,
-  ): void {
+  /**
+   * 여러 room 대상으로 "한 번만" emit (room + user 룸 중복 join 시에도 중복 수신 방지)
+   */
+  private emitToRooms(rooms: string[], event: string, payload: unknown): void {
     if (!this.server) return;
-    this.server.to(`room:${chatRoomId}`).emit(event, payload);
-  }
-
-  private emitToUser(userId: number, event: string, payload: unknown): void {
-    if (!this.server) return;
-    this.server.to(`user:${userId}`).emit(event, payload);
+    this.server.to(rooms).emit(event, payload);
   }
 
   emitMessageRead(params: {
@@ -109,10 +103,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       readAt: params.readAt,
     };
 
-    this.emitToRoom(params.chatRoomId, 'message.read', payload);
+    const rooms = new Set<string>([`room:${params.chatRoomId}`]);
     for (const userId of params.notifyUserIds ?? []) {
-      this.emitToUser(userId, 'message.read', payload);
+      rooms.add(`user:${userId}`);
     }
+
+    this.emitToRooms([...rooms], 'message.read', payload);
   }
 
   emitMessageDeleted(params: {
@@ -129,10 +125,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       deletedAt: params.deletedAt,
     };
 
-    this.emitToRoom(params.chatRoomId, 'message.deleted', payload);
+    const rooms = new Set<string>([`room:${params.chatRoomId}`]);
     for (const userId of params.notifyUserIds ?? []) {
-      this.emitToUser(userId, 'message.deleted', payload);
+      rooms.add(`user:${userId}`);
     }
+
+    this.emitToRooms([...rooms], 'message.deleted', payload);
   }
 
   async handleConnection(client: AuthedSocket) {
@@ -211,7 +209,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const title = sender?.nickname ?? '새 메시지';
       const preview = buildMessagePreview(params.messageType, params.text);
 
-      // DB에 알림 생성
       const created = await this.notificationService.createNotification(
         params.receiverUserId,
         NotificationType.CHAT,
@@ -219,7 +216,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         preview.textPreview,
       );
 
-      // 수신자 개인 룸으로 실시간 알림 전송
       this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
         notificationId: created.id.toString(),
         type: created.type,
@@ -265,7 +261,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const me = BigInt(senderUserId);
     const roomId = BigInt(chatRoomId);
 
-    // 채팅방 참여 여부 확인
     const isParticipant = await this.prisma.chatParticipant.findFirst({
       where: {
         userId: me,
@@ -354,7 +349,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       select: { id: true, sentAt: true },
     });
 
-    // AUDIO, VIDEO 둘 다 durationSec 저장
     const shouldHaveDuration = type === 'AUDIO' || type === 'VIDEO';
     await this.prisma.chatMedia.create({
       data: {
@@ -378,9 +372,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       sentAt: message.sentAt.toISOString(),
     };
 
-    void this.server.to(room).emit('message.new', payload);
+    this.server.to(room).emit('message.new', payload);
 
-    // 알림 비동기 처리
     void this.notifyNewMessage({
       receiverUserId: Number(peer.userId),
       senderUserId,
@@ -389,6 +382,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       messageType: type,
       text: type === 'TEXT' ? (body.text ?? null) : null,
     });
+
     return { ok: true, messageId: Number(message.id) };
   }
 }

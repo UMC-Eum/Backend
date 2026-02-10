@@ -11,6 +11,9 @@ export class MatchesRepository {
     size = 20,
     cursorUserId?: bigint | null,
   ) {
+    console.log('[MATCH] 시작:', { userId: userId.toString(), size });
+    const startTime = Date.now();
+
     // 현재 유저 정보
     const me = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -41,8 +44,10 @@ export class MatchesRepository {
       ...me.interests.map((i) => i.interestId),
       ...me.personalities.map((p) => p.personalityId),
     ];
+
     // 이미 마음을 누른 사용자 ID 집합
     const likedUserMap = new Map(me.sentHearts.map((h) => [h.sentToId, h.id]));
+
     // 이상형 등록 여부 확인
     const hasIdealTypes =
       me.idealPersonalities && me.idealPersonalities.length > 0;
@@ -50,7 +55,7 @@ export class MatchesRepository {
       (ip) => ip.personalityId,
     );
 
-    // 필터링 조건: 같은 지역
+    // 이상형 여부에 따라 WHERE 조건을 다르게 설정
     const whereCondition: Record<string, unknown> = {
       id: { not: userId },
       status: 'ACTIVE',
@@ -58,68 +63,100 @@ export class MatchesRepository {
       code: me.code,
     };
 
-    // 2단계: 이상형 등록 여부에 따른 추가 필터링
-    if (hasIdealTypes) {
-      // 이상형이 등록된 경우: 같은 동네이면서 이상형 조건도 만족
-      whereCondition.OR = [
-        {
-          interests: {
-            some: {
-              interestId: { in: myKeywordIds },
-            },
-          },
+    // 이상형이 등록된 경우: 추가 조건 적용
+    if (hasIdealTypes && idealPersonalityIds.length > 0) {
+      whereCondition.personalities = {
+        some: {
+          personalityId: { in: idealPersonalityIds },
         },
-        {
-          personalities: {
-            some: {
-              personalityId: { in: myKeywordIds },
-            },
-          },
-        },
-        {
-          personalities: {
-            some: {
-              personalityId: { in: idealPersonalityIds },
-            },
-          },
-        },
-      ];
+      };
+      console.log('[MATCH] 이상형 필터링 활성화:', idealPersonalityIds);
+    } else {
+      console.log('[MATCH] 이상형 미등록 - 같은 지역 모두 추천');
     }
-    // 이상형 미등록: 같은 지역 유저만 추천
+
+    const BATCH_SIZE = Math.min(size * 10, 200);
+
+    console.log('[MATCH] 쿼리 시작 - BATCH_SIZE:', BATCH_SIZE);
 
     // 1차 하드필터링으로 후보 조회
     const candidates = await this.prisma.user.findMany({
       where: whereCondition,
-      include: {
-        address: true,
-        interests: { include: { interest: true } },
-        personalities: { include: { personality: true } },
+      select: {
+        id: true,
+        nickname: true,
+        birthdate: true,
+        profileImageUrl: true,
+        introText: true,
+        introVoiceUrl: true,
+        vibeVector: true,
+        address: {
+          select: {
+            fullName: true,
+          },
+        },
+        interests: {
+          select: {
+            interestId: true,
+            interest: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        personalities: {
+          select: {
+            personalityId: true,
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { id: 'asc' },
       skip: cursorUserId ? 1 : 0,
       cursor: cursorUserId ? { id: cursorUserId } : undefined,
-      take: 100,
+      take: BATCH_SIZE,
     });
 
-    // 벡터값 기반 소프트매치
+    console.log('[MATCH] 후보 조회 완료:', candidates.length, '명');
+
     const scored = candidates
-      .filter((user) => {
-        const userVector = user.vibeVector as number[];
-        return (
-          Array.isArray(userVector) && userVector.length === myVector.length
-        );
-      })
+      .filter(
+        (user): user is (typeof candidates)[0] & { vibeVector: number[] } => {
+          if (!Array.isArray(user.vibeVector)) {
+            console.log(
+              `[MATCH] ❌ vibeVector 필터링 제외 - ID: ${user.id}, type: ${typeof user.vibeVector}`,
+            );
+            return false;
+          }
+
+          if (user.vibeVector.length !== myVector.length) {
+            console.log(
+              `[MATCH] ❌ vibeVector 길이 불일치 - ID: ${user.id}, ` +
+                `expected: ${myVector.length}, got: ${user.vibeVector.length}`,
+            );
+            return false;
+          }
+
+          return true;
+        },
+      )
       .map((user) => {
-        const userVector = user.vibeVector as number[];
-        const similarity = this.cosineSimilarity(myVector, userVector);
+        const userVector = user.vibeVector;
+        const similarity = this.cosineSimilarityOptimized(myVector, userVector);
 
         const reasons: string[] = [];
 
         if (similarity > 0.85) {
           reasons.push('분위기 유사');
+        } else if (similarity > 0.7) {
+          reasons.push('분위기 어느정도 유사');
         }
 
-        // 공통 관심사 존재
         const userInterestIds = user.interests.map((i) => i.interestId);
         const hasCommonInterest = userInterestIds.some((id) =>
           myKeywordIds.includes(id),
@@ -128,7 +165,6 @@ export class MatchesRepository {
           reasons.push('공통 관심사 존재');
         }
 
-        // 공통 성향 존재
         const userPersonalityIds = user.personalities.map(
           (p) => p.personalityId,
         );
@@ -139,9 +175,9 @@ export class MatchesRepository {
           reasons.push('성향 유사');
         }
 
-        // 이상형 조건 매칭 (이상형 등록된 경우만)
+        let matchesIdealType = false;
         if (hasIdealTypes) {
-          const matchesIdealType = userPersonalityIds.some((id) =>
+          matchesIdealType = userPersonalityIds.some((id) =>
             idealPersonalityIds.includes(id),
           );
           if (matchesIdealType) {
@@ -172,14 +208,30 @@ export class MatchesRepository {
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, size);
 
+    const elapsed = Date.now() - startTime;
+    console.log('[MATCH] 완료:', {
+      resultCount: scored.length,
+      elapsedMs: elapsed,
+      isSlow: elapsed > 2000,
+    });
+
     return scored;
   }
 
-  // 코사인 유사도 계산 함수
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dot = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a ** 2, 0));
-    const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b ** 2, 0));
+  // 벡터 유사도 계산
+  private cosineSimilarityOptimized(vecA: number[], vecB: number[]): number {
+    let dot = 0;
+    let magA = 0;
+    let magB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+      const a = vecA[i];
+      const b = vecB[i];
+      dot += a * b;
+      magA += a * a;
+      magB += b * b;
+    }
+    magA = Math.sqrt(magA);
+    magB = Math.sqrt(magB);
     if (magA === 0 || magB === 0) return 0;
     return dot / (magA * magB);
   }

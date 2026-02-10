@@ -52,11 +52,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.20.0"
           cache: "npm"
 
-      - name: Install
-        run: npm ci
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules .prisma
+          npm ci
 
       - name: Prisma generate
         run: npm run prisma:generate

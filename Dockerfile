@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-bookworm-slim AS deps
+FROM node:20.20.0-bookworm-slim AS deps
 WORKDIR /app
 
 # Prisma가 openssl 필요할 수 있어서 설치(경고/런타임 문제 방지)
@@ -13,7 +13,7 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 
-FROM node:20-bookworm-slim AS build
+FROM node:20.20.0-bookworm-slim AS build
 WORKDIR /app
 
 RUN apt-get update -y \
@@ -28,7 +28,7 @@ RUN npx prisma generate
 RUN npm run build
 
 
-FROM node:20-bookworm-slim AS runner
+FROM node:20.20.0-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 

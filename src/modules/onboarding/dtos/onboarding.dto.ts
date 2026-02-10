@@ -1,4 +1,10 @@
-import { IsString, IsArray, IsDateString, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsArray,
+  IsDateString,
+  IsNumber,
+  ArrayNotEmpty,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateProfileDto {
@@ -42,6 +48,7 @@ export class CreateProfileDto {
     description: 'Vibe 벡터 값',
   })
   @IsArray()
+  @ArrayNotEmpty({ message: 'vibeVector는 비어있을 수 없습니다.' })
   @IsNumber({}, { each: true })
   vibeVector: number[];
 }

@@ -83,6 +83,12 @@ export class UserRepository {
     });
   }
 
+  findAllPersonalities() {
+    return this.prismaService.personality.findMany({
+      select: { id: true, body: true },
+    });
+  }
+
   updateProfile(
     userId: number,
     data: {
@@ -162,7 +168,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             interestId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -211,7 +216,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -260,7 +264,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {

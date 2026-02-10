@@ -95,7 +95,7 @@ export class UserRepository {
       profileImageUrl?: string;
     },
   ) {
-    return this.prismaService.user.updateMany({
+    return this.prismaService.user.update({
       where: {
         id: BigInt(userId),
         deletedAt: null,
@@ -106,7 +106,7 @@ export class UserRepository {
   }
 
   deactivateProfile(userId: number) {
-    return this.prismaService.user.updateMany({
+    return this.prismaService.user.update({
       where: {
         id: BigInt(userId),
         deletedAt: null,
@@ -162,7 +162,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             interestId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -211,7 +210,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -260,7 +258,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {

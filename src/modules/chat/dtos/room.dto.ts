@@ -9,8 +9,10 @@ import {
   Min,
 } from 'class-validator';
 
+import type { ChatMediaType } from '@prisma/client';
+
 export class CreateRoomDto {
-  @ApiProperty({ example: 9 })
+  @ApiProperty({ example: 9, description: '상대 사용자 ID' })
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -24,7 +26,13 @@ export class ListRoomsQueryDto {
   @IsString()
   cursor?: string;
 
-  @ApiPropertyOptional({ example: 20, default: 20, minimum: 1, maximum: 50 })
+  @ApiPropertyOptional({
+    description: '가져올 아이템 수 (기본 20, 최대 50)',
+    example: 20,
+    default: 20,
+    minimum: 1,
+    maximum: 50,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -53,7 +61,7 @@ export type RoomListItem = {
   chatRoomId: number;
   peer: PeerWithArea;
   lastMessage: null | {
-    type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
+    type: ChatMediaType;
     textPreview: string;
     sentAt: string;
   };

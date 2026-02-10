@@ -188,11 +188,9 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 
 ---
 
-```
 
 > `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.
 
-````
 
 =======
 

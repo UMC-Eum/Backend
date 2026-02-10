@@ -219,8 +219,6 @@ npm run prisma:generate # prisma client generate
 
 Private project.
 
-```
-
 ```mermaid
 graph TD
     User([User / Client]) -.->|HTTP Request api v1| Gateway

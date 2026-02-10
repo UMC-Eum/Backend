@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../../common/errors/app.exception';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
 import { ChatGateway } from '../../gateways/chat.gateway';
+import { ChatMediaService } from '../chat-media/chat-media.service';
 
 import type {
   ListMessagesQueryDto,
@@ -34,6 +35,7 @@ export class MessageService {
     private readonly participantRepo: ParticipantRepository,
     private readonly roomRepo: RoomRepository,
     private readonly chatGateway: ChatGateway,
+    private readonly chatMediaService: ChatMediaService,
   ) {}
 
   async listMessages(
@@ -82,22 +84,29 @@ export class MessageService {
     const hasNext = messages.length > size;
     const page = hasNext ? messages.slice(0, size) : messages;
 
-    const items: MessageItem[] = page.map((msg) => {
-      const media = msg.chatMedia[0] ?? null;
-      const isMine = msg.sentById === me;
+    const items: MessageItem[] = await Promise.all(
+      page.map(async (msg) => {
+        const media = msg.chatMedia[0] ?? null;
+        const isMine = msg.sentById === me;
 
-      return {
-        messageId: Number(msg.id),
-        type: media?.type ?? 'TEXT',
-        text: media?.text ?? null,
-        mediaUrl: media?.url ?? null,
-        durationSec: media?.durationSec ?? null,
-        senderUserId: Number(msg.sentById),
-        sentAt: msg.sentAt.toISOString(),
-        readAt: msg.readAt?.toISOString() ?? null,
-        isMine,
-      };
-    });
+        // DB에는 s3://bucket/key 형태로 저장, 응답에서는 매번 GET presign으로 변환
+        const mediaUrl = await this.chatMediaService.toClientUrl(
+          media?.url ?? null,
+        );
+
+        return {
+          messageId: Number(msg.id),
+          type: media?.type ?? 'TEXT',
+          text: media?.text ?? null,
+          mediaUrl,
+          durationSec: media?.durationSec ?? null,
+          senderUserId: Number(msg.sentById),
+          sentAt: msg.sentAt.toISOString(),
+          readAt: msg.readAt?.toISOString() ?? null,
+          isMine,
+        };
+      }),
+    );
 
     const nextCursor =
       hasNext && page.length > 0
@@ -156,13 +165,18 @@ export class MessageService {
       });
     }
 
+    const storedMediaRef =
+      dto.type !== 'TEXT' && dto.mediaUrl
+        ? this.chatMediaService.normalizeChatMediaRef(chatRoomId, dto.mediaUrl)
+        : null;
+
     const message = await this.messageRepo.createMessage(
       roomId,
       me,
       peerUserId,
       dto.type,
       dto.type === 'TEXT' ? (dto.text ?? null) : null,
-      dto.type !== 'TEXT' ? (dto.mediaUrl ?? null) : null,
+      dto.type !== 'TEXT' ? storedMediaRef : null,
       dto.type === 'AUDIO' ? (dto.durationSec ?? null) : null,
     );
 
@@ -183,12 +197,10 @@ export class MessageService {
       });
     }
 
-    // 메시지 수신자인지 확인
     if (message.sentToId !== me) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    // 채팅방 참여자인지 확인
     const isParticipant = await this.participantRepo.isParticipant(
       me,
       message.roomId,

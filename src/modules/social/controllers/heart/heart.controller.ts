@@ -112,6 +112,18 @@ export class HeartController {
               heartId: { type: 'number', example: 201 },
               fromUserId: { type: 'number', example: 9 },
               createdAt: { type: 'string', format: 'date-time' },
+              fromUser: {
+                type: 'object',
+                properties: {
+                  profileImageUrl: {
+                    type: 'string',
+                    nullable: true,
+                    example: 'https://example.com/profile.jpg',
+                  },
+                  nickname: { type: 'string', example: '사용자123' },
+                  age: { type: 'number', example: 25 },
+                },
+              },
             },
           },
         },
@@ -154,6 +166,18 @@ export class HeartController {
               heartId: { type: 'number', example: 301 },
               targetUserId: { type: 'number', example: 12 },
               createdAt: { type: 'string', format: 'date-time' },
+              targetUser: {
+                type: 'object',
+                properties: {
+                  profileImageUrl: {
+                    type: 'string',
+                    nullable: true,
+                    example: 'https://example.com/profile.jpg',
+                  },
+                  nickname: { type: 'string', example: '사용자456' },
+                  age: { type: 'number', example: 27 },
+                },
+              },
             },
           },
         },

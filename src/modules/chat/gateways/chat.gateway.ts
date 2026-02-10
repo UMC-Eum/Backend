@@ -144,43 +144,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     messageType: SendMessageBody['type'];
     text: string | null;
   }): Promise<void> {
-    const sender = await this.prisma.user.findFirst({
-      where: {
-        id: BigInt(params.senderUserId),
-        deletedAt: null,
-        status: ActiveStatus.ACTIVE,
-      },
-      select: { nickname: true },
-    });
+    try {
+      const sender = await this.prisma.user.findFirst({
+        where: {
+          id: BigInt(params.senderUserId),
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        select: { nickname: true },
+      });
 
-    const title = sender?.nickname ?? '새 메시지';
-    const preview = buildMessagePreview(params.messageType, params.text);
+      const title = sender?.nickname ?? '새 메시지';
+      const preview = buildMessagePreview(params.messageType, params.text);
 
-    // DB에 알림 생성
-    const created = await this.notificationService.createNotification(
-      params.receiverUserId,
-      NotificationType.CHAT,
-      title,
-      preview.textPreview,
-    );
+      // DB에 알림 생성
+      const created = await this.notificationService.createNotification(
+        params.receiverUserId,
+        NotificationType.CHAT,
+        title,
+        preview.textPreview,
+      );
 
-    // 수신자 개인 룸으로 실시간 알림 전송
-    this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
-      notificationId: created.id.toString(),
-      type: created.type,
-      title: created.title,
-      body: created.body,
-      isRead: created.isRead,
-      createdAt: created.createdAt.toISOString(),
-      data: {
-        chatRoomId: params.chatRoomId,
-        messageId: params.messageId,
-        senderUserId: params.senderUserId,
-      },
-    });
-  }
-  catch(e) {
-    this.logger.warn(`notifyNewMessage failed: ${String(e)}`);
+      // 수신자 개인 룸으로 실시간 알림 전송
+      this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
+        notificationId: created.id.toString(),
+        type: created.type,
+        title: created.title,
+        body: created.body,
+        isRead: created.isRead,
+        createdAt: created.createdAt.toISOString(),
+        data: {
+          chatRoomId: params.chatRoomId,
+          messageId: params.messageId,
+          senderUserId: params.senderUserId,
+        },
+      });
+    } catch (e) {
+      this.logger.warn(`notifyNewMessage failed: ${String(e)}`);
+    }
   }
 
   @SubscribeMessage('ping')

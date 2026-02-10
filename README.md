@@ -224,8 +224,35 @@ Private project.
 ```
 
 ```mermaid
-graph LR
-    User --> NestJS
-    NestJS --> MySQL
-    NestJS --> Redis
+graph TD
+    User([User / Client]) -.->|HTTP Request api v1| Gateway
+
+    subgraph NestJS Application Context
+        Gateway[main.ts / Global Prefix]
+        
+        subgraph Middleware & Global
+            Pino[[Pino Logging]]
+            Config[Nest Config]
+            Swagger[Swagger UI /docs]
+        end
+
+        subgraph Modules src/modules
+            AppMod[App Module]
+            HealthMod[Health Module]
+        end
+
+        subgraph Infrastructure src/infra
+            PrismaSvc[Prisma Service]
+        end
+    end
+
+    subgraph External Infrastructure Docker
+        MySQL[(MySQL :3307)]
+        Redis[(Redis :6379)]
+    end
+
+    Gateway --> AppMod
+    AppMod --> PrismaSvc
+    PrismaSvc --> MySQL
+    AppMod --> Redis
 ```

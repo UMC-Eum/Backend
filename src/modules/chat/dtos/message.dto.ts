@@ -6,7 +6,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Max,
   Min,
   ValidateIf,
@@ -35,12 +34,13 @@ export class SendMessageDto {
   text?: string | null;
 
   @ApiPropertyOptional({
-    example: 'https://cdn.example.com/m9001.m4a',
-    description: 'TEXT를 제외한 타입일 때 필수 (미디어 URL)',
+    example: 's3://eum-chat-media/chat/101/1/1700000000000_uuid_photo.jpg',
+    description:
+      'TEXT를 제외한 타입일 때 필수. presign 응답의 mediaRef 또는 S3 객체 URL(https)을 전달합니다.',
   })
   @IsOptional()
   @ValidateIf((o) => (o as SendMessageDto).type !== 'TEXT')
-  @IsUrl({}, { message: 'mediaUrl은 유효한 URL 형식이어야 합니다.' })
+  @IsString()
   @IsNotEmpty({ message: '미디어 메시지일 때 mediaUrl은 필수입니다.' })
   mediaUrl?: string | null;
 

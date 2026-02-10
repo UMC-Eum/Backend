@@ -187,41 +187,34 @@ interface RawNotificationRecord {
   createdAt: string;
   deletedAt?: string;
 }
+const ROOT = process.cwd();
+
+function dataPath(file: string) {
+  return path.join(ROOT, 'prisma', 'data', file);
+}
 
 async function main() {
   console.log('🌱 모든 테이블 CSV 데이터 시딩 시작...');
 
   // 1. CSV 파일 경로 설정 (나머지 테이블 추가)
   const paths = {
-    user: path.resolve(__dirname, 'data', 'user.csv'),
-    address: path.resolve(__dirname, 'data', 'address.csv'),
-    interest: path.resolve(__dirname, 'data', 'interest.csv'),
-    personality: path.resolve(__dirname, 'data', 'personality.csv'),
-    marketingAgreement: path.resolve(
-      __dirname,
-      'data',
-      'marketingAgreement.csv',
-    ),
-    userInterest: path.resolve(__dirname, 'data', 'userInterest.csv'),
-    userPersonality: path.resolve(__dirname, 'data', 'userPersonality.csv'),
-    userIdealPersonality: path.resolve(
-      __dirname,
-      'data',
-      'userIdealPersonality.csv',
-    ),
-    userMarketingAgreement: path.resolve(
-      __dirname,
-      'data',
-      'userMarketingAgreement.csv',
-    ),
-    heart: path.resolve(__dirname, 'data', 'heart.csv'),
-    block: path.resolve(__dirname, 'data', 'block.csv'),
-    report: path.resolve(__dirname, 'data', 'report.csv'),
-    chatRoom: path.resolve(__dirname, 'data', 'chatroom.csv'),
-    chatParticipant: path.resolve(__dirname, 'data', 'chatParticipant.csv'),
-    chatMessage: path.resolve(__dirname, 'data', 'chatMessage.csv'),
-    chatMedia: path.resolve(__dirname, 'data', 'chatMedia.csv'),
-    notification: path.resolve(__dirname, 'data', 'notification.csv'),
+    user: dataPath('user.csv'),
+    address: dataPath('address.csv'),
+    interest: dataPath('interest.csv'),
+    personality: dataPath('personality.csv'),
+    marketingAgreement: dataPath('marketingAgreement.csv'),
+    userInterest: dataPath('userInterest.csv'),
+    userPersonality: dataPath('userPersonality.csv'),
+    userIdealPersonality: dataPath('userIdealPersonality.csv'),
+    userMarketingAgreement: dataPath('userMarketingAgreement.csv'),
+    heart: dataPath('heart.csv'),
+    block: dataPath('block.csv'),
+    report: dataPath('report.csv'),
+    chatRoom: dataPath('chatroom.csv'),
+    chatParticipant: dataPath('chatParticipant.csv'),
+    chatMessage: dataPath('chatMessage.csv'),
+    chatMedia: dataPath('chatMedia.csv'),
+    notification: dataPath('notification.csv'),
   };
 
   // 2. 파일 읽기 및 파싱 함수 (반복 줄이기용)

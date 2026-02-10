@@ -27,6 +27,7 @@ type AuthedSocket = Socket<
 >;
 
 type JoinRoomBody = { chatRoomId: number };
+
 type SendMessageBody = {
   chatRoomId: number;
   type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
@@ -79,6 +80,54 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @WebSocketServer()
   server!: Server;
+
+  private emitToRooms(rooms: string[], event: string, payload: unknown): void {
+    this.server.to(rooms).emit(event, payload);
+  }
+
+  emitMessageRead(params: {
+    chatRoomId: number;
+    messageId: number;
+    readerUserId: number;
+    readAt: string;
+    notifyUserIds?: number[];
+  }): void {
+    const payload = {
+      chatRoomId: params.chatRoomId,
+      messageId: params.messageId,
+      readerUserId: params.readerUserId,
+      readAt: params.readAt,
+    };
+
+    const rooms = new Set<string>([`room:${params.chatRoomId}`]);
+    for (const userId of params.notifyUserIds ?? []) {
+      rooms.add(`user:${userId}`);
+    }
+
+    this.emitToRooms([...rooms], 'message.read', payload);
+  }
+
+  emitMessageDeleted(params: {
+    chatRoomId: number;
+    messageId: number;
+    deletedByUserId: number;
+    deletedAt: string;
+    notifyUserIds?: number[];
+  }): void {
+    const payload = {
+      chatRoomId: params.chatRoomId,
+      messageId: params.messageId,
+      deletedByUserId: params.deletedByUserId,
+      deletedAt: params.deletedAt,
+    };
+
+    const rooms = new Set<string>([`room:${params.chatRoomId}`]);
+    for (const userId of params.notifyUserIds ?? []) {
+      rooms.add(`user:${userId}`);
+    }
+
+    this.emitToRooms([...rooms], 'message.deleted', payload);
+  }
 
   async handleConnection(client: AuthedSocket) {
     try {
@@ -162,7 +211,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const me = BigInt(senderUserId);
     const roomId = BigInt(chatRoomId);
 
-    // 채팅방 참여 여부 확인
     const isParticipant = await this.prisma.chatParticipant.findFirst({
       where: {
         userId: me,
@@ -177,6 +225,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const room = `room:${chatRoomId}`;
     client.join(room);
+
     return { ok: true, joined: room };
   }
 
@@ -251,8 +300,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       select: { id: true, sentAt: true },
     });
 
-    // AUDIO, VIDEO 둘 다 durationSec 저장
     const shouldHaveDuration = type === 'AUDIO' || type === 'VIDEO';
+
     await this.prisma.chatMedia.create({
       data: {
         messageId: message.id,
@@ -269,13 +318,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatRoomId,
       senderUserId,
       type,
-      text: type === 'TEXT' ? body.text : null,
-      mediaUrl: type !== 'TEXT' ? body.mediaUrl : null,
+      text: type === 'TEXT' ? (body.text ?? null) : null,
+      mediaUrl: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
       durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
       sentAt: message.sentAt.toISOString(),
     };
 
     void this.server.to(room).emit('message.new', payload);
+
     return { ok: true, messageId: Number(message.id) };
   }
 }

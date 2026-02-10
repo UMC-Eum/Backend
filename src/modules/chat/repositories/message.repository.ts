@@ -169,7 +169,11 @@ export class MessageRepository {
     });
   }
 
-  async markAsRead(messageId: bigint, userId: bigint): Promise<boolean> {
+  async markAsRead(
+    messageId: bigint,
+    userId: bigint,
+    readAt: Date = new Date(),
+  ): Promise<boolean> {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {
         id: messageId,
@@ -178,14 +182,18 @@ export class MessageRepository {
         deletedAt: null,
       },
       data: {
-        readAt: new Date(),
+        readAt,
       },
     });
 
     return updated.count > 0;
   }
 
-  async deleteMessage(messageId: bigint, userId: bigint): Promise<boolean> {
+  async deleteMessage(
+    messageId: bigint,
+    userId: bigint,
+    deletedAt: Date,
+  ): Promise<boolean> {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {
         id: messageId,
@@ -193,7 +201,7 @@ export class MessageRepository {
         deletedAt: null,
       },
       data: {
-        deletedAt: new Date(),
+        deletedAt,
       },
     });
 

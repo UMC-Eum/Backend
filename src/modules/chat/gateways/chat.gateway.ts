@@ -10,12 +10,12 @@ import {
 } from '@nestjs/websockets';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActiveStatus } from '@prisma/client';
-
+import { ActiveStatus, NotificationType } from '@prisma/client';
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
-
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtTokenService } from '../../auth/services/jwt-token.service';
+import { NotificationService } from '../../notification/services/notification.service';
+import { buildMessagePreview } from '../utils/message-preview.util';
 
 type SocketData = { userId?: number };
 
@@ -75,6 +75,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly prisma: PrismaService,
     private readonly jwtTokenService: JwtTokenService,
     private readonly configService: ConfigService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @WebSocketServer()
@@ -133,6 +134,79 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(
       `disconnected: socket=${client.id} userId=${client.data.userId ?? 'N/A'}`,
     );
+  }
+
+  private toIso(value: unknown): string {
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'string') {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+    return new Date().toISOString();
+  }
+
+  private async notifyNewMessage(params: {
+    receiverUserId: number;
+    senderUserId: number;
+    chatRoomId: number;
+    messageId: number;
+    messageType: SendMessageBody['type'];
+    text: string | null;
+  }): Promise<void> {
+    const sender = await this.prisma.user.findFirst({
+      where: {
+        id: BigInt(params.senderUserId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: { nickname: true },
+    });
+
+    const title = sender?.nickname ?? '새 메시지';
+    const preview = buildMessagePreview(params.messageType, params.text);
+
+    let created: unknown = null;
+
+    try {
+      // DB 알림 생성 (notification 모듈 고정이라 반환 타입은 가정 안 함)
+      created = await this.notificationService.createNotification(
+        params.receiverUserId,
+        NotificationType.CHAT,
+        title,
+        preview.textPreview,
+      );
+    } catch (e) {
+      // DB 생성이 실패해도 실시간 emit은(가능하면) 시도
+      this.logger.warn(`createNotification failed: ${String(e)}`);
+    }
+
+    const createdObj =
+      created && typeof created === 'object'
+        ? (created as Record<string, unknown>)
+        : null;
+
+    const notificationId =
+      createdObj && 'id' in createdObj ? String(createdObj.id) : null;
+
+    const createdAt =
+      createdObj && 'createdAt' in createdObj
+        ? this.toIso(createdObj.createdAt)
+        : new Date().toISOString();
+
+    // 수신자 개인 룸으로 실시간 알림 전송
+    this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
+      notificationId,
+      type: NotificationType.CHAT,
+      title,
+      body: preview.textPreview,
+      isRead: false,
+      createdAt,
+      data: {
+        chatRoomId: params.chatRoomId,
+        messageId: params.messageId,
+        senderUserId: params.senderUserId,
+      },
+    });
   }
 
   @SubscribeMessage('ping')

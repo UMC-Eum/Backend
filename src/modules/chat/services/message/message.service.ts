@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
+import { ChatGateway } from '../../gateways/chat.gateway';
 
 import type {
   ListMessagesQueryDto,
@@ -32,6 +33,7 @@ export class MessageService {
     private readonly messageRepo: MessageRepository,
     private readonly participantRepo: ParticipantRepository,
     private readonly roomRepo: RoomRepository,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async listMessages(
@@ -186,7 +188,7 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    // 추가: 채팅방 참여자인지 확인
+    // 채팅방 참여자인지 확인
     const isParticipant = await this.participantRepo.isParticipant(
       me,
       message.roomId,
@@ -195,7 +197,19 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    await this.messageRepo.markAsRead(msgId, me);
+    const readAt = new Date();
+    const updated = await this.messageRepo.markAsRead(msgId, me, readAt);
+    if (!updated) return;
+
+    const senderUserId = Number(message.sentById);
+
+    this.chatGateway.emitMessageRead({
+      chatRoomId: Number(message.roomId),
+      messageId: Number(message.id),
+      readerUserId: meUserId,
+      readAt: readAt.toISOString(),
+      notifyUserIds: [meUserId, senderUserId],
+    });
   }
 
   async deleteMessage(meUserId: number, messageId: number): Promise<void> {
@@ -209,12 +223,10 @@ export class MessageService {
       });
     }
 
-    // 메시지 송신자 또는 수신자인지 확인
     if (message.sentById !== me && message.sentToId !== me) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    // 추가: 채팅방 참여자인지 확인
     const isParticipant = await this.participantRepo.isParticipant(
       me,
       message.roomId,
@@ -223,6 +235,20 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    await this.messageRepo.deleteMessage(msgId, me);
+    const deletedAt = new Date();
+    const updated = await this.messageRepo.deleteMessage(msgId, me, deletedAt);
+    if (!updated) return;
+
+    const notifyUserIds = Array.from(
+      new Set([Number(message.sentById), Number(message.sentToId)]),
+    );
+
+    this.chatGateway.emitMessageDeleted({
+      chatRoomId: Number(message.roomId),
+      messageId: Number(message.id),
+      deletedByUserId: meUserId,
+      deletedAt: deletedAt.toISOString(),
+      notifyUserIds,
+    });
   }
 }

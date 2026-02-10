@@ -1,9 +1,7 @@
 ﻿id,body
-1,"<div style=""font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 100%; word-break: keep-all;"">
-
-    <h1 style=""font-size: 20px; font-weight: 800; text-align: center; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; color: #111;"">
-        이음(音) 마케팅 정보 수신 동의
-    </h1>
+1,empty
+2,empty
+3,"<div style=""font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px; max-width: 100%; word-break: keep-all;"">
 
     <p style=""font-size: 14px; color: #555; margin: 0 0 12px 0; letter-spacing: -0.02em;"">
         이음(音)(이하 “회사”라 한다)는 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」, 「개인정보 보호법」 등 관계 법령에 따라 광고성 정보를 전송하기 위해 이용자의 사전 수신 동의를 받고 있습니다.<br>

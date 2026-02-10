@@ -81,6 +81,60 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+  private emitToRoom(
+    chatRoomId: number,
+    event: string,
+    payload: unknown,
+  ): void {
+    if (!this.server) return;
+    this.server.to(`room:${chatRoomId}`).emit(event, payload);
+  }
+
+  private emitToUser(userId: number, event: string, payload: unknown): void {
+    if (!this.server) return;
+    this.server.to(`user:${userId}`).emit(event, payload);
+  }
+
+  emitMessageRead(params: {
+    chatRoomId: number;
+    messageId: number;
+    readerUserId: number;
+    readAt: string;
+    notifyUserIds?: number[];
+  }): void {
+    const payload = {
+      chatRoomId: params.chatRoomId,
+      messageId: params.messageId,
+      readerUserId: params.readerUserId,
+      readAt: params.readAt,
+    };
+
+    this.emitToRoom(params.chatRoomId, 'message.read', payload);
+    for (const userId of params.notifyUserIds ?? []) {
+      this.emitToUser(userId, 'message.read', payload);
+    }
+  }
+
+  emitMessageDeleted(params: {
+    chatRoomId: number;
+    messageId: number;
+    deletedByUserId: number;
+    deletedAt: string;
+    notifyUserIds?: number[];
+  }): void {
+    const payload = {
+      chatRoomId: params.chatRoomId,
+      messageId: params.messageId,
+      deletedByUserId: params.deletedByUserId,
+      deletedAt: params.deletedAt,
+    };
+
+    this.emitToRoom(params.chatRoomId, 'message.deleted', payload);
+    for (const userId of params.notifyUserIds ?? []) {
+      this.emitToUser(userId, 'message.deleted', payload);
+    }
+  }
+
   async handleConnection(client: AuthedSocket) {
     try {
       const bearer = extractBearerToken(client);

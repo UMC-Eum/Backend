@@ -77,7 +77,7 @@ export class UserService {
     if (payload.gender !== undefined) {
       updateData.sex = payload.gender;
     }
-    
+
     if (payload.age !== undefined) {
       updateData.age = payload.age;
     }

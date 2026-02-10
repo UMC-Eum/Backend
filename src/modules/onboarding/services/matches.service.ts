@@ -11,7 +11,7 @@ export class MatchesService {
     cursorUserId?: bigint | null,
   ) {
     const items = await this.matchesRepository.findRecommendedMatches(
-      BigInt(userId),
+      userId,
       size,
       cursorUserId,
     );
@@ -25,7 +25,7 @@ export class MatchesService {
     };
   }
 
-  private generatorCursor(userId: bigint | number): string {
+  private generatorCursor(userId: string | bigint | number): string {
     return Buffer.from(userId.toString()).toString('base64');
   }
 }

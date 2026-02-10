@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../infra/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationModule } from '../notification/notification.module';
+
 import { MessageController } from './controllers/message/message.controller';
 import { RoomController } from './controllers/room/room.controller';
 import { MessageRepository } from './repositories/message.repository';
@@ -15,7 +17,7 @@ import { RoomService } from './services/room/room.service';
 import { ChatGateway } from './gateways/chat.gateway';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, NotificationModule],
   controllers: [RoomController, MessageController],
   providers: [
     RoomService,

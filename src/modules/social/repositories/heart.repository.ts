@@ -3,12 +3,21 @@ import { ActiveStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../common/errors/error-codes';
-import {
-  HeartItemBase,
-  HeartListPayload,
-  HeartReceivedItem,
-  HeartSentItem,
-} from '../dtos/heart.dto';
+import { HeartItemBase, HeartListPayload } from '../dtos/heart.dto';
+
+// Repository 레이어에서 반환하는 기본 타입 (프로필 정보 없음)
+type HeartSentItemBase = {
+  heartId: number;
+  createdAt: string;
+  targetUserId: number;
+};
+
+type HeartReceivedItemBase = {
+  heartId: number;
+  createdAt: string;
+  fromUserId: number;
+};
+
 type PostHeartResult =
   | { ok: true; heart: HeartItemBase }
   | { ok: false; reason: 'TARGET_NOT_FOUND' | 'ALREADY_EXISTS' };
@@ -109,7 +118,9 @@ export class HeartRepository {
     cursor?: string;
     size?: number;
     isSent: boolean;
-  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
+  }): Promise<HeartListPayload<
+    HeartSentItemBase | HeartReceivedItemBase
+  > | null> {
     const take = Math.min(Math.max(params.size ?? 20, 1), 50);
     let parsedCursor: bigint | undefined;
     if (params.cursor !== undefined) {
@@ -145,14 +156,14 @@ export class HeartRepository {
     );
 
     if (params.isSent) {
-      const mappedItems: HeartSentItem[] = items.map((item) => ({
+      const mappedItems: HeartSentItemBase[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
         targetUserId: Number(item.sentToId),
       }));
       return { nextCursor, items: mappedItems };
     } else {
-      const mappedItems: HeartReceivedItem[] = items.map((item) => ({
+      const mappedItems: HeartReceivedItemBase[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
         fromUserId: Number(item.sentById),
@@ -165,7 +176,7 @@ export class HeartRepository {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }): Promise<HeartListPayload<HeartReceivedItem | HeartSentItem> | null> {
+  }): Promise<HeartListPayload<HeartReceivedItemBase> | null> {
     const sentToId = this.toBigInt(params.userId);
     this.logger.debug(
       `getReceivedHeartsByUserId userId=${sentToId} cursor=${params.cursor} size=${params.size}`,
@@ -178,14 +189,14 @@ export class HeartRepository {
     });
     if (result == null) {
       return null;
-    } else return result;
+    } else return result as HeartListPayload<HeartReceivedItemBase>;
   }
 
   async getSentHeartsByUserId(params: {
     userId: string | number | bigint;
     cursor?: string;
     size?: number;
-  }): Promise<HeartListPayload<HeartSentItem | HeartReceivedItem> | null> {
+  }): Promise<HeartListPayload<HeartSentItemBase> | null> {
     const sentById = this.toBigInt(params.userId);
     this.logger.debug(
       `getSentHeartsByUserId userId=${sentById} cursor=${params.cursor} size=${params.size}`,
@@ -199,7 +210,7 @@ export class HeartRepository {
     if (result == null) {
       return null;
     } else {
-      return result;
+      return result as HeartListPayload<HeartSentItemBase>;
     }
   }
 }

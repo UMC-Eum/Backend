@@ -10,13 +10,18 @@ import {
 } from '@nestjs/websockets';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActiveStatus, ChatMediaType } from '@prisma/client';
-
+import {
+  ActiveStatus,
+  ChatMediaType,
+  NotificationType,
+  type Notification,
+} from '@prisma/client';
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
-
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtTokenService } from '../../auth/services/jwt-token.service';
 import { ChatMediaService } from '../services/chat-media/chat-media.service';
+import { NotificationService } from '../../notification/services/notification.service';
+import { buildMessagePreview } from '../utils/message-preview.util';
 
 type SocketData = { userId?: number };
 
@@ -91,6 +96,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtTokenService: JwtTokenService,
     private readonly configService: ConfigService,
     private readonly chatMediaService: ChatMediaService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @WebSocketServer()
@@ -197,6 +203,54 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(
       `disconnected: socket=${client.id} userId=${client.data.userId ?? 'N/A'}`,
     );
+  }
+
+  private async notifyNewMessage(params: {
+    receiverUserId: number;
+    senderUserId: number;
+    chatRoomId: number;
+    messageId: number;
+    messageType: SendMessageBody['type'];
+    text: string | null;
+  }): Promise<void> {
+    try {
+      const sender = await this.prisma.user.findFirst({
+        where: {
+          id: BigInt(params.senderUserId),
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        select: { nickname: true },
+      });
+
+      const title = sender?.nickname ?? '새 메시지';
+      const preview = buildMessagePreview(params.messageType, params.text);
+
+      // DB에 알림 생성
+      const created = await this.notificationService.createNotification(
+        params.receiverUserId,
+        NotificationType.CHAT,
+        title,
+        preview.textPreview,
+      );
+
+      // 수신자 개인 룸으로 실시간 알림 전송
+      this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
+        notificationId: created.id.toString(),
+        type: created.type,
+        title: created.title,
+        body: created.body,
+        isRead: created.isRead,
+        createdAt: created.createdAt.toISOString(),
+        data: {
+          chatRoomId: params.chatRoomId,
+          messageId: params.messageId,
+          senderUserId: params.senderUserId,
+        },
+      });
+    } catch (e) {
+      this.logger.warn(`notifyNewMessage failed: ${String(e)}`);
+    }
   }
 
   @SubscribeMessage('ping')
@@ -349,8 +403,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: {
         messageId: message.id,
         type,
-        text: type === 'TEXT' ? storedMediaRef : null,
-        url: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
+        text: type === 'TEXT' ? (body.text ?? null) : null,
+        url: type !== 'TEXT' ? storedMediaRef : null,
         durationSec:
           type === 'AUDIO' || type === 'VIDEO'
             ? (toPositiveInt(body.durationSec) ?? null)
@@ -377,6 +431,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     void this.server.to(room).emit('message.new', payload);
+
+    void this.notifyNewMessage({
+      receiverUserId: Number(peer.userId),
+      senderUserId,
+      chatRoomId,
+      messageId: Number(message.id),
+      messageType: type,
+      text: type === 'TEXT' ? (body.text ?? null) : null,
+    });
 
     return { ok: true, messageId: Number(message.id) };
   }

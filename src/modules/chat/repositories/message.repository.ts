@@ -161,7 +161,8 @@ export class MessageRepository {
           type,
           text: type === 'TEXT' ? text : null,
           url: type !== 'TEXT' ? mediaUrl : null,
-          durationSec: type === 'AUDIO' ? durationSec : null,
+          durationSec:
+            type === 'AUDIO' || type === 'VIDEO' ? durationSec : null,
         },
       });
 

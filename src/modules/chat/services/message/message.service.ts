@@ -159,7 +159,7 @@ export class MessageService {
       });
     }
 
-    if (dto.type === 'AUDIO' && !dto.durationSec) {
+    if ((dto.type === 'AUDIO' || dto.type === 'VIDEO') && !dto.durationSec) {
       throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
         message: '오디오 메시지는 durationSec이 필요합니다.',
       });
@@ -177,7 +177,9 @@ export class MessageService {
       dto.type,
       dto.type === 'TEXT' ? (dto.text ?? null) : null,
       dto.type !== 'TEXT' ? storedMediaRef : null,
-      dto.type === 'AUDIO' ? (dto.durationSec ?? null) : null,
+      dto.type === 'AUDIO' || dto.type === 'VIDEO'
+        ? (dto.durationSec ?? null)
+        : null,
     );
 
     return {

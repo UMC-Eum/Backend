@@ -46,10 +46,14 @@ export class SendMessageDto {
 
   @ApiPropertyOptional({
     example: 4,
-    description: 'AUDIO 타입일 때 필수 (초 단위)',
+    description: 'AUDIO/VIDEO 타입일 때 필수 (초 단위)',
   })
   @IsOptional()
-  @ValidateIf((o) => (o as SendMessageDto).type === 'AUDIO')
+  @ValidateIf(
+    (o) =>
+      (o as SendMessageDto).type === 'AUDIO' ||
+      (o as SendMessageDto).type === 'VIDEO',
+  )
   @Type(() => Number)
   @IsInt()
   @Min(1)

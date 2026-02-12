@@ -4,7 +4,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 
@@ -103,6 +103,12 @@ function isAllowedContentType(
   return false;
 }
 
+function folderByType(type: ChatUploadType): string {
+  if (type === 'AUDIO') return 'voices';
+  if (type === 'PHOTO') return 'images';
+  return 'videos';
+}
+
 @Injectable()
 export class ChatMediaService {
   private readonly s3: S3Client;
@@ -112,6 +118,7 @@ export class ChatMediaService {
   private readonly putExpiresSec: number;
   private readonly getExpiresSec: number;
   private readonly allowedBuckets: Set<string>;
+  private readonly logger = new Logger(ChatMediaService.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -222,8 +229,16 @@ export class ChatMediaService {
       });
     }
 
+    this.logger.debug(
+      `presign req user=${meUserId} room=${chatRoomId} type=${dto.type} ct=${dto.contentType} size=${dto.sizeBytes ?? 'N/A'}`,
+    );
+
     const safeName = sanitizeFileName(dto.fileName);
-    const key = `chat/${chatRoomId}/${meUserId}/${Date.now()}_${randomUUID()}_${safeName}`;
+    const folder = folderByType(dto.type);
+
+    const key = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_${safeName}`;
+
+    this.logger.debug(`presign key=${key}`);
 
     const command = new PutObjectCommand({
       Bucket: this.chatBucket,

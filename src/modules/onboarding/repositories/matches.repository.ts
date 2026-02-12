@@ -32,14 +32,26 @@ export class MatchesRepository {
     if (!me || !me.vibeVector) {
       throw new Error('사용자 정보가 없거나 vibeVector가 없습니다.');
     }
-    if (!Array.isArray(me.vibeVector)) {
-      throw new Error('vibeVector 형식이 올바르지 않습니다.');
-    }
     if (!me.code) {
       throw new Error('사용자 주소 정보(code)가 없습니다.');
     }
 
-    const myVector = me.vibeVector as number[];
+    // currentUser vibeVector JSON 파싱 (Prisma Json 타입 처리)
+    const rawVector = me.vibeVector as unknown;
+    let myVector: number[];
+
+    if (Array.isArray(rawVector)) {
+      myVector = rawVector as number[];
+    } else if (typeof rawVector === 'object' && rawVector !== null) {
+      myVector = Object.values(rawVector as Record<string, number>);
+    } else {
+      throw new Error('vibeVector 파싱 실패');
+    }
+
+    if (myVector.length === 0) {
+      throw new Error('vibeVector가 비어있습니다.');
+    }
+
     const myKeywordIds = [
       ...me.interests.map((i) => i.interestId),
       ...me.personalities.map((p) => p.personalityId),
@@ -73,7 +85,7 @@ export class MatchesRepository {
 
     void console.log('[MATCH] 쿼리 시작 - BATCH_SIZE:', BATCH_SIZE);
 
-    // 1차 하드필터링 없이 같은 지역 모두 조회
+    // 같은 지역 모든 사용자 조회 (필터링 없음)
     const candidates = await this.prisma.user.findMany({
       where: whereCondition,
       select: {
@@ -119,29 +131,32 @@ export class MatchesRepository {
     void console.log('[MATCH] 후보 조회 완료:', candidates.length, '명');
 
     const scored = candidates
-      .filter(
-        (user): user is (typeof candidates)[0] & { vibeVector: number[] } => {
-          if (!Array.isArray(user.vibeVector)) {
-            void console.log(
-              `[MATCH] ❌ vibeVector 필터링 제외 - ID: ${user.id}, type: ${typeof user.vibeVector}`,
-            );
-            return false;
-          }
-
-          if (user.vibeVector.length !== myVector.length) {
-            void console.log(
-              `[MATCH] ❌ vibeVector 길이 불일치 - ID: ${user.id}, ` +
-                `expected: ${myVector.length}, got: ${user.vibeVector.length}`,
-            );
-            return false;
-          }
-
-          return true;
-        },
-      )
       .map((user) => {
-        const userVector = user.vibeVector;
-        const similarity = this.cosineSimilarityOptimized(myVector, userVector);
+        // vibeVector가 object면 배열로 변환 (자동)
+        const rawUserVector = user.vibeVector as unknown;
+        let userVector: number[];
+
+        if (Array.isArray(rawUserVector)) {
+          userVector = rawUserVector as number[];
+        } else if (
+          typeof rawUserVector === 'object' &&
+          rawUserVector !== null
+        ) {
+          userVector = Object.values(rawUserVector as Record<string, number>);
+        } else {
+          // 변환 불가능하면 스킵
+          return null;
+        }
+
+        // 길이가 다르면 최소 길이로 자르기 (필터링 제거)
+        const minLength = Math.min(myVector.length, userVector.length);
+        const myVectorTrimmed = myVector.slice(0, minLength);
+        const userVectorTrimmed = userVector.slice(0, minLength);
+
+        const similarity = this.cosineSimilarityOptimized(
+          myVectorTrimmed,
+          userVectorTrimmed,
+        );
 
         const reasons: string[] = [];
 
@@ -215,6 +230,7 @@ export class MatchesRepository {
           likedHeartId: heartId ? heartId.toString() : null,
         };
       })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, size);
 

@@ -11,7 +11,7 @@ export class MatchesRepository {
     size = 20,
     cursorUserId?: bigint | null,
   ) {
-    console.log('[MATCH] 시작:', { userId: userId.toString(), size });
+    void console.log('[MATCH] 시작:', { userId: userId.toString(), size });
     const startTime = Date.now();
 
     // 현재 유저 정보
@@ -55,23 +55,23 @@ export class MatchesRepository {
       (ip) => ip.personalityId,
     );
 
-    console.log(
+    void console.log(
       '[MATCH] 이상형 등록:',
       hasIdealTypes ? '있음' : '없음',
       hasIdealTypes ? `(${idealPersonalityIds.length}개)` : '',
     );
 
     // 필터링 없이 같은 지역의 모든 활성 사용자 조회
-    const whereCondition: any = {
+    const whereCondition = {
       id: { not: userId },
-      status: 'ACTIVE',
+      status: 'ACTIVE' as const,
       deletedAt: null,
       code: me.code,
     };
 
     const BATCH_SIZE = Math.min(size * 10, 200);
 
-    console.log('[MATCH] 쿼리 시작 - BATCH_SIZE:', BATCH_SIZE);
+    void console.log('[MATCH] 쿼리 시작 - BATCH_SIZE:', BATCH_SIZE);
 
     // 1차 하드필터링 없이 같은 지역 모두 조회
     const candidates = await this.prisma.user.findMany({
@@ -116,20 +116,20 @@ export class MatchesRepository {
       take: BATCH_SIZE,
     });
 
-    console.log('[MATCH] 후보 조회 완료:', candidates.length, '명');
+    void console.log('[MATCH] 후보 조회 완료:', candidates.length, '명');
 
     const scored = candidates
       .filter(
         (user): user is (typeof candidates)[0] & { vibeVector: number[] } => {
           if (!Array.isArray(user.vibeVector)) {
-            console.log(
+            void console.log(
               `[MATCH] ❌ vibeVector 필터링 제외 - ID: ${user.id}, type: ${typeof user.vibeVector}`,
             );
             return false;
           }
 
           if (user.vibeVector.length !== myVector.length) {
-            console.log(
+            void console.log(
               `[MATCH] ❌ vibeVector 길이 불일치 - ID: ${user.id}, ` +
                 `expected: ${myVector.length}, got: ${user.vibeVector.length}`,
             );
@@ -219,7 +219,7 @@ export class MatchesRepository {
       .slice(0, size);
 
     const elapsed = Date.now() - startTime;
-    console.log('[MATCH] 완료:', {
+    void console.log('[MATCH] 완료:', {
       resultCount: scored.length,
       elapsedMs: elapsed,
       isSlow: elapsed > 2000,

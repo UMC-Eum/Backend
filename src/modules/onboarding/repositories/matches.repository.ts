@@ -55,31 +55,25 @@ export class MatchesRepository {
       (ip) => ip.personalityId,
     );
 
-    // 이상형 여부에 따라 WHERE 조건을 다르게 설정
-    const whereCondition: Record<string, unknown> = {
+    console.log(
+      '[MATCH] 이상형 등록:',
+      hasIdealTypes ? '있음' : '없음',
+      hasIdealTypes ? `(${idealPersonalityIds.length}개)` : '',
+    );
+
+    // 필터링 없이 같은 지역의 모든 활성 사용자 조회
+    const whereCondition: any = {
       id: { not: userId },
       status: 'ACTIVE',
       deletedAt: null,
       code: me.code,
     };
 
-    // 이상형이 등록된 경우: 추가 조건 적용
-    if (hasIdealTypes && idealPersonalityIds.length > 0) {
-      whereCondition.personalities = {
-        some: {
-          personalityId: { in: idealPersonalityIds },
-        },
-      };
-      console.log('[MATCH] 이상형 필터링 활성화:', idealPersonalityIds);
-    } else {
-      console.log('[MATCH] 이상형 미등록 - 같은 지역 모두 추천');
-    }
-
     const BATCH_SIZE = Math.min(size * 10, 200);
 
     console.log('[MATCH] 쿼리 시작 - BATCH_SIZE:', BATCH_SIZE);
 
-    // 1차 하드필터링으로 후보 조회
+    // 1차 하드필터링 없이 같은 지역 모두 조회
     const candidates = await this.prisma.user.findMany({
       where: whereCondition,
       select: {
@@ -151,41 +145,57 @@ export class MatchesRepository {
 
         const reasons: string[] = [];
 
+        // 벡터 유사도 스코어
         if (similarity > 0.85) {
           reasons.push('분위기 유사');
         } else if (similarity > 0.7) {
           reasons.push('분위기 어느정도 유사');
         }
 
+        // 공통 관심사 확인
         const userInterestIds = user.interests.map((i) => i.interestId);
-        const hasCommonInterest = userInterestIds.some((id) =>
+        const commonInterests = userInterestIds.filter((id) =>
           myKeywordIds.includes(id),
         );
-        if (hasCommonInterest) {
-          reasons.push('공통 관심사 존재');
+        if (commonInterests.length > 0) {
+          reasons.push(`공통 관심사 ${commonInterests.length}개`);
         }
 
+        // 공통 성향 확인
         const userPersonalityIds = user.personalities.map(
           (p) => p.personalityId,
         );
-        const hasCommonPersonality = userPersonalityIds.some((id) =>
+        const commonPersonalities = userPersonalityIds.filter((id) =>
           myKeywordIds.includes(id),
         );
-        if (hasCommonPersonality) {
-          reasons.push('성향 유사');
+        if (commonPersonalities.length > 0) {
+          reasons.push(`성향 유사 ${commonPersonalities.length}개`);
         }
 
-        let matchesIdealType = false;
+        // 이상형 유형 매칭 점수
+        let idealTypeMatchScore = 0;
         if (hasIdealTypes) {
-          matchesIdealType = userPersonalityIds.some((id) =>
+          const matchedIdealTypes = userPersonalityIds.filter((id) =>
             idealPersonalityIds.includes(id),
           );
-          if (matchesIdealType) {
-            reasons.push('이상형 유형 매칭');
+          idealTypeMatchScore =
+            (matchedIdealTypes.length / idealPersonalityIds.length) * 100;
+          if (matchedIdealTypes.length > 0) {
+            reasons.push(
+              `이상형 ${matchedIdealTypes.length}/${idealPersonalityIds.length} 매칭`,
+            );
           }
         }
 
         const heartId = likedUserMap.get(user.id);
+
+        // 종합 점수 계산
+        let totalScore = similarity * 0.4; // 벡터 유사도 40%
+        totalScore +=
+          (commonInterests.length / Math.max(myKeywordIds.length, 1)) * 0.2; // 관심사 20%
+        totalScore +=
+          (commonPersonalities.length / Math.max(myKeywordIds.length, 1)) * 0.2; // 성향 20%
+        totalScore += (idealTypeMatchScore / 100) * 0.2; // 이상형 매칭 20%
 
         return {
           userId: user.id.toString(),
@@ -199,8 +209,8 @@ export class MatchesRepository {
           introText: user.introText,
           introAudioUrl: user.introVoiceUrl,
           profileImageUrl: user.profileImageUrl,
-          matchScore: similarity,
-          matchReasons: reasons,
+          matchScore: totalScore,
+          matchReasons: reasons.length > 0 ? reasons : ['같은 지역'],
           isLiked: !!heartId,
           likedHeartId: heartId ? heartId.toString() : null,
         };

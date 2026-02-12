@@ -3,8 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { ValidationError } from 'class-validator';
 import cookieParser from 'cookie-parser';
-import type { RequestHandler } from 'express';
-import type { CookieParseOptions } from 'cookie-parser';
 import pinoHttp from 'pino-http';
 
 import { AppModule } from './modules/app/app.module';

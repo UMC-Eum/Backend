@@ -33,15 +33,15 @@ export class HeartService {
     targetUserId: string,
   ): Promise<HeartItemBase> {
     const result = await this.heartRepository.postHeart(userId, targetUserId);
-    const targetUserName = await this.userService
-      .getMe(Number(targetUserId))
+    const userName = await this.userService
+      .getMe(Number(userId))
       .then((user) => user.nickname);
     try {
       await this.notificationService.createNotification(
         Number(targetUserId),
         'HEART',
         '마음을 누른 사람이 생겼습니다!',
-        `${targetUserName}님이 회원님에게 마음을 보냈습니다.`,
+        `${userName}님이 회원님에게 마음을 보냈습니다.`,
       );
     } catch {
       throw new AppException('SERVER_TEMPORARY_ERROR', {

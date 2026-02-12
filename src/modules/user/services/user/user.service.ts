@@ -52,6 +52,43 @@ export class UserService {
     };
   }
 
+  async getDetailedProfile(userId: number) {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const user = await this.userRepository.findDetailedProfileById(userId);
+
+    if (!user) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    return {
+      id: Number(user.id),
+      nickname: user.nickname,
+      birthdate: user.birthdate.toISOString(),
+      profileImageUrl: user.profileImageUrl,
+      introText: user.introText,
+      introVoiceUrl: user.introVoiceUrl,
+      vibeVector: user.vibeVector,
+      address: {
+        fullName: user.address.fullName,
+      },
+      interests: user.interests.map((item) => ({
+        interestId: Number(item.interestId),
+        interest: {
+          body: item.interest.body,
+        },
+      })),
+      personalities: user.personalities.map((item) => ({
+        personalityId: Number(item.personalityId),
+        personality: {
+          body: item.personality.body,
+        },
+      })),
+    };
+  }
+
   async updateMe(
     userId: number,
     payload: UserProfileUpdateRequestDto,

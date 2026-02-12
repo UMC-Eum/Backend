@@ -102,14 +102,10 @@ export class HeartService {
     const itemsWithProfile = await Promise.all(
       result.items.map(async (item) => {
         const fromUserId = Number(item.fromUserId);
-        const fromUser = await this.userService.getMe(fromUserId);
+        const fromUser = await this.userService.getDetailedProfile(fromUserId);
         return {
           ...item,
-          fromUser: {
-            profileImageUrl: fromUser.profileImageUrl,
-            nickname: fromUser.nickname,
-            age: fromUser.age,
-          },
+          fromUser,
         };
       }),
     );
@@ -141,14 +137,11 @@ export class HeartService {
     const itemsWithProfile = await Promise.all(
       result.items.map(async (item) => {
         const targetUserId = Number(item.targetUserId);
-        const targetUser = await this.userService.getMe(targetUserId);
+        const targetUser =
+          await this.userService.getDetailedProfile(targetUserId);
         return {
           ...item,
-          targetUser: {
-            profileImageUrl: targetUser.profileImageUrl,
-            nickname: targetUser.nickname,
-            age: targetUser.age,
-          },
+          targetUser,
         };
       }),
     );

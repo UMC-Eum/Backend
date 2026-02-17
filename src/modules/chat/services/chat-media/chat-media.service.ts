@@ -27,7 +27,7 @@ const S3_REF_PREFIX = 's3://';
 const MAX_SIZE_BY_TYPE: Record<ChatUploadType, number> = {
   AUDIO: 20 * 1024 * 1024,
   PHOTO: 10 * 1024 * 1024,
-  VIDEO: 100 * 1024 * 1024,
+  VIDEO: 300 * 1024 * 1024,
 };
 
 function sanitizeFileName(fileName: string): string {

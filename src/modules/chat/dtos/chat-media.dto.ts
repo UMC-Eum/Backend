@@ -47,7 +47,7 @@ export class CreateChatMediaPresignDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100 * 1024 * 1024)
+  @Max(300 * 1024 * 1024)
   sizeBytes?: number;
 }
 

@@ -62,13 +62,14 @@ export class RoomService {
       });
     }
 
-    const existingRoomId = await this.roomRepo.findRoomIdByMeAndTarget(
+    // 1) 현재 활성 채팅방이 있으면 그대로 반환
+    const activeRoomId = await this.roomRepo.findRoomIdByMeAndTarget(
       me,
       target,
     );
-    if (existingRoomId) {
+    if (activeRoomId) {
       return {
-        chatRoomId: Number(existingRoomId),
+        chatRoomId: Number(activeRoomId),
         created: false,
         peer: {
           userId: Number(peerUser.id),
@@ -78,6 +79,30 @@ export class RoomService {
       };
     }
 
+    // 2) 과거에 종료된 방이 있으면 재활성화 (기록은 남기되, 보여주는 범위는 joinedAt 이후로)
+    const latestRoomId = await this.roomRepo.findLatestRoomIdByUsers(
+      me,
+      target,
+    );
+    if (latestRoomId) {
+      const reactivatedRoomId =
+        await this.roomRepo.reactivateRoomWithParticipants(latestRoomId, [
+          me,
+          target,
+        ]);
+
+      return {
+        chatRoomId: Number(reactivatedRoomId),
+        created: false,
+        peer: {
+          userId: Number(peerUser.id),
+          nickname: peerUser.nickname,
+          profileImageUrl: peerUser.profileImageUrl ?? null,
+        },
+      };
+    }
+
+    // 3) 새 채팅방 생성
     const newRoomId = await this.roomRepo.createRoomWithParticipants(
       me,
       target,
@@ -101,8 +126,11 @@ export class RoomService {
     const me = BigInt(meUserId);
     const roomId = BigInt(chatRoomId);
 
-    const ok = await this.participantRepo.isParticipant(me, roomId);
-    if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    const myPart = await this.participantRepo.getMyActiveParticipation(
+      me,
+      roomId,
+    );
+    if (!myPart) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
     const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
     if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
@@ -114,6 +142,7 @@ export class RoomService {
 
     return {
       chatRoomId,
+      joinedAt: myPart.joinedAt.toISOString(),
       peer: {
         userId: Number(peer.id),
         nickname: peer.nickname,
@@ -143,14 +172,25 @@ export class RoomService {
     if (rooms.length === 0) return { nextCursor: null, items: [] };
 
     const roomIds = rooms.map((r) => r.id);
-    const lastSentAtMap =
-      await this.messageRepo.getLastSentAtByRoomIds(roomIds);
+
+    const [joinedAtMap, lastSentAtMap] = await Promise.all([
+      this.participantRepo.getMyJoinedAtByRoomIds(me, roomIds),
+      this.messageRepo.getLastSentAtByRoomIds(roomIds),
+    ]);
 
     const sorted = rooms
-      .map((r) => ({
-        roomId: r.id,
-        sortAt: lastSentAtMap.get(r.id) ?? r.startedAt,
-      }))
+      .map((r) => {
+        const joinedAt = joinedAtMap.get(r.id) ?? r.startedAt;
+        const lastSentAt = lastSentAtMap.get(r.id);
+
+        // joinedAt 이전 메시지는 UI에서 숨길 것이므로, 정렬 기준도 joinedAt 이후로 보정합니다.
+        const sortAt =
+          lastSentAt && lastSentAt.getTime() > joinedAt.getTime()
+            ? lastSentAt
+            : joinedAt;
+
+        return { roomId: r.id, sortAt };
+      })
       .filter((x) => {
         if (!cursorSortAt || !cursorRoomId) return true;
         if (x.sortAt < cursorSortAt) return true;
@@ -215,7 +255,12 @@ export class RoomService {
       const peer = peerMap.get(peerId);
       if (!peer) continue;
 
-      const last = await this.messageRepo.getLastMessageSummary(p.roomId);
+      const joinedAt = joinedAtMap.get(p.roomId) ?? new Date(0);
+
+      const last = await this.messageRepo.getLastMessageSummary(
+        p.roomId,
+        joinedAt,
+      );
       const lastMessage = last
         ? {
             ...buildMessagePreview(last.type, last.text),
@@ -239,5 +284,18 @@ export class RoomService {
       : null;
 
     return { nextCursor, items };
+  }
+
+  async leaveRoom(meUserId: number, chatRoomId: number): Promise<void> {
+    const me = BigInt(meUserId);
+    const roomId = BigInt(chatRoomId);
+
+    const myPart = await this.participantRepo.getMyActiveParticipation(
+      me,
+      roomId,
+    );
+    if (!myPart) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    await this.roomRepo.leaveRoom(roomId);
   }
 }

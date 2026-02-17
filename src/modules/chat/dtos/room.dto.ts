@@ -75,6 +75,7 @@ export type ListRoomsRes = {
 
 export type RoomDetailRes = {
   chatRoomId: number;
+  joinedAt: string;
   peer: {
     userId: number;
     nickname: string;

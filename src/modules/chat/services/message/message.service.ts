@@ -46,8 +46,11 @@ export class MessageService {
     const me = BigInt(meUserId);
     const roomId = BigInt(chatRoomId);
 
-    const isParticipant = await this.participantRepo.isParticipant(me, roomId);
-    if (!isParticipant) {
+    const myPart = await this.participantRepo.getMyActiveParticipation(
+      me,
+      roomId,
+    );
+    if (!myPart) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
@@ -76,6 +79,7 @@ export class MessageService {
 
     const messages = await this.messageRepo.findMessagesByRoomId(
       roomId,
+      myPart.joinedAt,
       cursorSentAt,
       cursorMessageId,
       size,

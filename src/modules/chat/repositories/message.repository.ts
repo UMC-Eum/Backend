@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
-import type { ChatMediaType } from '@prisma/client';
+import type { ChatMediaType, Prisma } from '@prisma/client';
 
 export type LastMessageSummary = {
   sentAt: Date;
@@ -57,8 +57,7 @@ export class MessageRepository {
 
     const map = new Map<bigint, Date>();
     for (const g of grouped) {
-      const sentAt = g._max.sentAt;
-      if (sentAt) map.set(g.roomId, sentAt);
+      if (g._max.sentAt) map.set(g.roomId, g._max.sentAt);
     }
 
     return map;
@@ -66,9 +65,16 @@ export class MessageRepository {
 
   async getLastMessageSummary(
     roomId: bigint,
+    minSentAt: Date | null = null,
   ): Promise<LastMessageSummary | null> {
+    const where: Prisma.ChatMessageWhereInput = {
+      roomId,
+      deletedAt: null,
+      ...(minSentAt ? { sentAt: { gte: minSentAt } } : {}),
+    };
+
     const lastMsg = await this.prisma.chatMessage.findFirst({
-      where: { roomId, deletedAt: null },
+      where,
       orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
       select: { id: true, sentAt: true },
     });
@@ -89,19 +95,15 @@ export class MessageRepository {
 
   async findMessagesByRoomId(
     roomId: bigint,
+    minSentAt: Date | null,
     cursorSentAt: Date | null,
     cursorMessageId: bigint | null,
     size: number,
   ): Promise<MessageWithMedia[]> {
-    const where: {
-      roomId: bigint;
-      deletedAt: null;
-      OR?: Array<
-        { sentAt: { lt: Date } } | { sentAt: Date; id: { lt: bigint } }
-      >;
-    } = {
+    const where: Prisma.ChatMessageWhereInput = {
       roomId,
       deletedAt: null,
+      ...(minSentAt ? { sentAt: { gte: minSentAt } } : {}),
     };
 
     if (cursorSentAt && cursorMessageId) {
@@ -137,79 +139,40 @@ export class MessageRepository {
 
   async createMessage(
     roomId: bigint,
-    sentById: bigint,
-    sentToId: bigint,
+    me: bigint,
+    peerUserId: bigint,
     type: ChatMediaType,
     text: string | null,
-    mediaUrl: string | null,
-    durationSec: number | null = null,
-  ): Promise<{ id: bigint; sentAt: Date }> {
+    storedMediaRef: string | null,
+    durationSec: number | null,
+  ) {
+    const now = new Date();
     return this.prisma.$transaction(async (tx) => {
-      const message = await tx.chatMessage.create({
+      const msg = await tx.chatMessage.create({
         data: {
           roomId,
-          sentById,
-          sentToId,
-          sentAt: new Date(),
+          sentById: me,
+          sentToId: peerUserId,
+          sentAt: now,
         },
         select: { id: true, sentAt: true },
       });
 
       await tx.chatMedia.create({
         data: {
-          messageId: message.id,
+          messageId: msg.id,
           type,
-          text: type === 'TEXT' ? text : null,
-          url: type !== 'TEXT' ? mediaUrl : null,
-          durationSec:
-            type === 'AUDIO' || type === 'VIDEO' ? durationSec : null,
+          text,
+          url: storedMediaRef,
+          durationSec,
         },
       });
 
-      return message;
+      return msg;
     });
   }
 
-  async markAsRead(
-    messageId: bigint,
-    userId: bigint,
-    readAt: Date = new Date(),
-  ): Promise<boolean> {
-    const updated = await this.prisma.chatMessage.updateMany({
-      where: {
-        id: messageId,
-        sentToId: userId,
-        readAt: null,
-        deletedAt: null,
-      },
-      data: {
-        readAt,
-      },
-    });
-
-    return updated.count > 0;
-  }
-
-  async deleteMessage(
-    messageId: bigint,
-    userId: bigint,
-    deletedAt: Date,
-  ): Promise<boolean> {
-    const updated = await this.prisma.chatMessage.updateMany({
-      where: {
-        id: messageId,
-        OR: [{ sentById: userId }, { sentToId: userId }],
-        deletedAt: null,
-      },
-      data: {
-        deletedAt,
-      },
-    });
-
-    return updated.count > 0;
-  }
-
-  async findMessageById(messageId: bigint) {
+  findMessageById(messageId: bigint) {
     return this.prisma.chatMessage.findUnique({
       where: { id: messageId },
       select: {
@@ -217,8 +180,32 @@ export class MessageRepository {
         roomId: true,
         sentById: true,
         sentToId: true,
+        sentAt: true,
+        readAt: true,
         deletedAt: true,
       },
     });
+  }
+
+  async markAsRead(messageId: bigint, me: bigint, readAt: Date) {
+    const updated = await this.prisma.chatMessage.updateMany({
+      where: { id: messageId, sentToId: me, readAt: null, deletedAt: null },
+      data: { readAt },
+    });
+
+    return updated.count > 0;
+  }
+
+  async deleteMessage(messageId: bigint, me: bigint, deletedAt: Date) {
+    const updated = await this.prisma.chatMessage.updateMany({
+      where: {
+        id: messageId,
+        OR: [{ sentById: me }, { sentToId: me }],
+        deletedAt: null,
+      },
+      data: { deletedAt },
+    });
+
+    return updated.count > 0;
   }
 }

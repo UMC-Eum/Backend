@@ -65,6 +65,83 @@ export class RoomRepository {
     return existing?.roomId ?? null;
   }
 
+  async findLatestRoomIdByUsers(
+    me: bigint,
+    target: bigint,
+  ): Promise<bigint | null> {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: {
+        AND: [
+          { participants: { some: { userId: me } } },
+          { participants: { some: { userId: target } } },
+        ],
+      },
+      orderBy: [{ id: 'desc' }],
+      select: { id: true },
+    });
+
+    return room?.id ?? null;
+  }
+
+  async reactivateRoomWithParticipants(
+    roomId: bigint,
+    userIds: [bigint, bigint],
+  ): Promise<bigint> {
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.chatRoom.update({
+        where: { id: roomId },
+        data: {
+          status: 'ACTIVE',
+          endedAt: null,
+        },
+        select: { id: true },
+      });
+
+      await tx.chatParticipant.updateMany({
+        where: { roomId, userId: { in: userIds } },
+        data: {
+          joinedAt: now,
+          endedAt: null,
+        },
+      });
+
+      // joinedAt 이전 메시지는 숨기므로, 이전에 읽지 않은 메시지가 있더라도 unreadCount에 잡히지 않게 정리합니다.
+      await tx.chatMessage.updateMany({
+        where: {
+          roomId,
+          sentToId: { in: userIds },
+          readAt: null,
+          deletedAt: null,
+        },
+        data: { readAt: now },
+      });
+
+      return roomId;
+    });
+  }
+
+  async leaveRoom(roomId: bigint): Promise<void> {
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.chatParticipant.updateMany({
+        where: { roomId, endedAt: null },
+        data: { endedAt: now },
+      });
+
+      await tx.chatRoom.update({
+        where: { id: roomId },
+        data: {
+          status: 'INACTIVE',
+          endedAt: now,
+        },
+        select: { id: true },
+      });
+    });
+  }
+
   async createRoomWithParticipants(
     me: bigint,
     target: bigint,

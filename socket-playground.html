@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>EUM Socket Playground</title>
+    <style>
+      :root {
+        --bg: #f6f8fc;
+        --panel: #ffffff;
+        --border: #d6deef;
+        --text: #0b1220;
+        --muted: #4b5875;
+
+        --danger: #d92d20;
+        --ok: #039855;
+        --warn: #b54708;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(18, 24, 42, 0.6);
+        backdrop-filter: blur(10px);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      header h1 {
+        font-size: 16px;
+        margin: 0;
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      header small {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 14px;
+      }
+
+      .card h2 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px 10px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 10px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 70px;
+        resize: vertical;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          'Liberation Mono', monospace;
+        font-size: 12px;
+      }
+
+      .btns {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: #10162a;
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button:hover {
+        border-color: #3a4a78;
+      }
+
+      button.primary {
+        border-color: #2a8cff;
+        background: rgba(42, 140, 255, 0.14);
+      }
+
+      button.danger {
+        border-color: var(--danger);
+        background: rgba(255, 90, 95, 0.12);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--danger);
+      }
+
+      .dot.ok {
+        background: var(--ok);
+      }
+
+      .hint {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .hint strong {
+        color: var(--text);
+      }
+
+      .log {
+        height: calc(100vh - 110px);
+        overflow: auto;
+        background: #0a0f1d;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          'Liberation Mono', monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      .log-line {
+        margin: 0 0 10px 0;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        margin-right: 8px;
+      }
+
+      .tag.ok {
+        border-color: rgba(51, 214, 159, 0.4);
+        color: var(--ok);
+      }
+
+      .tag.err {
+        border-color: rgba(255, 90, 95, 0.4);
+        color: var(--danger);
+      }
+
+      .tag.warn {
+        border-color: rgba(255, 204, 102, 0.4);
+        color: var(--warn);
+      }
+
+      @media (max-width: 980px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        .log {
+          height: 50vh;
+          background: #ffffff;
+          border: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>
+        EUM Socket Playground
+        <small>namespace: /chats · path: /ws</small>
+      </h1>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Connection</h2>
+
+        <div class="row">
+          <label>Base URL</label>
+          <input
+            id="baseUrl"
+            value="http://localhost:3000"
+            placeholder="예: http://localhost:3000"
+          />
+        </div>
+
+        <div class="row">
+          <label>Token</label>
+          <input id="token" placeholder="JWT 또는 'Bearer JWT'" />
+        </div>
+
+        <div class="row">
+          <label>Prod Guard</label>
+          <div>
+            <label class="pill">
+              <input id="allowProd" type="checkbox" />
+              프로덕션에 테스트 트래픽 보내는 거 이해함
+            </label>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="btnConnect">Connect</button>
+          <button class="danger" id="btnDisconnect" disabled>Disconnect</button>
+          <button id="btnPing" disabled>ping</button>
+        </div>
+
+        <div class="hint">
+          <div class="pill" style="margin-top: 10px">
+            <span class="dot" id="statusDot"></span>
+            <span id="statusText">DISCONNECTED</span>
+          </div>
+          <div class="hint">
+            연결 방식:
+            <strong>
+              io(`${baseUrl}/chats`, { path: '/ws', auth: { token } })
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Room & Message</h2>
+
+        <div class="row">
+          <label>chatRoomId</label>
+          <input id="chatRoomId" value="101" />
+        </div>
+
+        <div class="btns">
+          <button id="btnJoin" disabled>room.join</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 14px 0" />
+
+        <div class="row">
+          <label>type</label>
+          <select id="msgType">
+            <option value="TEXT">TEXT</option>
+            <option value="PHOTO">PHOTO</option>
+            <option value="AUDIO">AUDIO</option>
+            <option value="VIDEO">VIDEO</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>text</label>
+          <input id="msgText" placeholder="TEXT일 때 필수" />
+        </div>
+
+        <div class="row">
+          <label>mediaUrl</label>
+          <input id="msgMediaUrl" placeholder="PHOTO/AUDIO/VIDEO일 때 필수" />
+        </div>
+
+        <div class="row">
+          <label>durationSec</label>
+          <input id="msgDuration" placeholder="AUDIO/VIDEO일 때 필수 (예: 4)" />
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="btnSend" disabled>message.send</button>
+          <button id="btnClearLog">Clear log</button>
+        </div>
+
+        <div class="hint">
+          수신 이벤트:
+          <strong>message.new</strong>, <strong>message.read</strong>,
+          <strong>message.deleted</strong>, <strong>notification.new</strong>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column: 1 / -1">
+        <h2>Logs</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </main>
+
+    <!-- Socket.IO client (서버 major 버전과 맞추는 게 안전합니다. 일반적으로 v4 사용) -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+      /** @type {import('socket.io-client').Socket | null} */
+      let socket = null;
+
+      const namespace = '/chats';
+      const socketPath = '/ws';
+
+      const elBaseUrl = document.getElementById('baseUrl');
+      const elToken = document.getElementById('token');
+      const elAllowProd = document.getElementById('allowProd');
+
+      const elStatusDot = document.getElementById('statusDot');
+      const elStatusText = document.getElementById('statusText');
+
+      const elChatRoomId = document.getElementById('chatRoomId');
+      const elMsgType = document.getElementById('msgType');
+      const elMsgText = document.getElementById('msgText');
+      const elMsgMediaUrl = document.getElementById('msgMediaUrl');
+      const elMsgDuration = document.getElementById('msgDuration');
+
+      const btnConnect = document.getElementById('btnConnect');
+      const btnDisconnect = document.getElementById('btnDisconnect');
+      const btnPing = document.getElementById('btnPing');
+      const btnJoin = document.getElementById('btnJoin');
+      const btnSend = document.getElementById('btnSend');
+      const btnClearLog = document.getElementById('btnClearLog');
+
+      function now() {
+        return new Date().toISOString();
+      }
+
+      function stringifySafe(value) {
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch {
+          return String(value);
+        }
+      }
+
+      function logLine(kind, label, data) {
+        const logEl = document.getElementById('log');
+        const p = document.createElement('p');
+        p.className = 'log-line';
+
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+
+        if (kind === 'ok') tag.classList.add('ok');
+        if (kind === 'err') tag.classList.add('err');
+        if (kind === 'warn') tag.classList.add('warn');
+
+        tag.textContent = kind.toUpperCase();
+
+        const header = `[${now()}] ${label}\n`;
+        const body = data === undefined ? '' : `${stringifySafe(data)}\n`;
+
+        p.appendChild(tag);
+        p.appendChild(document.createTextNode(` ${header}${body}`));
+
+        logEl.appendChild(p);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setConnected(isConnected) {
+        elStatusDot.classList.toggle('ok', isConnected);
+        elStatusText.textContent = isConnected ? 'CONNECTED' : 'DISCONNECTED';
+
+        btnConnect.disabled = isConnected;
+        btnDisconnect.disabled = !isConnected;
+
+        btnPing.disabled = !isConnected;
+        btnJoin.disabled = !isConnected;
+        btnSend.disabled = !isConnected;
+      }
+
+      function isProdUrl(baseUrl) {
+        return baseUrl.includes('eum-dating.com');
+      }
+
+      function getChatRoomId() {
+        const v = Number(elChatRoomId.value);
+        return Number.isFinite(v) ? v : NaN;
+      }
+
+      function buildSendPayload() {
+        const chatRoomId = getChatRoomId();
+        const type = elMsgType.value;
+
+        const payload = { chatRoomId, type };
+
+        if (type === 'TEXT') {
+          payload.text = elMsgText.value ?? '';
+        } else {
+          payload.mediaUrl = elMsgMediaUrl.value ?? '';
+        }
+
+        if (type === 'AUDIO' || type === 'VIDEO') {
+          const durationSec = Number(elMsgDuration.value);
+          payload.durationSec = durationSec;
+        }
+
+        return payload;
+      }
+
+      function validateBeforeConnect() {
+        const baseUrl = (elBaseUrl.value || '').trim();
+        const token = (elToken.value || '').trim();
+
+        if (!baseUrl) {
+          logLine('err', 'connect: invalid baseUrl', { baseUrl });
+          return null;
+        }
+
+        if (!token) {
+          logLine('warn', 'connect: token is empty', {
+            note: '서버가 인증을 요구하면 connect_error가 납니다.',
+          });
+        }
+
+        if (isProdUrl(baseUrl) && !elAllowProd.checked) {
+          logLine('err', 'connect: blocked (prod guard)', {
+            baseUrl,
+            note: '프로덕션 URL이면 체크박스에 동의해야 연결됩니다.',
+          });
+          return null;
+        }
+
+        return { baseUrl, token };
+      }
+
+      function attachListeners() {
+        if (!socket) return;
+
+        socket.on('connect', () => {
+          logLine('ok', 'socket:connect', { id: socket.id });
+          setConnected(true);
+        });
+
+        socket.on('disconnect', (reason) => {
+          logLine('warn', 'socket:disconnect', { reason });
+          setConnected(false);
+        });
+
+        socket.on('connect_error', (err) => {
+          logLine('err', 'socket:connect_error', {
+            message: err?.message,
+            data: err?.data,
+          });
+          setConnected(false);
+        });
+
+        socket.on('message.new', (payload) => {
+          logLine('ok', 'on:message.new', payload);
+        });
+
+        socket.on('message.read', (payload) => {
+          logLine('ok', 'on:message.read', payload);
+        });
+
+        socket.on('message.deleted', (payload) => {
+          logLine('ok', 'on:message.deleted', payload);
+        });
+
+        socket.on('notification.new', (payload) => {
+          logLine('ok', 'on:notification.new', payload);
+        });
+      }
+
+      btnConnect.addEventListener('click', () => {
+        const v = validateBeforeConnect();
+        if (!v) return;
+
+        const { baseUrl, token } = v;
+
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+
+        const url = `${baseUrl}${namespace}`;
+
+        logLine('warn', 'connect:trying', { url, path: socketPath });
+
+        // window.io는 socket.io client에서 제공
+        socket = window.io(url, {
+          path: socketPath,
+          transports: ['websocket'],
+          auth: { token },
+        });
+
+        attachListeners();
+      });
+
+      btnDisconnect.addEventListener('click', () => {
+        if (!socket) return;
+
+        logLine('warn', 'disconnect:manual', {});
+        socket.disconnect();
+        socket = null;
+        setConnected(false);
+      });
+
+      btnPing.addEventListener('click', () => {
+        if (!socket) return;
+
+        socket.emit('ping', (ack) => {
+          logLine('ok', 'ack:ping', ack);
+        });
+      });
+
+      btnJoin.addEventListener('click', () => {
+        if (!socket) return;
+
+        const chatRoomId = getChatRoomId();
+        if (!Number.isFinite(chatRoomId) || chatRoomId <= 0) {
+          logLine('err', 'emit:room.join invalid chatRoomId', { chatRoomId });
+          return;
+        }
+
+        socket.emit('room.join', { chatRoomId }, (ack) => {
+          logLine('ok', 'ack:room.join', ack);
+        });
+      });
+
+      btnSend.addEventListener('click', () => {
+        if (!socket) return;
+
+        const payload = buildSendPayload();
+
+        if (!Number.isFinite(payload.chatRoomId) || payload.chatRoomId <= 0) {
+          logLine('err', 'emit:message.send invalid chatRoomId', payload);
+          return;
+        }
+
+        if (payload.type === 'TEXT' && !payload.text) {
+          logLine('err', 'emit:message.send missing text', payload);
+          return;
+        }
+
+        if (payload.type !== 'TEXT' && !payload.mediaUrl) {
+          logLine('err', 'emit:message.send missing mediaUrl', payload);
+          return;
+        }
+
+        if (
+          (payload.type === 'AUDIO' || payload.type === 'VIDEO') &&
+          (!Number.isFinite(payload.durationSec) || payload.durationSec < 1)
+        ) {
+          logLine('err', 'emit:message.send invalid durationSec', payload);
+          return;
+        }
+
+        socket.emit('message.send', payload, (ack) => {
+          logLine('ok', 'ack:message.send', ack);
+        });
+      });
+
+      btnClearLog.addEventListener('click', () => {
+        document.getElementById('log').innerHTML = '';
+      });
+
+      setConnected(false);
+    </script>
+  </body>
+</html>

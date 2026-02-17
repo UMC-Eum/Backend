@@ -29,6 +29,7 @@ Table User {
   idealPersonalities UserIdealPersonality [not null]
   personalities UserPersonality [not null]
   notifications Notification [not null]
+  notificaionsFrom Notification [not null]
   chatRooms ChatRoom [not null]
   chatParticipations ChatParticipant [not null]
   sentMessages ChatMessage [not null]
@@ -197,7 +198,9 @@ Table Notification {
   deletedAt DateTime
   title String [not null]
   body String [not null]
+  sentById BigInt
   user User [not null]
+  sentBy User
 }
 
 Table ChatRoom {
@@ -351,6 +354,8 @@ Ref: Report.reportedById > User.id [delete: Cascade]
 Ref: Report.reportedId > User.id [delete: Cascade]
 
 Ref: Notification.userId > User.id [delete: Cascade]
+
+Ref: Notification.sentById > User.id [delete: Cascade]
 
 Ref: ChatRoom.userId > User.id [delete: Cascade]
 

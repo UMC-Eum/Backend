@@ -320,52 +320,52 @@ Enum NotificationType {
 
 Ref: User.code > Address.code
 
-Ref: RefreshToken.userId > User.id
+Ref: RefreshToken.userId > User.id [delete: Cascade]
 
-Ref: UserPhoto.userId > User.id
+Ref: UserPhoto.userId > User.id [delete: Cascade]
 
-Ref: Heart.sentById > User.id
+Ref: Heart.sentById > User.id [delete: Cascade]
 
-Ref: Heart.sentToId > User.id
+Ref: Heart.sentToId > User.id [delete: Cascade]
 
 Ref: UserInterest.interestId > Interest.id
 
-Ref: UserInterest.userId > User.id
+Ref: UserInterest.userId > User.id [delete: Cascade]
 
-Ref: UserIdealPersonality.userId > User.id
+Ref: UserIdealPersonality.userId > User.id [delete: Cascade]
 
 Ref: UserIdealPersonality.personalityId > Personality.id
 
-Ref: UserPersonality.userId > User.id
+Ref: UserPersonality.userId > User.id [delete: Cascade]
 
 Ref: UserPersonality.personalityId > Personality.id
 
 Ref: Address.parentCode - Address.code
 
-Ref: Block.blockedById > User.id
+Ref: Block.blockedById > User.id [delete: Cascade]
 
-Ref: Block.blockedId > User.id
+Ref: Block.blockedId > User.id [delete: Cascade]
 
-Ref: Report.reportedById > User.id
+Ref: Report.reportedById > User.id [delete: Cascade]
 
-Ref: Report.reportedId > User.id
+Ref: Report.reportedId > User.id [delete: Cascade]
 
-Ref: Notification.userId > User.id
+Ref: Notification.userId > User.id [delete: Cascade]
 
-Ref: ChatRoom.userId > User.id
+Ref: ChatRoom.userId > User.id [delete: Cascade]
 
 Ref: ChatParticipant.roomId > ChatRoom.id
 
-Ref: ChatParticipant.userId > User.id
+Ref: ChatParticipant.userId > User.id [delete: Cascade]
 
 Ref: ChatMessage.roomId > ChatRoom.id
 
-Ref: ChatMessage.sentById > User.id
+Ref: ChatMessage.sentById > User.id [delete: Cascade]
 
-Ref: ChatMessage.sentToId > User.id
+Ref: ChatMessage.sentToId > User.id [delete: Cascade]
 
 Ref: ChatMedia.messageId > ChatMessage.id
 
-Ref: UserMarketingAgreement.userId > User.id
+Ref: UserMarketingAgreement.userId > User.id [delete: Cascade]
 
 Ref: UserMarketingAgreement.marketingAgreementId > MarketingAgreement.id

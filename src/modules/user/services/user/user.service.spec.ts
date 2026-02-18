@@ -15,6 +15,7 @@ describe('UserService', () => {
             findProfileById: jest.fn(),
             findAddressByCode: jest.fn(),
             findInterestsByBodies: jest.fn(),
+            findAllPersonalities: jest.fn(),
             updateProfile: jest.fn(),
             updateKeywords: jest.fn(),
           },

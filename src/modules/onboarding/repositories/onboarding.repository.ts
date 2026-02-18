@@ -6,6 +6,16 @@ import { CreateProfileDto } from '../dtos/onboarding.dto';
 export class OnboardingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // 생일 기반 만 나이 계산 함수
+  private calculateAge(birthdate: Date): number {
+    const today = new Date();
+    const birth = new Date(birthdate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  }
+
   async updateUserProfile(
     userId: number,
     dto: CreateProfileDto,
@@ -21,6 +31,9 @@ export class OnboardingRepository {
       vibeVector,
     } = dto;
 
+    const birthDateObj = new Date(birthDate);
+    const age = this.calculateAge(birthDateObj);
+
     // 유저 정보 업데이트
     await this.prisma.user.update({
       where: { id: userId },
@@ -32,6 +45,7 @@ export class OnboardingRepository {
         introText,
         introVoiceUrl: introAudioUrl,
         vibeVector,
+        age,
       },
     });
 
@@ -46,38 +60,41 @@ export class OnboardingRepository {
       select: { id: true, body: true },
     });
 
-    // 중복 저장 방지
-    await this.prisma.$transaction([
-      ...matchedInterests.map(({ id }) =>
-        this.prisma.userInterest.upsert({
-          where: {
-            interestId_userId: {
-              interestId: id,
-              userId,
-            },
-          },
-          update: {},
-          create: {
+    console.log(
+      `[ONBOARDING] matchedInterests=${matchedInterests.length}개, matchedPersonalities=${matchedPersonalities.length}개`,
+    );
+
+    // 기존 키워드 삭제 + 새 키워드 저장
+    await this.prisma.$transaction(async (tx) => {
+      // 기존 관심사 삭제
+      await tx.userInterest.deleteMany({
+        where: { userId },
+      });
+
+      // 기존 성향 삭제
+      await tx.userPersonality.deleteMany({
+        where: { userId },
+      });
+
+      // 새로운 관심사 저장
+      if (matchedInterests.length > 0) {
+        await tx.userInterest.createMany({
+          data: matchedInterests.map(({ id }) => ({
             interestId: id,
             userId,
-          },
-        }),
-      ),
-      ...matchedPersonalities.map(({ id }) =>
-        this.prisma.userPersonality.upsert({
-          where: {
-            userId_personalityId: {
-              personalityId: id,
-              userId,
-            },
-          },
-          update: {},
-          create: {
+          })),
+        });
+      }
+
+      // 새로운 성향 저장
+      if (matchedPersonalities.length > 0) {
+        await tx.userPersonality.createMany({
+          data: matchedPersonalities.map(({ id }) => ({
             personalityId: id,
             userId,
-          },
-        }),
-      ),
-    ]);
+          })),
+        });
+      }
+    });
   }
 }

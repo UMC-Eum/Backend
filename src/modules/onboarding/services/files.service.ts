@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PresignFileDto } from '../dtos/files.dto';
 import * as process from 'process';
 
 @Injectable()
 export class FileUploadService {
-  // 클래스 필드 정의
   private s3: S3Client;
   private bucket: string;
 
-  // S3 클라이언트 초기화
   constructor() {
     this.s3 = new S3Client({
       region: process.env.AWS_REGION,
@@ -31,19 +33,31 @@ export class FileUploadService {
 
     const key = `${folder}/${userId}/${Date.now()}_${fileName}`;
 
-    const command = new PutObjectCommand({
+    // 업로드용 Presigned URL (PUT)
+    const putCommand = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       ContentType: contentType,
     });
 
-    const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 300 });
-    const fileUrl = `https://${this.bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    const uploadUrl = await getSignedUrl(this.s3, putCommand, {
+      expiresIn: 300,
+    });
+
+    // 다운로드용 Presigned URL (GET)
+    const getCommand = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const downloadUrl = await getSignedUrl(this.s3, getCommand, {
+      expiresIn: 3600 * 24 * 7,
+    });
 
     return {
       uploadUrl,
-      fileUrl,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      fileUrl: downloadUrl,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     };
   }
 }

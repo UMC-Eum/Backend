@@ -365,9 +365,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       where: {
         roomId,
         userId: { not: me },
-        endedAt: null,
       },
-      select: { userId: true },
+      select: { userId: true, endedAt: true },
     });
 
     if (!peer) {

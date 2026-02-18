@@ -6,7 +6,7 @@ import type { ChatMediaType, Prisma } from '@prisma/client';
 
 export type LastMessageSummary = {
   sentAt: Date;
-  type: string | null;
+  type: ChatMediaType | null;
   text: string | null;
 };
 
@@ -30,15 +30,33 @@ export class MessageRepository {
   async countUnreadByRoomIds(
     roomIds: bigint[],
     me: bigint,
+    minSentAtByRoom: Map<bigint, Date> | null = null,
   ): Promise<Map<bigint, number>> {
+    if (roomIds.length === 0) return new Map<bigint, number>();
+
+    const where: Prisma.ChatMessageWhereInput = {
+      sentToId: me,
+      readAt: null,
+      deletedAt: null,
+    };
+
+    if (minSentAtByRoom) {
+      where.OR = roomIds.map((roomId) => {
+        const minSentAt = minSentAtByRoom.get(roomId);
+        if (!minSentAt) return { roomId };
+
+        return {
+          roomId,
+          sentAt: { gte: minSentAt },
+        };
+      });
+    } else {
+      where.roomId = { in: roomIds };
+    }
+
     const grouped = await this.prisma.chatMessage.groupBy({
       by: ['roomId'],
-      where: {
-        roomId: { in: roomIds },
-        sentToId: me,
-        readAt: null,
-        deletedAt: null,
-      },
+      where,
       _count: { _all: true },
     });
 

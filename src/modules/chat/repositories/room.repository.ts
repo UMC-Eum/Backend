@@ -57,7 +57,7 @@ export class RoomRepository {
       where: {
         roomId: { in: roomIds },
         userId: target,
-        endedAt: null,
+        // endedAt 조건 제거 (상대가 나갔어도 방은 존재해야 함)
       },
       select: { roomId: true },
     });
@@ -83,10 +83,7 @@ export class RoomRepository {
     return room?.id ?? null;
   }
 
-  async reactivateRoomWithParticipants(
-    roomId: bigint,
-    userIds: [bigint, bigint],
-  ): Promise<bigint> {
+  async reactivateRoomForUser(roomId: bigint, userId: bigint): Promise<bigint> {
     const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
@@ -99,21 +96,27 @@ export class RoomRepository {
         select: { id: true },
       });
 
-      await tx.chatParticipant.updateMany({
-        where: { roomId, userId: { in: userIds } },
-        data: {
+      await tx.chatParticipant.upsert({
+        where: { roomId_userId: { roomId, userId } },
+        update: {
+          joinedAt: now,
+          endedAt: null,
+        },
+        create: {
+          roomId,
+          userId,
           joinedAt: now,
           endedAt: null,
         },
       });
 
-      // joinedAt 이전 메시지는 숨기므로, 이전에 읽지 않은 메시지가 있더라도 unreadCount에 잡히지 않게 정리합니다.
       await tx.chatMessage.updateMany({
         where: {
           roomId,
-          sentToId: { in: userIds },
+          sentToId: userId,
           readAt: null,
           deletedAt: null,
+          sentAt: { lt: now },
         },
         data: { readAt: now },
       });
@@ -122,23 +125,33 @@ export class RoomRepository {
     });
   }
 
-  async leaveRoom(roomId: bigint): Promise<void> {
+  async leaveRoom(roomId: bigint, userId: bigint): Promise<boolean> {
     const now = new Date();
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.chatParticipant.updateMany({
-        where: { roomId, endedAt: null },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.chatParticipant.updateMany({
+        where: { roomId, userId, endedAt: null },
         data: { endedAt: now },
       });
 
-      await tx.chatRoom.update({
-        where: { id: roomId },
-        data: {
-          status: 'INACTIVE',
-          endedAt: now,
-        },
-        select: { id: true },
+      if (updated.count === 0) return false;
+
+      const activeCount = await tx.chatParticipant.count({
+        where: { roomId, endedAt: null },
       });
+
+      if (activeCount === 0) {
+        await tx.chatRoom.update({
+          where: { id: roomId },
+          data: {
+            status: 'INACTIVE',
+            endedAt: now,
+          },
+          select: { id: true },
+        });
+      }
+
+      return true;
     });
   }
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, ActiveStatus } from '@prisma/client';
 
 @Injectable()
 export class NotificationRepository {
@@ -100,12 +100,27 @@ export class NotificationRepository {
 
       include: {
         sentBy: {
+          where: { status: ActiveStatus.ACTIVE },
           select: {
             id: true,
             nickname: true,
             profileImageUrl: true,
           },
         },
+      },
+    });
+  }
+
+  // 마음 알림 전체 읽음
+  readAllHeartNotifications(userId: number) {
+    return this.prisma.notification.updateMany({
+      data: {
+        isRead: true,
+      },
+      where: {
+        userId: BigInt(userId),
+        isRead: false,
+        type: NotificationType.HEART,
       },
     });
   }

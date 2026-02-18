@@ -103,4 +103,8 @@ export class NotificationService {
       notificationId,
     );
   }
+
+  async readAllHeartNotifications(userId: number) {
+    await this.notificationRepository.readAllHeartNotifications(userId);
+  }
 }

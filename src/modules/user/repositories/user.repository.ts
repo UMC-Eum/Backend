@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActiveStatus, Prisma, Sex } from '@prisma/client';
+import { ActiveStatus, Sex } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class UserRepository {
         id: true,
         nickname: true,
         sex: true,
-        birthdate: true,
+        age: true,
         introText: true,
         introVoiceUrl: true,
         profileImageUrl: true,
@@ -62,6 +62,53 @@ export class UserRepository {
     });
   }
 
+  findDetailedProfileById(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        birthdate: true,
+        profileImageUrl: true,
+        introText: true,
+        introVoiceUrl: true,
+        vibeVector: true,
+        address: {
+          select: {
+            fullName: true,
+          },
+        },
+        interests: {
+          where: { deletedAt: null },
+          select: {
+            interestId: true,
+            interest: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        personalities: {
+          where: { deletedAt: null },
+          select: {
+            personalityId: true,
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   findAddressByCode(code: string) {
     return this.prismaService.address.findUnique({
       where: { code },
@@ -83,12 +130,18 @@ export class UserRepository {
     });
   }
 
+  findAllPersonalities() {
+    return this.prismaService.personality.findMany({
+      select: { id: true, body: true },
+    });
+  }
+
   updateProfile(
     userId: number,
     data: {
       nickname?: string;
       sex?: Sex;
-      birthdate?: Date;
+      age?: number;
       code?: string;
       introText?: string;
       introVoiceUrl?: string;
@@ -162,7 +215,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             interestId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -211,7 +263,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {
@@ -260,7 +311,6 @@ export class UserRepository {
           .map((id) => ({
             userId: BigInt(userId),
             personalityId: BigInt(id),
-            vibeVector: Prisma.JsonNull,
           }));
 
         if (createData.length > 0) {

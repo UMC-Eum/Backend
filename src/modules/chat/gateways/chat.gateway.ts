@@ -10,10 +10,16 @@ import {
 } from '@nestjs/websockets';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ActiveStatus, NotificationType } from '@prisma/client';
+import {
+  ActiveStatus,
+  ChatMediaType,
+  NotificationType,
+  type Notification,
+} from '@prisma/client';
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtTokenService } from '../../auth/services/jwt-token.service';
+import { ChatMediaService } from '../services/chat-media/chat-media.service';
 import { NotificationService } from '../../notification/services/notification.service';
 import { buildMessagePreview } from '../utils/message-preview.util';
 
@@ -27,13 +33,21 @@ type AuthedSocket = Socket<
 >;
 
 type JoinRoomBody = { chatRoomId: number };
+
 type SendMessageBody = {
   chatRoomId: number;
-  type: 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
+  type: ChatMediaType;
   text?: string | null;
   mediaUrl?: string | null;
   durationSec?: number | null;
 };
+
+function isChatMediaType(v: unknown): v is ChatMediaType {
+  return (
+    typeof v === 'string' &&
+    (Object.values(ChatMediaType) as string[]).includes(v)
+  );
+}
 
 function toPositiveInt(v: unknown): number | null {
   const n =
@@ -47,6 +61,12 @@ function toPositiveInt(v: unknown): number | null {
 
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.floor(n);
+}
+
+function shorten(input: string, maxLen = 140): string {
+  const s = input.trim();
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, maxLen)}…`;
 }
 
 function extractBearerToken(client: Socket): string | null {
@@ -75,17 +95,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly prisma: PrismaService,
     private readonly jwtTokenService: JwtTokenService,
     private readonly configService: ConfigService,
+    private readonly chatMediaService: ChatMediaService,
     private readonly notificationService: NotificationService,
   ) {}
 
   @WebSocketServer()
   server!: Server;
 
+<<<<<<< feat/chat-notification
   /**
    * 여러 room 대상으로 "한 번만" emit (room + user 룸 중복 join 시에도 중복 수신 방지)
    */
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
     if (!this.server) return;
+=======
+  private emitToRooms(rooms: string[], event: string, payload: unknown): void {
+>>>>>>> dev
     this.server.to(rooms).emit(event, payload);
   }
 
@@ -275,6 +300,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const room = `room:${chatRoomId}`;
     client.join(room);
+
     return { ok: true, joined: room };
   }
 
@@ -293,8 +319,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new WsException('Unauthorized socket');
     }
 
+    this.logger.debug(
+      `message.send recv room=${chatRoomId} user=${senderUserId} type=${String(body?.type)}`,
+    );
+
     const type = body?.type;
-    if (!type || !['AUDIO', 'PHOTO', 'VIDEO', 'TEXT'].includes(type)) {
+    if (!isChatMediaType(type)) {
       throw new WsException('Invalid message type');
     }
 
@@ -309,6 +339,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!mediaUrl) {
         throw new WsException('Media URL is required');
       }
+
+      if (type === 'AUDIO' || type === 'VIDEO') {
+        const durationSec = toPositiveInt(body?.durationSec);
+        if (!durationSec) {
+          throw new WsException('durationSec is required for AUDIO/VIDEO');
+        }
+      }
+
+      this.logger.debug(
+        `message.send media room=${chatRoomId} user=${senderUserId} type=${type} mediaUrl=${shorten(mediaUrl)} durationSec=${String(body?.durationSec)}`,
+      );
     }
 
     const me = BigInt(senderUserId);
@@ -349,16 +390,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       select: { id: true, sentAt: true },
     });
 
+<<<<<<< feat/chat-notification
     const shouldHaveDuration = type === 'AUDIO' || type === 'VIDEO';
+=======
+    this.logger.debug(
+      `message.send created messageId=${Number(message.id)} room=${chatRoomId}`,
+    );
+
+    const storedMediaRef =
+      type !== 'TEXT' && typeof body.mediaUrl === 'string'
+        ? this.chatMediaService.normalizeChatMediaRef(chatRoomId, body.mediaUrl)
+        : null;
+
+    if (storedMediaRef) {
+      this.logger.debug(
+        `message.send normalized mediaRef=${shorten(storedMediaRef)}`,
+      );
+    }
+
+>>>>>>> dev
     await this.prisma.chatMedia.create({
       data: {
         messageId: message.id,
         type,
         text: type === 'TEXT' ? (body.text ?? null) : null,
-        url: type !== 'TEXT' ? (body.mediaUrl ?? null) : null,
-        durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
+        url: type !== 'TEXT' ? storedMediaRef : null,
+        durationSec:
+          type === 'AUDIO' || type === 'VIDEO'
+            ? (toPositiveInt(body.durationSec) ?? null)
+            : null,
       },
     });
+
+    const clientMediaUrl =
+      await this.chatMediaService.toClientUrl(storedMediaRef);
 
     const room = `room:${chatRoomId}`;
     const payload = {
@@ -366,9 +431,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       chatRoomId,
       senderUserId,
       type,
-      text: type === 'TEXT' ? body.text : null,
-      mediaUrl: type !== 'TEXT' ? body.mediaUrl : null,
-      durationSec: shouldHaveDuration ? (body.durationSec ?? null) : null,
+      text: type === 'TEXT' ? (body.text ?? null) : null,
+      mediaUrl: type !== 'TEXT' ? clientMediaUrl : null,
+      durationSec:
+        type === 'AUDIO' || type === 'VIDEO'
+          ? (toPositiveInt(body.durationSec) ?? null)
+          : null,
       sentAt: message.sentAt.toISOString(),
     };
 

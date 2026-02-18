@@ -182,7 +182,9 @@ export class MessageRepository {
         readAt: null,
         deletedAt: null,
       },
-      data: { readAt },
+      data: {
+        readAt,
+      },
     });
 
     return updated.count > 0;
@@ -191,7 +193,7 @@ export class MessageRepository {
   async deleteMessage(
     messageId: bigint,
     userId: bigint,
-    deletedAt: Date = new Date(),
+    deletedAt: Date,
   ): Promise<boolean> {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {
@@ -199,7 +201,9 @@ export class MessageRepository {
         OR: [{ sentById: userId }, { sentToId: userId }],
         deletedAt: null,
       },
-      data: { deletedAt },
+      data: {
+        deletedAt,
+      },
     });
 
     return updated.count > 0;

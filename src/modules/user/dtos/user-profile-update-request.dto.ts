@@ -3,7 +3,9 @@ import { Sex } from '@prisma/client';
 import {
   ArrayUnique,
   IsArray,
-  IsDateString,
+  IsInt,
+  Max,
+  Min,
   IsEnum,
   IsOptional,
   IsString,
@@ -21,10 +23,12 @@ export class UserProfileUpdateRequestDto {
   @IsEnum(Sex)
   gender?: Sex;
 
-  @ApiPropertyOptional({ example: '1972-03-01' })
+  @ApiPropertyOptional({ example: 53, description: '만 나이' })
   @IsOptional()
-  @IsDateString()
-  birthDate?: string;
+  @IsInt()
+  @Min(50)
+  @Max(150)
+  age?: number;
 
   @ApiPropertyOptional({ example: '1168000000' })
   @IsOptional()

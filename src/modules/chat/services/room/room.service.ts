@@ -55,6 +55,14 @@ export class RoomService {
     const me = BigInt(meUserId);
     const target = BigInt(targetUserId);
 
+    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+      me,
+      target,
+    );
+    if (isBlocked) {
+      throw new AppException('CHAT_MESSAGE_BLOCKED');
+    }
+
     const peerUser = await this.roomRepo.findPeerUserBasic(target);
     if (!peerUser) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {

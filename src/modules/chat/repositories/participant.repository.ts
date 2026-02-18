@@ -5,6 +5,22 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 export class ParticipantRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async isBlockedBetweenUsers(a: bigint, b: bigint): Promise<boolean> {
+    const found = await this.prisma.block.findFirst({
+      where: {
+        deletedAt: null,
+        status: 'BLOCKED',
+        OR: [
+          { blockedById: a, blockedId: b },
+          { blockedById: b, blockedId: a },
+        ],
+      },
+      select: { id: true },
+    });
+
+    return found !== null;
+  }
+
   async getMyActiveParticipation(
     me: bigint,
     roomId: bigint,

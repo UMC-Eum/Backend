@@ -6,22 +6,18 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  WsException,
 } from '@nestjs/websockets';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UseFilters } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ActiveStatus,
-  ChatMediaType,
-  NotificationType,
-  type Notification,
-} from '@prisma/client';
+import { ActiveStatus, ChatMediaType, NotificationType } from '@prisma/client';
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtTokenService } from '../../auth/services/jwt-token.service';
 import { ChatMediaService } from '../services/chat-media/chat-media.service';
 import { NotificationService } from '../../notification/services/notification.service';
 import { buildMessagePreview } from '../utils/message-preview.util';
+import { AppException } from '../../../common/errors/app.exception';
+import { WsExceptionFilter } from '../../../common/filters/ws-exception.filter';
 
 type SocketData = { userId?: number };
 
@@ -87,6 +83,7 @@ function extractBearerToken(client: Socket): string | null {
   namespace: '/chats',
   cors: { origin: true, credentials: true },
 })
+@UseFilters(new WsExceptionFilter())
 @Injectable()
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(ChatGateway.name);
@@ -102,9 +99,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
-  /**
-   * 여러 room 대상으로 "한 번만" emit (room + user 룸 중복 join 시에도 중복 수신 방지)
-   */
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
     if (!this.server) return;
     const uniqueRooms = [...new Set(rooms)];
@@ -265,6 +259,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
   }
 
+  // 입장은 허용
   @SubscribeMessage('room.join')
   async onJoinRoom(
     @ConnectedSocket() client: AuthedSocket,
@@ -272,12 +267,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
     if (!chatRoomId) {
-      throw new WsException('Invalid chatRoomId');
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: 'chatRoomId가 올바르지 않습니다.',
+      });
     }
 
     const senderUserId = client.data.userId;
     if (!senderUserId) {
-      throw new WsException('Unauthorized socket');
+      throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
     const me = BigInt(senderUserId);
@@ -292,7 +289,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     if (!isParticipant) {
-      throw new WsException('Not a participant of this room');
+      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
     const room = `room:${chatRoomId}`;
@@ -301,6 +298,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { ok: true, joined: room };
   }
 
+  // 전송은 차단 체크
   @SubscribeMessage('message.send')
   async onSendMessage(
     @ConnectedSocket() client: AuthedSocket,
@@ -308,12 +306,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
     if (!chatRoomId) {
-      throw new WsException('Invalid chatRoomId');
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: 'chatRoomId가 올바르지 않습니다.',
+      });
     }
 
     const senderUserId = client.data.userId;
     if (!senderUserId) {
-      throw new WsException('Unauthorized socket');
+      throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
     this.logger.debug(
@@ -322,25 +322,33 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const type = body?.type;
     if (!isChatMediaType(type)) {
-      throw new WsException('Invalid message type');
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: '메시지 타입이 올바르지 않습니다.',
+      });
     }
 
     if (type === 'TEXT') {
       const text = typeof body?.text === 'string' ? body.text.trim() : '';
       if (!text) {
-        throw new WsException('Message text is required');
+        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+          message: '텍스트 메시지는 내용이 필요합니다.',
+        });
       }
     } else {
       const mediaUrl =
         typeof body?.mediaUrl === 'string' ? body.mediaUrl.trim() : '';
       if (!mediaUrl) {
-        throw new WsException('Media URL is required');
+        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+          message: '미디어 메시지는 mediaUrl이 필요합니다.',
+        });
       }
 
       if (type === 'AUDIO' || type === 'VIDEO') {
         const durationSec = toPositiveInt(body?.durationSec);
         if (!durationSec) {
-          throw new WsException('durationSec is required for AUDIO/VIDEO');
+          throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+            message: '오디오/비디오 메시지는 durationSec이 필요합니다.',
+          });
         }
       }
 
@@ -361,19 +369,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     if (!isParticipant) {
-      throw new WsException('Not a participant of this room');
+      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
     const peer = await this.prisma.chatParticipant.findFirst({
       where: {
         roomId,
         userId: { not: me },
+        endedAt: null,
       },
-      select: { userId: true, endedAt: true },
+      select: { userId: true },
     });
 
     if (!peer) {
-      throw new WsException('Peer not found');
+      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    }
+
+    const isBlocked = await this.isBlockedBetweenUsers(me, peer.userId);
+    if (isBlocked) {
+      throw new AppException('CHAT_MESSAGE_BLOCKED');
     }
 
     const message = await this.prisma.chatMessage.create({
@@ -444,5 +458,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     return { ok: true, messageId: Number(message.id) };
+  }
+
+  private async isBlockedBetweenUsers(a: bigint, b: bigint): Promise<boolean> {
+    const found = await this.prisma.block.findFirst({
+      where: {
+        deletedAt: null,
+        status: 'BLOCKED',
+        OR: [
+          { blockedById: a, blockedId: b },
+          { blockedById: b, blockedId: a },
+        ],
+      },
+      select: { id: true },
+    });
+
+    return found !== null;
   }
 }

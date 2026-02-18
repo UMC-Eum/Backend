@@ -170,6 +170,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CHAT-003',
     message: '파일 용량이 제한을 초과했습니다.',
   },
+  CHAT_MESSAGE_BLOCKED: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CHAT-004',
+    message: '차단 상태에서는 채팅 기능을 이용할 수 없어요.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

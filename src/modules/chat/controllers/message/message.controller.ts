@@ -57,7 +57,7 @@ export class MessageController {
   @ApiOperation({
     summary: '메시지 목록 조회',
     description:
-      '채팅방의 메시지 목록을 커서 기반으로 조회합니다. 참여자만 조회할 수 있습니다.',
+      '채팅방의 메시지 목록을 커서 기반으로 조회합니다. 참여자만 조회할 수 있으며, 채팅방 나가기/재입장(joinedAt 갱신) 이후에는 joinedAt 기준으로 메시지가 새로 조회됩니다.',
   })
   @ApiParam({
     name: 'chatRoomId',

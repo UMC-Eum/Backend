@@ -26,6 +26,15 @@ import { NotificationType } from '@prisma/client';
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
+  @ApiOperation({ summary: '마음 알림 전체 읽기' })
+  @ApiOkResponse()
+  @Patch('/hearts/read')
+  @UseGuards(AccessTokenGuard)
+  async readAllHeartNotifications(@RequiredUserId() userId: number) {
+    console.log('readAllHeartNotifications 진입');
+    await this.notificationService.readAllHeartNotifications(userId);
+  }
+
   @ApiOperation({ summary: '알림 읽음 처리' })
   @ApiParam({
     name: 'id',
@@ -107,7 +116,7 @@ export class NotificationController {
     );
   }
 
-  @ApiOperation({ description: '마음 알림 목록 조회' })
+  @ApiOperation({ summary: '마음 알림 목록 조회' })
   @ApiQuery({
     name: 'cursor',
     required: false,
@@ -135,7 +144,7 @@ export class NotificationController {
     );
   }
 
-  @ApiOperation({ description: '채팅 알림 목록 조회' })
+  @ApiOperation({ summary: '채팅 알림 목록 조회' })
   @ApiQuery({
     name: 'cursor',
     required: false,
@@ -163,7 +172,7 @@ export class NotificationController {
     );
   }
 
-  @ApiOperation({ description: '특정 알림 삭제' })
+  @ApiOperation({ summary: '특정 알림 삭제' })
   @ApiParam({
     name: 'id',
     description: '알림ID',

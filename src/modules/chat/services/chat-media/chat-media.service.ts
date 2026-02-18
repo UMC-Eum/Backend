@@ -27,7 +27,7 @@ const S3_REF_PREFIX = 's3://';
 const MAX_SIZE_BY_TYPE: Record<ChatUploadType, number> = {
   AUDIO: 20 * 1024 * 1024,
   PHOTO: 10 * 1024 * 1024,
-  VIDEO: 100 * 1024 * 1024,
+  VIDEO: 300 * 1024 * 1024,
 };
 
 function sanitizeFileName(fileName: string): string {
@@ -224,8 +224,16 @@ export class ChatMediaService {
     }
 
     if (dto.sizeBytes && dto.sizeBytes > MAX_SIZE_BY_TYPE[dto.type]) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: `파일 크기가 너무 큽니다. (최대 ${MAX_SIZE_BY_TYPE[dto.type]} bytes)`,
+      const maxBytes = MAX_SIZE_BY_TYPE[dto.type];
+      const maxMb = Math.floor(maxBytes / (1024 * 1024));
+
+      throw new AppException('CHAT_MEDIA_SIZE_EXCEEDED', {
+        message: `파일 용량이 제한을 초과했습니다. (최대 ${maxMb}MB)`,
+        details: {
+          type: dto.type,
+          sizeBytes: dto.sizeBytes,
+          maxBytes,
+        },
       });
     }
 

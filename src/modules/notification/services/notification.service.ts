@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
-import { NotificationResponseDto } from '../dtos/notification.dto';
+import {
+  NotificationResponseDto,
+  NotificationWithSenderResponseDto,
+} from '../dtos/notification.dto';
 import { AppException } from '../../../common/errors/app.exception';
 import { NotificationType } from '@prisma/client';
 @Injectable()
@@ -57,6 +60,20 @@ export class NotificationService {
     cursor?: string,
     limit = 20,
   ) {
+    if (type == NotificationType.HEART) {
+      const result = await this.notificationRepository.findHeartNotifications(
+        userId,
+        cursor,
+        limit + 1,
+      );
+      const hasNext = result.length > limit;
+      const items = hasNext ? result.slice(0, limit) : result;
+      const nextCursor = hasNext ? items[items.length - 1].id : null;
+      return {
+        nextCursor: nextCursor !== null ? Number(nextCursor) : null,
+        items: result.map(NotificationWithSenderResponseDto.from),
+      };
+    }
     const result = await this.notificationRepository.findNotificationByFilter(
       userId,
       type,
@@ -85,5 +102,9 @@ export class NotificationService {
       userId,
       notificationId,
     );
+  }
+
+  async readAllHeartNotifications(userId: number) {
+    await this.notificationRepository.readAllHeartNotifications(userId);
   }
 }

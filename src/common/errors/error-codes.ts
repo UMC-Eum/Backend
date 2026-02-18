@@ -165,6 +165,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CHAT-002',
     message: '채팅방을 불러올 수 없어요. 홈으로 이동해 주세요.',
   },
+  CHAT_MEDIA_SIZE_EXCEEDED: {
+    status: HttpStatus.PAYLOAD_TOO_LARGE,
+    code: 'CHAT-003',
+    message: '파일 용량이 제한을 초과했습니다.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

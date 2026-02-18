@@ -186,6 +186,7 @@ interface RawNotificationRecord {
   body: string;
   createdAt: string;
   deletedAt?: string;
+  sentById?: string;
 }
 const ROOT = process.cwd();
 
@@ -512,6 +513,7 @@ async function main() {
       body: n.body,
       createdAt: new Date(n.createdAt),
       deletedAt: n.deletedAt ? new Date(n.deletedAt) : null,
+      sentById: n.sentById ? BigInt(n.sentById) : null,
     })),
     skipDuplicates: true,
   });

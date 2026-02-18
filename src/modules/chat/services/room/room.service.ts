@@ -85,14 +85,9 @@ export class RoomService {
       target,
     );
     if (latestRoomId) {
-      const reactivatedRoomId =
-        await this.roomRepo.reactivateRoomWithParticipants(latestRoomId, [
-          me,
-          target,
-        ]);
-
+      await this.roomRepo.reactivateRoomForUser(latestRoomId, me);
       return {
-        chatRoomId: Number(reactivatedRoomId),
+        chatRoomId: Number(latestRoomId),
         created: false,
         peer: {
           userId: Number(peerUser.id),
@@ -173,24 +168,25 @@ export class RoomService {
 
     const roomIds = rooms.map((r) => r.id);
 
-    const [joinedAtMap, lastSentAtMap] = await Promise.all([
-      this.participantRepo.getMyJoinedAtByRoomIds(me, roomIds),
-      this.messageRepo.getLastSentAtByRoomIds(roomIds),
-    ]);
+    const joinedAtMap = await this.participantRepo.getMyJoinedAtByRoomIds(
+      me,
+      roomIds,
+    );
+
+    const lastSentAtMap =
+      await this.messageRepo.getLastSentAtByRoomIds(roomIds);
 
     const sorted = rooms
-      .map((r) => {
-        const joinedAt = joinedAtMap.get(r.id) ?? r.startedAt;
-        const lastSentAt = lastSentAtMap.get(r.id);
+      .map((r) => ({
+        roomId: r.id,
+        sortAt: (() => {
+          const joinedAt = joinedAtMap.get(r.id) ?? r.startedAt;
+          const lastSentAt = lastSentAtMap.get(r.id) ?? null;
 
-        // joinedAt 이전 메시지는 UI에서 숨길 것이므로, 정렬 기준도 joinedAt 이후로 보정합니다.
-        const sortAt =
-          lastSentAt && lastSentAt.getTime() > joinedAt.getTime()
-            ? lastSentAt
-            : joinedAt;
-
-        return { roomId: r.id, sortAt };
-      })
+          if (!lastSentAt) return joinedAt;
+          return lastSentAt >= joinedAt ? lastSentAt : joinedAt;
+        })(),
+      }))
       .filter((x) => {
         if (!cursorSortAt || !cursorRoomId) return true;
         if (x.sortAt < cursorSortAt) return true;
@@ -255,7 +251,7 @@ export class RoomService {
       const peer = peerMap.get(peerId);
       if (!peer) continue;
 
-      const joinedAt = joinedAtMap.get(p.roomId) ?? new Date(0);
+      const joinedAt = joinedAtMap.get(p.roomId) ?? null;
 
       const last = await this.messageRepo.getLastMessageSummary(
         p.roomId,
@@ -290,12 +286,10 @@ export class RoomService {
     const me = BigInt(meUserId);
     const roomId = BigInt(chatRoomId);
 
-    const myPart = await this.participantRepo.getMyActiveParticipation(
-      me,
-      roomId,
-    );
-    if (!myPart) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    const ok = await this.participantRepo.isParticipant(me, roomId);
+    if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    await this.roomRepo.leaveRoom(roomId);
+    const left = await this.roomRepo.leaveRoom(roomId, me);
+    if (!left) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
   }
 }

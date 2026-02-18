@@ -5,7 +5,10 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 export class ParticipantRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  getMyActiveParticipation(me: bigint, roomId: bigint) {
+  async getMyActiveParticipation(
+    me: bigint,
+    roomId: bigint,
+  ): Promise<{ joinedAt: Date } | null> {
     return this.prisma.chatParticipant.findFirst({
       where: { userId: me, roomId, endedAt: null },
       select: { joinedAt: true },

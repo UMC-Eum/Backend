@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, ActiveStatus } from '@prisma/client';
 
 @Injectable()
 export class NotificationRepository {
@@ -44,6 +44,7 @@ export class NotificationRepository {
     type: NotificationType,
     title: string,
     body: string,
+    sentById?: number,
   ) {
     return this.prisma.notification.create({
       data: {
@@ -51,6 +52,7 @@ export class NotificationRepository {
         type: type,
         title: title,
         body: body,
+        ...(sentById !== undefined && { sentById: BigInt(sentById) }),
       },
     });
   }
@@ -82,6 +84,43 @@ export class NotificationRepository {
       where: {
         userId: BigInt(userId),
         id: BigInt(notificationId),
+      },
+    });
+  }
+  // 마음 알림->프로필 연결
+  findHeartNotifications(userId: number, cursor?: string, take = 20) {
+    return this.prisma.notification.findMany({
+      where: {
+        userId: BigInt(userId),
+        type: NotificationType.HEART,
+      },
+      orderBy: { id: 'desc' },
+      take: take + 1,
+      cursor: cursor ? { id: BigInt(cursor) } : undefined,
+
+      include: {
+        sentBy: {
+          where: { status: ActiveStatus.ACTIVE },
+          select: {
+            id: true,
+            nickname: true,
+            profileImageUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  // 마음 알림 전체 읽음
+  readAllHeartNotifications(userId: number) {
+    return this.prisma.notification.updateMany({
+      data: {
+        isRead: true,
+      },
+      where: {
+        userId: BigInt(userId),
+        isRead: false,
+        type: NotificationType.HEART,
       },
     });
   }

@@ -90,7 +90,8 @@ model User {
   interests              UserInterest[]
   idealPersonalities     UserIdealPersonality[]
   personalities          UserPersonality[]
-  notifications          Notification[]
+  notifications          Notification[]           @relation("sentTo")
+  notificationsFrom      Notification[]           @relation("sentBy")
   chatRooms              ChatRoom[]
   chatParticipations     ChatParticipant[]
   sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")
@@ -285,11 +286,14 @@ model Notification {
   deletedAt DateTime?        @db.DateTime(6)
   title     String           @db.VarChar(50)
   body      String           @db.VarChar(100)
+  sentById  BigInt?          @db.BigInt            
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(name: "sentTo", fields: [userId], references: [id], onDelete: Cascade)
+  sentBy    User? @relation(name: "sentBy", fields: [sentById], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([createdAt])
+  @@index([sentById])
 }
 
 model ChatRoom {

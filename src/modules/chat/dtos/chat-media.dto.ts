@@ -6,7 +6,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Max,
   Min,
 } from 'class-validator';
 
@@ -41,13 +40,13 @@ export class CreateChatMediaPresignDto {
 
   @ApiPropertyOptional({
     example: 1024 * 1024,
-    description: '파일 크기(바이트). 서버에서 제한/검증 용도(선택)',
+    description:
+      '파일 크기(바이트). 서버에서 제한/검증 용도(선택)\n- AUDIO: 20MB\n- PHOTO: 10MB\n- VIDEO: 300MB',
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(300 * 1024 * 1024)
   sizeBytes?: number;
 }
 

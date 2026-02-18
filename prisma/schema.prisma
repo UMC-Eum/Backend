@@ -91,7 +91,7 @@ model User {
   idealPersonalities     UserIdealPersonality[]
   personalities          UserPersonality[]
   notifications          Notification[]           @relation("sentTo")
-  notificaionsFrom       Notification[]           @relation("sentBy")
+  notificationsFrom      Notification[]           @relation("sentBy")
   chatRooms              ChatRoom[]
   chatParticipations     ChatParticipant[]
   sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")

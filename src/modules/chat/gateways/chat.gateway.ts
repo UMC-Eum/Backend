@@ -102,8 +102,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
+  /**
+   * 여러 room 대상으로 "한 번만" emit (room + user 룸 중복 join 시에도 중복 수신 방지)
+   */
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
-    this.server.to(rooms).emit(event, payload);
+    if (!this.server) return;
+    const uniqueRooms = [...new Set(rooms)];
+    this.server.to(uniqueRooms).emit(event, payload);
   }
 
   emitMessageRead(params: {
@@ -226,7 +231,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const title = sender?.nickname ?? '새 메시지';
       const preview = buildMessagePreview(params.messageType, params.text);
 
-      // DB에 알림 생성
       const created = await this.notificationService.createNotification(
         params.receiverUserId,
         NotificationType.CHAT,
@@ -234,7 +238,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         preview.textPreview,
       );
 
-      // 수신자 개인 룸으로 실시간 알림 전송
       this.server.to(`user:${params.receiverUserId}`).emit('notification.new', {
         notificationId: created.id.toString(),
         type: created.type,
@@ -430,7 +433,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       sentAt: message.sentAt.toISOString(),
     };
 
-    void this.server.to(room).emit('message.new', payload);
+    this.server.to(room).emit('message.new', payload);
 
     void this.notifyNewMessage({
       receiverUserId: Number(peer.userId),

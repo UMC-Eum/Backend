@@ -5,6 +5,31 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 export class ParticipantRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getMyActiveParticipation(
+    me: bigint,
+    roomId: bigint,
+  ): Promise<{ joinedAt: Date } | null> {
+    return this.prisma.chatParticipant.findFirst({
+      where: { userId: me, roomId, endedAt: null },
+      select: { joinedAt: true },
+    });
+  }
+
+  async getMyJoinedAtByRoomIds(
+    me: bigint,
+    roomIds: bigint[],
+  ): Promise<Map<bigint, Date>> {
+    const rows = await this.prisma.chatParticipant.findMany({
+      where: { userId: me, roomId: { in: roomIds }, endedAt: null },
+      select: { roomId: true, joinedAt: true },
+    });
+
+    const map = new Map<bigint, Date>();
+    for (const r of rows) map.set(r.roomId, r.joinedAt);
+
+    return map;
+  }
+
   async getMyRoomIds(me: bigint): Promise<bigint[]> {
     const parts = await this.prisma.chatParticipant.findMany({
       where: { userId: me, endedAt: null },

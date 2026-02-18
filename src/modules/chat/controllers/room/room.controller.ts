@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -59,7 +60,7 @@ export class RoomController {
   @ApiOperation({
     summary: '채팅방 생성',
     description:
-      'targetUserId와의 1:1 채팅방을 생성합니다. 이미 존재하는 방이 있으면 기존 방을 반환하며 created=false 입니다.',
+      'targetUserId와의 1:1 채팅방을 생성합니다. 활성화된 방이 있으면 기존 방을 반환(created=false)하고, 과거 종료된 방이 있으면 해당 방을 재활성화합니다.',
   })
   @ApiCreatedResponse({
     description: '생성(또는 기존 방 반환) 성공',
@@ -142,7 +143,7 @@ export class RoomController {
   @ApiOperation({
     summary: '채팅방 상세 조회',
     description:
-      '채팅방 ID로 상대방 프로필(닉네임/나이/지역/프로필 이미지)을 조회합니다. 참여자만 조회할 수 있습니다.',
+      '채팅방 ID로 상대방 프로필(닉네임/나이/지역/프로필 이미지)과 내 joinedAt을 조회합니다. 참여자만 조회할 수 있습니다.',
   })
   @ApiParam({
     name: 'chatRoomId',
@@ -154,6 +155,7 @@ export class RoomController {
     schema: {
       example: successExample('/api/v1/chats/rooms/101', {
         chatRoomId: 101,
+        joinedAt: '2026-02-10T00:00:00.000Z',
         peer: {
           userId: 9,
           nickname: '상대방',
@@ -171,5 +173,32 @@ export class RoomController {
     @Param('chatRoomId', new ParsePositiveIntPipe()) chatRoomId: number,
   ) {
     return this.roomService.getRoomDetail(user.userId, chatRoomId);
+  }
+
+  @Patch(':chatRoomId/leave')
+  @ApiOperation({
+    summary: '채팅방 나가기',
+    description:
+      '채팅방을 종료(나가기) 처리합니다. 종료된 방은 목록에서 제외되며, 메시지 기록은 DB에 유지됩니다. 성공 시 data는 null 입니다.',
+  })
+  @ApiParam({
+    name: 'chatRoomId',
+    description: '나갈 채팅방 ID',
+    example: 101,
+  })
+  @ApiOkResponse({
+    description: '처리 성공',
+    schema: {
+      example: successExample('/api/v1/chats/rooms/101/leave', null),
+    },
+  })
+  @ApiForbiddenResponse({ description: '권한 없음 (채팅방 참여자가 아님)' })
+  @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
+  async leaveRoom(
+    @RequiredUser() user: AuthenticatedUser,
+    @Param('chatRoomId', new ParsePositiveIntPipe()) chatRoomId: number,
+  ) {
+    await this.roomService.leaveRoom(user.userId, chatRoomId);
+    return null;
   }
 }

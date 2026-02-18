@@ -57,12 +57,102 @@ export class RoomRepository {
       where: {
         roomId: { in: roomIds },
         userId: target,
-        endedAt: null,
+        // endedAt 조건 제거 (상대가 나갔어도 방은 존재해야 함)
       },
       select: { roomId: true },
     });
 
     return existing?.roomId ?? null;
+  }
+
+  async findLatestRoomIdByUsers(
+    me: bigint,
+    target: bigint,
+  ): Promise<bigint | null> {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: {
+        AND: [
+          { participants: { some: { userId: me } } },
+          { participants: { some: { userId: target } } },
+        ],
+      },
+      orderBy: [{ id: 'desc' }],
+      select: { id: true },
+    });
+
+    return room?.id ?? null;
+  }
+
+  async reactivateRoomForUser(roomId: bigint, userId: bigint): Promise<bigint> {
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.chatRoom.update({
+        where: { id: roomId },
+        data: {
+          status: 'ACTIVE',
+          endedAt: null,
+        },
+        select: { id: true },
+      });
+
+      await tx.chatParticipant.upsert({
+        where: { roomId_userId: { roomId, userId } },
+        update: {
+          joinedAt: now,
+          endedAt: null,
+        },
+        create: {
+          roomId,
+          userId,
+          joinedAt: now,
+          endedAt: null,
+        },
+      });
+
+      await tx.chatMessage.updateMany({
+        where: {
+          roomId,
+          sentToId: userId,
+          readAt: null,
+          deletedAt: null,
+          sentAt: { lt: now },
+        },
+        data: { readAt: now },
+      });
+
+      return roomId;
+    });
+  }
+
+  async leaveRoom(roomId: bigint, userId: bigint): Promise<boolean> {
+    const now = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.chatParticipant.updateMany({
+        where: { roomId, userId, endedAt: null },
+        data: { endedAt: now },
+      });
+
+      if (updated.count === 0) return false;
+
+      const activeCount = await tx.chatParticipant.count({
+        where: { roomId, endedAt: null },
+      });
+
+      if (activeCount === 0) {
+        await tx.chatRoom.update({
+          where: { id: roomId },
+          data: {
+            status: 'INACTIVE',
+            endedAt: now,
+          },
+          select: { id: true },
+        });
+      }
+
+      return true;
+    });
   }
 
   async createRoomWithParticipants(

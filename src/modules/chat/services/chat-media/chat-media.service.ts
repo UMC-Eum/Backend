@@ -30,11 +30,88 @@ const MAX_SIZE_BY_TYPE: Record<ChatUploadType, number> = {
   VIDEO: 300 * 1024 * 1024,
 };
 
+const MAX_EXT_LEN = 10;
+const S3_MAX_KEY_BYTES = 1024;
+
+function sanitizeExtension(ext: string | null): string | null {
+  if (!ext) return null;
+
+  const cleaned = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!cleaned) return null;
+
+  return cleaned.slice(0, MAX_EXT_LEN);
+}
+
+function truncateUtf8ToBytes(input: string, maxBytes: number): string {
+  if (maxBytes <= 0) return '';
+
+  let out = '';
+  for (const ch of input) {
+    const next = out + ch;
+    if (Buffer.byteLength(next, 'utf8') > maxBytes) break;
+    out = next;
+  }
+
+  return out;
+}
+
 function sanitizeFileName(fileName: string): string {
   const onlyName = fileName.split('/').pop() ?? fileName;
   const sanitized = onlyName.replace(/[^a-zA-Z0-9._-]/g, '_');
 
   return sanitized.slice(0, 120) || 'file';
+}
+
+function normalizeContentType(contentType: string): string {
+  return contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+function splitFileName(fileName: string): { base: string; ext: string | null } {
+  const onlyName = fileName.split('/').pop() ?? fileName;
+  const idx = onlyName.lastIndexOf('.');
+
+  if (idx <= 0 || idx === onlyName.length - 1) {
+    return { base: onlyName || 'file', ext: null };
+  }
+
+  const base = onlyName.slice(0, idx) || 'file';
+  const ext = onlyName.slice(idx + 1).toLowerCase();
+
+  if (!ext || ext === 'blob') {
+    return { base, ext: null };
+  }
+
+  return { base, ext };
+}
+
+function inferExtensionByType(
+  type: ChatUploadType,
+  contentType: string,
+): string {
+  const ct = normalizeContentType(contentType);
+
+  if (type === 'AUDIO') {
+    if (ct === 'audio/mp4') return 'm4a';
+    if (ct === 'audio/mpeg') return 'mp3';
+    if (ct === 'audio/wav' || ct === 'audio/wave') return 'wav';
+    if (ct === 'audio/webm') return 'webm';
+
+    // iOS 호환성 관점에서 기본값은 m4a로 둔다.
+    return 'm4a';
+  }
+
+  if (type === 'PHOTO') {
+    if (ct === 'image/png') return 'png';
+    if (ct === 'image/webp') return 'webp';
+    if (ct === 'image/gif') return 'gif';
+
+    // 그 외는 jpeg로 통일
+    return 'jpg';
+  }
+
+  // VIDEO
+  if (ct === 'video/webm') return 'webm';
+  return 'mp4';
 }
 
 function parseS3Ref(input: string): ParsedS3Ref | null {
@@ -94,7 +171,7 @@ function isAllowedContentType(
   type: ChatUploadType,
   contentType: string,
 ): boolean {
-  const ct = contentType.toLowerCase();
+  const ct = normalizeContentType(contentType);
 
   if (type === 'AUDIO') return ct.startsWith('audio/');
   if (type === 'PHOTO') return ct.startsWith('image/');
@@ -247,13 +324,49 @@ export class ChatMediaService {
     }
 
     this.logger.debug(
-      `presign req user=${meUserId} room=${chatRoomId} type=${dto.type} ct=${dto.contentType} size=${dto.sizeBytes ?? 'N/A'}`,
+      `presign req user=${meUserId} room=${chatRoomId} type=${dto.type} ct=${dto.contentType} name=${dto.fileName} size=${dto.sizeBytes ?? 'N/A'}`,
     );
 
-    const safeName = sanitizeFileName(dto.fileName);
+    // 확장자가 없거나(blob 등) 신뢰하기 어려운 경우 contentType 기반으로 보정한다.
+    const { base, ext: originalExtRaw } = splitFileName(dto.fileName);
+    const inferredExtRaw = inferExtensionByType(dto.type, dto.contentType);
+
+    const originalExt = sanitizeExtension(originalExtRaw);
+    const inferredExt = sanitizeExtension(inferredExtRaw) ?? 'bin';
+
+    let finalExt = sanitizeExtension(originalExt ?? inferredExt) ?? inferredExt;
+    const normalizedCt = normalizeContentType(dto.contentType);
+
+    // fileName의 확장자와 contentType이 불일치하는 경우를 보정한다.
+    const isWebmCt =
+      (dto.type === 'AUDIO' && normalizedCt === 'audio/webm') ||
+      (dto.type === 'VIDEO' && normalizedCt === 'video/webm');
+
+    if (finalExt === 'webm' && !isWebmCt) {
+      finalExt = inferredExt;
+    }
+
+    if (finalExt !== 'webm' && isWebmCt) {
+      finalExt = 'webm';
+    }
+
+    finalExt = sanitizeExtension(finalExt) ?? inferredExt;
+
+    const safeBaseNameRaw = sanitizeFileName(base);
     const folder = folderByType(dto.type);
 
-    const key = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_${safeName}`;
+    const prefix = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_`;
+    const suffix = `.${finalExt}`;
+
+    const availableBytes =
+      S3_MAX_KEY_BYTES - Buffer.byteLength(prefix + suffix, 'utf8');
+
+    const safeBaseName = truncateUtf8ToBytes(
+      safeBaseNameRaw,
+      Math.min(120, Math.max(1, availableBytes)),
+    );
+
+    const key = `${prefix}${safeBaseName}${suffix}`;
 
     this.logger.debug(`presign key=${key}`);
 

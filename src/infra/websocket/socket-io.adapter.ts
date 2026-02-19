@@ -17,6 +17,7 @@ export class SocketIoAdapter extends IoAdapter {
       'https://eum-dating.com',
       'https://back.eum-dating.com',
       'http://localhost:5173',
+      'http://192.168.35.179:5173',
       'http://localhost:3000',
       'http://localhost:5000',
     ];

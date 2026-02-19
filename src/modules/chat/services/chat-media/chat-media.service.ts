@@ -37,6 +37,58 @@ function sanitizeFileName(fileName: string): string {
   return sanitized.slice(0, 120) || 'file';
 }
 
+function normalizeContentType(contentType: string): string {
+  return contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+}
+
+function splitFileName(fileName: string): { base: string; ext: string | null } {
+  const onlyName = fileName.split('/').pop() ?? fileName;
+  const idx = onlyName.lastIndexOf('.');
+
+  if (idx <= 0 || idx === onlyName.length - 1) {
+    return { base: onlyName || 'file', ext: null };
+  }
+
+  const base = onlyName.slice(0, idx) || 'file';
+  const ext = onlyName.slice(idx + 1).toLowerCase();
+
+  if (!ext || ext === 'blob') {
+    return { base, ext: null };
+  }
+
+  return { base, ext };
+}
+
+function inferExtensionByType(
+  type: ChatUploadType,
+  contentType: string,
+): string {
+  const ct = normalizeContentType(contentType);
+
+  if (type === 'AUDIO') {
+    if (ct === 'audio/mp4') return 'm4a';
+    if (ct === 'audio/mpeg') return 'mp3';
+    if (ct === 'audio/wav' || ct === 'audio/wave') return 'wav';
+    if (ct === 'audio/webm') return 'webm';
+
+    // iOS 호환성 관점에서 기본값은 m4a로 둔다.
+    return 'm4a';
+  }
+
+  if (type === 'PHOTO') {
+    if (ct === 'image/png') return 'png';
+    if (ct === 'image/webp') return 'webp';
+    if (ct === 'image/gif') return 'gif';
+
+    // 그 외는 jpeg로 통일
+    return 'jpg';
+  }
+
+  // VIDEO
+  if (ct === 'video/webm') return 'webm';
+  return 'mp4';
+}
+
 function parseS3Ref(input: string): ParsedS3Ref | null {
   if (!input.startsWith(S3_REF_PREFIX)) return null;
 
@@ -94,7 +146,7 @@ function isAllowedContentType(
   type: ChatUploadType,
   contentType: string,
 ): boolean {
-  const ct = contentType.toLowerCase();
+  const ct = normalizeContentType(contentType);
 
   if (type === 'AUDIO') return ct.startsWith('audio/');
   if (type === 'PHOTO') return ct.startsWith('image/');
@@ -247,13 +299,35 @@ export class ChatMediaService {
     }
 
     this.logger.debug(
-      `presign req user=${meUserId} room=${chatRoomId} type=${dto.type} ct=${dto.contentType} size=${dto.sizeBytes ?? 'N/A'}`,
+      `presign req user=${meUserId} room=${chatRoomId} type=${dto.type} ct=${dto.contentType} name=${dto.fileName} size=${dto.sizeBytes ?? 'N/A'}`,
     );
 
-    const safeName = sanitizeFileName(dto.fileName);
+    // 확장자가 없거나(blob 등) 신뢰하기 어려운 경우 contentType 기반으로 보정한다.
+    const { base, ext: originalExt } = splitFileName(dto.fileName);
+    const inferredExt = inferExtensionByType(dto.type, dto.contentType);
+
+    let finalExt = originalExt ?? inferredExt;
+    const normalizedCt = normalizeContentType(dto.contentType);
+
+    // fileName의 확장자와 contentType이 불일치하는 경우를 보정한다.
+    const isWebmCt =
+      (dto.type === 'AUDIO' && normalizedCt === 'audio/webm') ||
+      (dto.type === 'VIDEO' && normalizedCt === 'video/webm');
+
+    if (finalExt === 'webm' && !isWebmCt) {
+      finalExt = inferredExt;
+    }
+
+    if (finalExt !== 'webm' && isWebmCt) {
+      finalExt = 'webm';
+    }
+
+    finalExt = finalExt.replace(/[^a-z0-9]/g, '') || inferredExt;
+
+    const safeBaseName = sanitizeFileName(base);
     const folder = folderByType(dto.type);
 
-    const key = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_${safeName}`;
+    const key = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_${safeBaseName}.${finalExt}`;
 
     this.logger.debug(`presign key=${key}`);
 

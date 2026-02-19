@@ -44,6 +44,7 @@ async function bootstrap() {
     'https://eum-dating.com',
     'https://www.eum-dating.com',
     'http://localhost:5173',
+    'http://192.168.35.179:5173',
     'https://dev.eum-dating.com',
   ];
 

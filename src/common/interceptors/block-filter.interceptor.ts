@@ -178,9 +178,8 @@ export class BlockFilterInterceptor implements NestInterceptor {
       return false;
     }
 
-    // 사용자 ID 필드들 확인
+    // 사용자 ID 필드들 확인 (id는 제외 - heartId 등과 혼동 방지)
     const userIdFields = [
-      'id',
       'userId',
       'authorId',
       'senderId',
@@ -202,24 +201,21 @@ export class BlockFilterInterceptor implements NestInterceptor {
     }
 
     // 중첩된 사용자 객체 확인
-    if (item.user && item.user.id) {
-      const userId = item.user.id.toString();
-      if (blockedUserIds.includes(userId)) {
-        return true;
-      }
-    }
+    const userObjectFields = [
+      'user',
+      'author',
+      'sender',
+      'fromUser',
+      'targetUser',
+      'recipient',
+    ];
 
-    if (item.author && item.author.id) {
-      const userId = item.author.id.toString();
-      if (blockedUserIds.includes(userId)) {
-        return true;
-      }
-    }
-
-    if (item.sender && item.sender.id) {
-      const userId = item.sender.id.toString();
-      if (blockedUserIds.includes(userId)) {
-        return true;
+    for (const field of userObjectFields) {
+      if (item[field] && item[field].id) {
+        const userId = item[field].id.toString();
+        if (blockedUserIds.includes(userId)) {
+          return true;
+        }
       }
     }
 

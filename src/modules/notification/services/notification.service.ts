@@ -44,12 +44,14 @@ export class NotificationService {
     type: NotificationType,
     title: string,
     body: string,
+    sentById?: number,
   ) {
     const result = await this.notificationRepository.createNotification(
       userId,
       type,
       title,
       body,
+      sentById,
     );
     return result;
   }

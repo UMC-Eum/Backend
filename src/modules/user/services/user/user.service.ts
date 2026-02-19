@@ -70,7 +70,6 @@ export class UserService {
       profileImageUrl: user.profileImageUrl,
       introText: user.introText,
       introVoiceUrl: user.introVoiceUrl,
-      vibeVector: user.vibeVector,
       address: {
         fullName: user.address.fullName,
       },

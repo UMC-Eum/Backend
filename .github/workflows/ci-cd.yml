@@ -147,6 +147,10 @@ jobs:
               -e AWS_SECRET_ACCESS_KEY='${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}' \
               -e AWS_REGION='${{ secrets.PROD_AWS_REGION }}' \
               -e AWS_S3_BUCKET='${{ secrets.PROD_AWS_S3_BUCKET }}' \
+              -e CORS_ORIGIN='${{ secrets.PROD_CORS_ORIGIN }}' \
+              -e REFRESH_TOKEN_COOKIE_SAMESITE='${{ secrets.PROD_REFRESH_TOKEN_COOKIE_SAMESITE }}' \
+              -e REFRESH_TOKEN_COOKIE_SECURE='${{ secrets.PROD_REFRESH_TOKEN_COOKIE_SECURE }}' \
+              -e REFRESH_TOKEN_COOKIE_DOMAIN='${{ secrets.PROD_REFRESH_TOKEN_COOKIE_DOMAIN }}' \
               ${{ secrets.DOCKER_USERNAME }}/eum-backend:latest
 
             sleep 10

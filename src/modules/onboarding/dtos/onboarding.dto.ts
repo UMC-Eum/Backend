@@ -36,7 +36,7 @@ export class CreateProfileDto {
   introAudioUrl: string;
 
   @ApiProperty({
-    example: ['등산', '영화감상' ],
+    example: ['등산', '영화감상'],
     description: '선택한 키워드 배열',
   })
   @IsArray()

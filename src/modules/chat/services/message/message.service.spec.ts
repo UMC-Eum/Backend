@@ -23,6 +23,7 @@ describe('MessageService', () => {
     isParticipant: jest.fn(),
     getMyRoomIds: jest.fn(),
     findPeerUserId: jest.fn(),
+    isBlockedBetweenUsers: jest.fn(),
   };
 
   const roomRepoMock: Partial<RoomRepository> = {
@@ -62,5 +63,94 @@ describe('MessageService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('sendMessage', () => {
+    it('should throw CHAT_MESSAGE_BLOCKED when users are blocked', async () => {
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (participantRepoMock.findPeerUserId as jest.Mock).mockResolvedValue(
+        BigInt(2),
+      );
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(true);
+
+      await expect(
+        service.sendMessage(1, 10, {
+          type: 'TEXT',
+          text: 'hello',
+        }),
+      ).rejects.toMatchObject({
+        internalCode: 'CHAT_MESSAGE_BLOCKED',
+      });
+    });
+
+    it('should create message when not blocked', async () => {
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (participantRepoMock.findPeerUserId as jest.Mock).mockResolvedValue(
+        BigInt(2),
+      );
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(false);
+
+      (messageRepoMock.createMessage as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        sentAt: new Date('2026-02-10T00:00:00.000Z'),
+      });
+
+      const res = await service.sendMessage(1, 10, {
+        type: 'TEXT',
+        text: 'hello',
+      });
+
+      expect(res).toEqual({
+        messageId: 100,
+        sentAt: '2026-02-10T00:00:00.000Z',
+      });
+      expect(messageRepoMock.createMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('markAsRead', () => {
+    it('should throw CHAT_MESSAGE_BLOCKED when users are blocked', async () => {
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        sentById: BigInt(2),
+        sentToId: BigInt(1),
+        deletedAt: null,
+      });
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(true);
+
+      await expect(service.markAsRead(1, 100)).rejects.toMatchObject({
+        internalCode: 'CHAT_MESSAGE_BLOCKED',
+      });
+      expect(messageRepoMock.markAsRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteMessage', () => {
+    it('should throw CHAT_MESSAGE_BLOCKED when users are blocked', async () => {
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        sentById: BigInt(1),
+        sentToId: BigInt(2),
+        deletedAt: null,
+      });
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(true);
+
+      await expect(service.deleteMessage(1, 100)).rejects.toMatchObject({
+        internalCode: 'CHAT_MESSAGE_BLOCKED',
+      });
+      expect(messageRepoMock.deleteMessage).not.toHaveBeenCalled();
+    });
   });
 });

@@ -3,13 +3,13 @@ import { Sex } from '@prisma/client';
 import {
   ArrayUnique,
   IsArray,
-  IsInt,
-  Max,
-  Min,
   IsEnum,
   IsOptional,
   IsString,
   IsUrl,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class UserProfileUpdateRequestDto {
@@ -41,7 +41,7 @@ export class UserProfileUpdateRequestDto {
   introText?: string;
 
   @ApiPropertyOptional({
-    example: ['뜨개질', '산책', '영화', '문화생활'],
+    example: ['영화감상', '문학'],
   })
   @IsOptional()
   @IsArray()
@@ -50,7 +50,7 @@ export class UserProfileUpdateRequestDto {
   keywords?: string[];
 
   @ApiPropertyOptional({
-    example: ['다정함', '배려'],
+    example: ['타인배려', '배움욕구'],
   })
   @IsOptional()
   @IsArray()
@@ -59,7 +59,7 @@ export class UserProfileUpdateRequestDto {
   personalities?: string[];
 
   @ApiPropertyOptional({
-    example: ['유머', '성실'],
+    example: ['유머사용', '성실함'],
   })
   @IsOptional()
   @IsArray()

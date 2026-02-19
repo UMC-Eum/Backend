@@ -15,6 +15,7 @@ import { MessageService } from './services/message/message.service';
 import { ChatMediaService } from './services/chat-media/chat-media.service';
 import { ParticipantService } from './services/participant/participant.service';
 import { RoomService } from './services/room/room.service';
+import { ChatSocketService } from './services/socket/chat-socket.service';
 
 import { ChatGateway } from './gateways/chat.gateway';
 
@@ -26,6 +27,7 @@ import { ChatGateway } from './gateways/chat.gateway';
     ParticipantService,
     MessageService,
     ChatMediaService,
+    ChatSocketService,
     RoomRepository,
     ParticipantRepository,
     MessageRepository,

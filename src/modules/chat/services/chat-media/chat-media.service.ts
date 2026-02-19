@@ -217,6 +217,15 @@ export class ChatMediaService {
     const ok = await this.participantRepo.isParticipant(me, roomId);
     if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
+    const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
+    if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+      me,
+      peerUserId,
+    );
+    if (isBlocked) throw new AppException('CHAT_MESSAGE_BLOCKED');
+
     if (!isAllowedContentType(dto.type, dto.contentType)) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
         message: 'contentType이 업로드 타입과 일치하지 않습니다.',

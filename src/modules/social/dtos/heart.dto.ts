@@ -1,7 +1,26 @@
 export interface UserProfileInfo {
-  profileImageUrl: string | null;
+  id: number;
   nickname: string;
-  age: number;
+  birthdate: string;
+  profileImageUrl: string | null;
+  introText: string | null;
+  introVoiceUrl: string | null;
+  vibeVector: any;
+  address: {
+    fullName: string;
+  };
+  interests: Array<{
+    interestId: number;
+    interest: {
+      body: string | null;
+    };
+  }>;
+  personalities: Array<{
+    personalityId: number;
+    personality: {
+      body: string | null;
+    };
+  }>;
 }
 
 export interface HeartItemBase {

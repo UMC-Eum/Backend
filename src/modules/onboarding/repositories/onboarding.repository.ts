@@ -6,6 +6,16 @@ import { CreateProfileDto } from '../dtos/onboarding.dto';
 export class OnboardingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // 생일 기반 만 나이 계산 함수
+  private calculateAge(birthdate: Date): number {
+    const today = new Date();
+    const birth = new Date(birthdate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  }
+
   async updateUserProfile(
     userId: number,
     dto: CreateProfileDto,
@@ -21,6 +31,9 @@ export class OnboardingRepository {
       vibeVector,
     } = dto;
 
+    const birthDateObj = new Date(birthDate);
+    const age = this.calculateAge(birthDateObj);
+
     // 유저 정보 업데이트
     await this.prisma.user.update({
       where: { id: userId },
@@ -32,6 +45,7 @@ export class OnboardingRepository {
         introText,
         introVoiceUrl: introAudioUrl,
         vibeVector,
+        age,
       },
     });
 

@@ -62,6 +62,53 @@ export class UserRepository {
     });
   }
 
+  findDetailedProfileById(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        birthdate: true,
+        profileImageUrl: true,
+        introText: true,
+        introVoiceUrl: true,
+        vibeVector: true,
+        address: {
+          select: {
+            fullName: true,
+          },
+        },
+        interests: {
+          where: { deletedAt: null },
+          select: {
+            interestId: true,
+            interest: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        personalities: {
+          where: { deletedAt: null },
+          select: {
+            personalityId: true,
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   findAddressByCode(code: string) {
     return this.prismaService.address.findUnique({
       where: { code },

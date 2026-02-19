@@ -30,6 +30,31 @@ const MAX_SIZE_BY_TYPE: Record<ChatUploadType, number> = {
   VIDEO: 300 * 1024 * 1024,
 };
 
+const MAX_EXT_LEN = 10;
+const S3_MAX_KEY_BYTES = 1024;
+
+function sanitizeExtension(ext: string | null): string | null {
+  if (!ext) return null;
+
+  const cleaned = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!cleaned) return null;
+
+  return cleaned.slice(0, MAX_EXT_LEN);
+}
+
+function truncateUtf8ToBytes(input: string, maxBytes: number): string {
+  if (maxBytes <= 0) return '';
+
+  let out = '';
+  for (const ch of input) {
+    const next = out + ch;
+    if (Buffer.byteLength(next, 'utf8') > maxBytes) break;
+    out = next;
+  }
+
+  return out;
+}
+
 function sanitizeFileName(fileName: string): string {
   const onlyName = fileName.split('/').pop() ?? fileName;
   const sanitized = onlyName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -303,10 +328,13 @@ export class ChatMediaService {
     );
 
     // 확장자가 없거나(blob 등) 신뢰하기 어려운 경우 contentType 기반으로 보정한다.
-    const { base, ext: originalExt } = splitFileName(dto.fileName);
-    const inferredExt = inferExtensionByType(dto.type, dto.contentType);
+    const { base, ext: originalExtRaw } = splitFileName(dto.fileName);
+    const inferredExtRaw = inferExtensionByType(dto.type, dto.contentType);
 
-    let finalExt = originalExt ?? inferredExt;
+    const originalExt = sanitizeExtension(originalExtRaw);
+    const inferredExt = sanitizeExtension(inferredExtRaw) ?? 'bin';
+
+    let finalExt = sanitizeExtension(originalExt ?? inferredExt) ?? inferredExt;
     const normalizedCt = normalizeContentType(dto.contentType);
 
     // fileName의 확장자와 contentType이 불일치하는 경우를 보정한다.
@@ -322,12 +350,23 @@ export class ChatMediaService {
       finalExt = 'webm';
     }
 
-    finalExt = finalExt.replace(/[^a-z0-9]/g, '') || inferredExt;
+    finalExt = sanitizeExtension(finalExt) ?? inferredExt;
 
-    const safeBaseName = sanitizeFileName(base);
+    const safeBaseNameRaw = sanitizeFileName(base);
     const folder = folderByType(dto.type);
 
-    const key = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_${safeBaseName}.${finalExt}`;
+    const prefix = `chat/${chatRoomId}/${folder}/${meUserId}/${Date.now()}_${randomUUID()}_`;
+    const suffix = `.${finalExt}`;
+
+    const availableBytes =
+      S3_MAX_KEY_BYTES - Buffer.byteLength(prefix + suffix, 'utf8');
+
+    const safeBaseName = truncateUtf8ToBytes(
+      safeBaseNameRaw,
+      Math.min(120, Math.max(1, availableBytes)),
+    );
+
+    const key = `${prefix}${safeBaseName}${suffix}`;
 
     this.logger.debug(`presign key=${key}`);
 

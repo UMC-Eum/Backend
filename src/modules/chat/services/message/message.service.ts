@@ -151,6 +151,14 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+      me,
+      peerUserId,
+    );
+    if (isBlocked) {
+      throw new AppException('CHAT_MESSAGE_BLOCKED');
+    }
+
     if (dto.type === 'TEXT' && !dto.text?.trim()) {
       throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
         message: '텍스트 메시지는 내용이 필요합니다.',
@@ -165,7 +173,7 @@ export class MessageService {
 
     if ((dto.type === 'AUDIO' || dto.type === 'VIDEO') && !dto.durationSec) {
       throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
-        message: '오디오 메시지는 durationSec이 필요합니다.',
+        message: '오디오/비디오 메시지는 durationSec이 필요합니다.',
       });
     }
 
@@ -207,6 +215,14 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+      me,
+      message.sentById,
+    );
+    if (isBlocked) {
+      throw new AppException('CHAT_MESSAGE_BLOCKED');
+    }
+
     const isParticipant = await this.participantRepo.isParticipant(
       me,
       message.roomId,
@@ -243,6 +259,16 @@ export class MessageService {
 
     if (message.sentById !== me && message.sentToId !== me) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    }
+
+    const peerUserId =
+      message.sentById === me ? message.sentToId : message.sentById;
+    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+      me,
+      peerUserId,
+    );
+    if (isBlocked) {
+      throw new AppException('CHAT_MESSAGE_BLOCKED');
     }
 
     const isParticipant = await this.participantRepo.isParticipant(

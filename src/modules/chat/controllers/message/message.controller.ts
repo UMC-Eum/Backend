@@ -134,7 +134,7 @@ export class MessageController {
     description: '요청값이 유효하지 않음 (메시지 없음 등)',
   })
   @ApiForbiddenResponse({
-    description: '권한 없음 (수신자가 아님 / 참여자가 아님)',
+    description: '권한 없음 (수신자가 아님 / 참여자가 아님 / 차단 상태)',
   })
   @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
   async markAsRead(
@@ -166,7 +166,7 @@ export class MessageController {
     description: '요청값이 유효하지 않음 (메시지 없음 등)',
   })
   @ApiForbiddenResponse({
-    description: '권한 없음 (송신자/수신자가 아님 / 참여자가 아님)',
+    description: '권한 없음 (송신자/수신자가 아님 / 참여자가 아님 / 차단 상태)',
   })
   @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
   async deleteMessage(

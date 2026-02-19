@@ -29,7 +29,7 @@ Table User {
   idealPersonalities UserIdealPersonality [not null]
   personalities UserPersonality [not null]
   notifications Notification [not null]
-  notificaionsFrom Notification [not null]
+  notificationsFrom Notification [not null]
   chatRooms ChatRoom [not null]
   chatParticipations ChatParticipant [not null]
   sentMessages ChatMessage [not null]

@@ -16,7 +16,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-function toErrorInfo(e: unknown): { name: string; message: string; stack?: string } {
+function toErrorInfo(e: unknown): {
+  name: string;
+  message: string;
+  stack?: string;
+} {
   if (e instanceof Error) {
     return { name: e.name, message: e.message, stack: e.stack };
   }

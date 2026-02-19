@@ -5,7 +5,6 @@ export interface UserProfileInfo {
   profileImageUrl: string | null;
   introText: string | null;
   introVoiceUrl: string | null;
-  vibeVector: any;
   address: {
     fullName: string;
   };

@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { MatchesRepository } from '../repositories/matches.repository';
+import { OnboardingAiService } from './onboarding-ai.service';
 
 @Injectable()
 export class MatchesService {
-  constructor(private readonly matchesRepository: MatchesRepository) {}
+  constructor(private readonly onboardingAiService: OnboardingAiService) {}
 
   async getRecommendedMatches(
     userId: bigint,
     size = 20,
     cursorUserId?: bigint | null,
   ) {
-    const items = await this.matchesRepository.findRecommendedMatches(
+    const result = await this.onboardingAiService.getRecommendedMatches(
       userId,
       size,
       cursorUserId,
@@ -18,10 +18,11 @@ export class MatchesService {
 
     return {
       nextCursor:
-        items.length > 0
-          ? this.generatorCursor(items[items.length - 1].userId)
-          : null,
-      items,
+        result.nextCursor ??
+        (result.items.length > 0
+          ? this.generatorCursor(result.items[result.items.length - 1].userId)
+          : null),
+      items: result.items,
     };
   }
 

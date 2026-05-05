@@ -27,8 +27,8 @@ export class OnboardingRepository {
       areaCode,
       introText,
       introAudioUrl,
-      selectedKeywords,
-      vibeVector,
+      selectedKeywords = [],
+      vibeVector = [],
     } = dto;
 
     const birthDateObj = new Date(birthDate);

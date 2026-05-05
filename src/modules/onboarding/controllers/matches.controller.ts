@@ -1,12 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { MatchesService } from '../services/matches.service';
 import { AppException } from '../../../common/errors/app.exception';
-import {
-  GetRecommendedMatchesQueryDto,
-  RecommendedMatchesResponseDto,
-} from '../dtos/matches.dto';
+import { RecommendedMatchesResponseDto } from '../dtos/matches.dto';
 import { RequiredUserId } from 'src/modules/auth/decorators';
-import { ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 import { UseGuards } from '@nestjs/common';
@@ -20,46 +17,13 @@ export class MatchesController {
   @UseGuards(AccessTokenGuard)
   @ApiOperation({
     summary: '추천 매칭 조회',
-    description:
-      'FastAPI 추천 엔진 결과를 커서 기반 페이지네이션으로 조회합니다.',
-  })
-  @ApiQuery({
-    name: 'cursor',
-    required: false,
-    type: String,
-    description: '다음 페이지 커서',
-  })
-  @ApiQuery({
-    name: 'size',
-    required: false,
-    type: Number,
-    description: '조회할 매치 개수',
-    example: 20,
+    description: 'FastAPI 추천 엔진 결과를 조회합니다.',
   })
   @ApiOkResponse({ type: RecommendedMatchesResponseDto })
-  async getRecommendedMatches(
-    @RequiredUserId() userId: number,
-    @Query() query: GetRecommendedMatchesQueryDto,
-  ) {
+  async getRecommendedMatches(@RequiredUserId() userId: number) {
     try {
-      let startFromUserId: bigint | null = null;
-      if (query.cursor) {
-        try {
-          const decodedCursor = Buffer.from(query.cursor, 'base64').toString(
-            'utf-8',
-          );
-          startFromUserId = BigInt(decodedCursor);
-        } catch {
-          throw new AppException('VALIDATION_INVALID_FORMAT', {
-            details: 'Invalid cursor format',
-          });
-        }
-      }
-
       const result = await this.matchesService.getRecommendedMatches(
         BigInt(userId),
-        query.size ?? 20,
-        startFromUserId,
       );
       return result;
     } catch (error) {

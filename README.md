@@ -53,7 +53,7 @@ npm install
 ```env
 FASTAPI_BASE_URL=http://localhost:8000
 FASTAPI_PROFILE_ANALYSIS_PATH=/api/v1/onboarding/voice-profile/analyze
-FASTAPI_MATCH_RECOMMEND_PATH=/onboarding/matches/recommend
+FASTAPI_MATCH_RECOMMEND_PATH=/api/v1/recommendation/users
 FASTAPI_TIMEOUT_MS=10000
 ```
 

@@ -4,7 +4,7 @@ import { AppException } from 'src/common/errors/app.exception';
 import { CreateProfileDto } from '../dtos/onboarding.dto';
 
 type RecommendedMatchItem = {
-  userId: string;
+  userId: string | number;
   [key: string]: unknown;
 };
 
@@ -98,35 +98,44 @@ export class OnboardingAiService {
     };
   }
 
-  async getRecommendedMatches(
-    userId: bigint,
-    size: number,
-    cursorUserId?: bigint | null,
-  ): Promise<FastApiMatchesResponse> {
-    const result = await this.callFastApi<{
+  async getRecommendedMatches(userId: bigint): Promise<FastApiMatchesResponse> {
+    const result = await this.callFastApiGet<{
+      resultType?: unknown;
+      success?: { data?: unknown };
+      data?: unknown;
       items?: unknown;
       nextCursor?: unknown;
     }>(this.matchRecommendPath, {
       userId: userId.toString(),
-      size,
-      cursorUserId: cursorUserId ? cursorUserId.toString() : null,
     });
 
-    if (!Array.isArray(result.items)) {
+    const rawItems =
+      result.success &&
+      typeof result.success === 'object' &&
+      result.success.data !== undefined
+        ? result.success.data
+        : result.data !== undefined
+          ? result.data
+          : result.items;
+
+    if (!Array.isArray(rawItems)) {
       throw new AppException('SERVER_TEMPORARY_ERROR', {
         details: 'Invalid items from FastAPI',
       });
     }
 
-    const items = result.items.filter((item): item is RecommendedMatchItem => {
+    const items = rawItems.filter((item): item is RecommendedMatchItem => {
       if (typeof item !== 'object' || item === null) {
         return false;
       }
       const candidate = item as Record<string, unknown>;
-      return typeof candidate.userId === 'string';
+      return (
+        typeof candidate.userId === 'string' ||
+        typeof candidate.userId === 'number'
+      );
     });
 
-    if (items.length !== result.items.length) {
+    if (items.length !== rawItems.length) {
       throw new AppException('SERVER_TEMPORARY_ERROR', {
         details: 'Invalid item format from FastAPI',
       });
@@ -180,6 +189,45 @@ export class OnboardingAiService {
       throw new AppException('SERVER_TEMPORARY_ERROR', {
         details: {
           path,
+          message: 'Invalid JSON from FastAPI',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
+
+  private async callFastApiGet<T>(
+    path: string,
+    query: Record<string, string>,
+  ): Promise<T> {
+    const url = new URL(this.buildUrl(path));
+    Object.entries(query).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (error) {
+      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: { path: url.toString(), status: response.status, body },
+      });
+    }
+
+    try {
+      return (await response.json()) as T;
+    } catch (error) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: {
+          path: url.toString(),
           message: 'Invalid JSON from FastAPI',
           errorMessage: error instanceof Error ? error.message : String(error),
         },

@@ -6,8 +6,8 @@ import { OnboardingController } from './controllers/onboarding.controller';
 import { OnboardingRepository } from './repositories/onboarding.repository';
 import { MatchesService } from './services/matches.service';
 import { MatchesController } from './controllers/matches.controller';
-import { MatchesRepository } from './repositories/matches.repository';
 import { AuthModule } from '../auth/auth.module';
+import { OnboardingAiService } from './services/onboarding-ai.service';
 
 @Module({
   imports: [AuthModule],
@@ -15,9 +15,9 @@ import { AuthModule } from '../auth/auth.module';
   providers: [
     FileUploadService,
     OnboardingService,
+    OnboardingAiService,
     OnboardingRepository,
     MatchesService,
-    MatchesRepository,
   ],
 })
 export class OnboardingModule {}

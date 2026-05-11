@@ -23,7 +23,7 @@ export const envSchema = z.object({
   FASTAPI_MATCH_RECOMMEND_PATH: z
     .string()
     .min(1)
-    .default('/api/v1/recommendation/users'),
+    .default('/api/v1/onboarding/matches/recommend'),
   KAKAO_CLIENT_ID: z.string().min(1),
   KAKAO_CLIENT_SECRET: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(1).default('dev-access-secret'),

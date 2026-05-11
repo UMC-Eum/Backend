@@ -3,15 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppException } from 'src/common/errors/app.exception';
 import { CreateProfileDto } from '../dtos/onboarding.dto';
 
-type RecommendedMatchItem = {
-  userId: string | number;
-  [key: string]: unknown;
-};
-
-type FastApiMatchesResponse = {
-  items: RecommendedMatchItem[];
-  nextCursor?: string | null;
-};
+type FastApiMatchesResponse = unknown;
 
 @Injectable()
 export class OnboardingAiService {
@@ -98,63 +90,27 @@ export class OnboardingAiService {
     };
   }
 
-  async getRecommendedMatches(userId: bigint): Promise<FastApiMatchesResponse> {
-    const result = await this.callFastApiGet<{
-      resultType?: unknown;
-      success?: { data?: unknown };
-      data?: unknown;
-      items?: unknown;
-      nextCursor?: unknown;
-    }>(this.matchRecommendPath, {
+  async getRecommendedMatches(
+    userId: bigint,
+    cursor?: string,
+    size?: string,
+  ): Promise<FastApiMatchesResponse> {
+    const query: Record<string, string> = {
       userId: userId.toString(),
-    });
-
-    const rawItems =
-      result.success &&
-      typeof result.success === 'object' &&
-      result.success.data !== undefined
-        ? result.success.data
-        : result.data !== undefined
-          ? result.data
-          : result.items;
-
-    if (!Array.isArray(rawItems)) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        details: 'Invalid items from FastAPI',
-      });
-    }
-
-    const items = rawItems.filter((item): item is RecommendedMatchItem => {
-      if (typeof item !== 'object' || item === null) {
-        return false;
-      }
-      const candidate = item as Record<string, unknown>;
-      return (
-        typeof candidate.userId === 'string' ||
-        typeof candidate.userId === 'number'
-      );
-    });
-
-    if (items.length !== rawItems.length) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        details: 'Invalid item format from FastAPI',
-      });
-    }
-
-    if (
-      result.nextCursor !== undefined &&
-      result.nextCursor !== null &&
-      typeof result.nextCursor !== 'string'
-    ) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        details: 'Invalid nextCursor from FastAPI',
-      });
-    }
-
-    return {
-      items,
-      nextCursor: result.nextCursor,
     };
+
+    if (cursor !== undefined) {
+      query.cursor = cursor;
+    }
+
+    if (size !== undefined) {
+      query.size = size;
+    }
+
+    return this.callFastApiGet<FastApiMatchesResponse>(
+      this.matchRecommendPath,
+      query,
+    );
   }
 
   private buildUrl(path: string): string {

@@ -22,7 +22,9 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const areaName = user.address.sigunguName ?? user.address.fullName;
+    // TODO(schema-nullable): User.address가 nullable로 변경됨 (Address?). 주소 없는 유저 케이스 UX 정책 결정 필요.
+    // 임시로 빈 문자열 fallback.
+    const areaName = user.address?.sigunguName ?? user.address?.fullName ?? '';
     const keywords = user.interests
       .map((interest) => interest.interest.body)
       .filter((body): body is string => Boolean(body));
@@ -40,7 +42,8 @@ export class UserService {
       gender: user.sex,
       age,
       area: {
-        code: user.address.code,
+        // TODO(schema-nullable): address가 null일 때 code도 없음. 빈 문자열 fallback.
+        code: user.address?.code ?? '',
         name: areaName,
       },
       introText: user.introText,
@@ -71,7 +74,8 @@ export class UserService {
       introText: user.introText,
       introVoiceUrl: user.introVoiceUrl,
       address: {
-        fullName: user.address.fullName,
+        // TODO(schema-nullable): User.address가 nullable. 빈 문자열 fallback.
+        fullName: user.address?.fullName ?? '',
       },
       interests: user.interests.map((item) => ({
         interestId: Number(item.interestId),

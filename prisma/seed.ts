@@ -9,7 +9,7 @@ import {
   PrismaClient,
   Sex,
 } from '@prisma/client';
-import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaPg } from '@prisma/adapter-pg';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
@@ -18,7 +18,7 @@ import { Prisma } from '@prisma/client';
 
 dotenv.config();
 const prisma = new PrismaClient({
-  adapter: new PrismaMariaDb(process.env.DATABASE_URL!),
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
 // prisma/seed.ts 상단에 추가

@@ -12,6 +12,7 @@ import { ChatModule } from '../chat/chat.module';
 import { AgreementModule } from '../agreements/agreement.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { ClubModule } from '../club/club.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
 import { ArticleModule } from '../article/article.module';
 
@@ -39,6 +40,7 @@ import { ArticleModule } from '../article/article.module';
     AgreementModule,
     NotificationModule,
     OnboardingModule,
+    ClubModule,
     AuthModule,
     UserModule,
     ArticleModule,

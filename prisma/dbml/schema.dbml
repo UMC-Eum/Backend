@@ -424,13 +424,17 @@ Table ClubLike {
 Table Meeting {
   id BigInt [pk, increment]
   name String [not null]
-  date DateTime [not null]
+  introText String [not null]
+  date String [not null]
+  spot String [not null]
+  capacity Int [not null]
+  cost String
+  joinPolicy MeetingJoinPolicy [not null, default: 'AUTO']
+  isRegular Boolean [not null, default: true]
   createdAt DateTime [default: `now()`, not null]
   deletedAt DateTime
   updatedAt DateTime
   clubId BigInt [not null]
-  spot String [not null]
-  isRegular Boolean [not null, default: true]
   club Club [not null]
   meetingMembers MeetingMember [not null]
 }
@@ -541,6 +545,11 @@ Enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+}
+
+Enum MeetingJoinPolicy {
+  AUTO
+  APPROVAL_REQUIRED
 }
 
 Enum ReportCategory {

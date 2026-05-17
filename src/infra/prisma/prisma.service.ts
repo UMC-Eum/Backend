@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
 export class PrismaService
@@ -11,7 +11,7 @@ export class PrismaService
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL is not set');
 
-    super({ adapter: new PrismaMariaDb(url) });
+    super({ adapter: new PrismaPg({ connectionString: url }) });
   }
 
   async onModuleInit() {

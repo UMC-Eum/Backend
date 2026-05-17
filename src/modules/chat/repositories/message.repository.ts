@@ -296,7 +296,14 @@ export class MessageRepository {
   }
 
   // TODO(business): 옛 OR: [{sentById: me}, {sentToId: me}] = "발신자/수신자 둘 다 삭제 가능".
-  // 새 구조에선 본인이 보낸 메시지만 삭제 가능으로 단순화. 수신자도 삭제 가능하게 할지 정책 결정 필요.
+  // 새 구조에선 participant.userId: me로 단순화 → 본인이 보낸 메시지만 삭제 가능.
+  // ⚠️ 알려진 회귀 (Codex P1): 수신자가 deleteMessage를 호출하면
+  //   1) MessageService.deleteMessage의 auth check (sentById !== me && sentToId !== me)는 통과
+  //   2) 본 repo의 updateMany는 0 rows 반환 (participant.userId !== me이므로)
+  //   3) service의 `if (!updated) return;`에서 silent void return
+  //   4) API는 200 OK 응답하지만 메시지는 그대로 남음 → 사용자 경험상 무반응 삭제
+  // 정책 결정 후 (a) where를 participant.room.participants 경유로 확장해 수신자도 허용, 또는
+  // (b) service에서 updated=0일 때 명시적 에러 throw — 둘 중 하나로 follow-up 필요.
   async deleteMessage(messageId: bigint, me: bigint, deletedAt: Date) {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {

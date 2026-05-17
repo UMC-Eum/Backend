@@ -28,6 +28,15 @@ export class ReportRepository {
     }
     const cat = category as ReportCategory;
 
+    // TODO(concurrency, Codex P2): 옛 schema의 (reportedById, reportedId) unique 인덱스가 race 방어 역할을 했는데,
+    // 새 schema엔 (reportedById, reportedUserId) unique 제약이 없음. 아래 findFirst → create 사이의 race window에서
+    // 동일 reporter가 동일 target에 거의 동시에 요청을 보내면 둘 다 existence check 통과 → 중복 Report+UserReport 생성 가능
+    // (API 계약상 두번째 요청은 "Already reported."가 반환되어야 하는데 실제로는 신규 ID로 생성됨).
+    // 해결 옵션:
+    //   (a) #172 schema에 unique 인덱스 추가 (Report.reportedById + UserReport.reportedUserId 결합 또는 별도 join 모델)
+    //   (b) $transaction with SELECT ... FOR UPDATE on UserReport
+    //   (c) (a) + unique constraint violation catch → "Already reported." 응답으로 변환
+    // AI/서버팀 협의 후 follow-up.
     const exist = await this.prisma.userReport.findFirst({
       where: {
         reportedUserId: BigInt(targetUserId),

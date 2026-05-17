@@ -76,7 +76,8 @@ export class UserRepository {
         profileImageUrl: true,
         introText: true,
         introVoiceUrl: true,
-        vibeVector: true,
+        // TODO(vibe-pgvector): vibeVector는 Unsupported("vector") 타입이라 Prisma client로 select 불가.
+        // 필요 시 별도 $queryRaw helper로 조회. 현재 호출처(user.service)에서 미사용.
         address: {
           select: {
             fullName: true,

@@ -29,28 +29,17 @@ export class MatchesRepository {
       },
     });
 
-    if (!me || !me.vibeVector) {
-      throw new Error('사용자 정보가 없거나 vibeVector가 없습니다.');
+    if (!me) {
+      throw new Error('사용자 정보가 없습니다.');
     }
     if (!me.code) {
       throw new Error('사용자 주소 정보(code)가 없습니다.');
     }
 
-    // currentUser vibeVector JSON 파싱 (Prisma Json 타입 처리)
-    const rawVector = me.vibeVector as unknown;
-    let myVector: number[];
-
-    if (Array.isArray(rawVector)) {
-      myVector = rawVector as number[];
-    } else if (typeof rawVector === 'object' && rawVector !== null) {
-      myVector = Object.values(rawVector as Record<string, number>);
-    } else {
-      throw new Error('vibeVector 파싱 실패');
-    }
-
-    if (myVector.length === 0) {
-      throw new Error('vibeVector가 비어있습니다.');
-    }
+    // TODO(vibe): vibeVector가 Unsupported("vector") 타입으로 바뀌어 Prisma client로 select 불가.
+    // 매칭 알고리즘의 vibe similarity 항을 임시로 0으로 고정. pgvector raw query로 실제
+    // 유사도 복원은 follow-up PR에서.
+    const VIBE_SIMILARITY_FALLBACK = 0;
 
     const myKeywordIds = [
       ...me.interests.map((i) => i.interestId),
@@ -95,7 +84,7 @@ export class MatchesRepository {
         profileImageUrl: true,
         introText: true,
         introVoiceUrl: true,
-        vibeVector: true,
+        // TODO(vibe): vibeVector는 raw query로 별도 조회 (Unsupported 타입)
         address: {
           select: {
             fullName: true,
@@ -132,31 +121,8 @@ export class MatchesRepository {
 
     const scored = candidates
       .map((user) => {
-        // vibeVector가 object면 배열로 변환 (자동)
-        const rawUserVector = user.vibeVector as unknown;
-        let userVector: number[];
-
-        if (Array.isArray(rawUserVector)) {
-          userVector = rawUserVector as number[];
-        } else if (
-          typeof rawUserVector === 'object' &&
-          rawUserVector !== null
-        ) {
-          userVector = Object.values(rawUserVector as Record<string, number>);
-        } else {
-          // 변환 불가능하면 스킵
-          return null;
-        }
-
-        // 길이가 다르면 최소 길이로 자르기 (필터링 제거)
-        const minLength = Math.min(myVector.length, userVector.length);
-        const myVectorTrimmed = myVector.slice(0, minLength);
-        const userVectorTrimmed = userVector.slice(0, minLength);
-
-        const similarity = this.cosineSimilarityOptimized(
-          myVectorTrimmed,
-          userVectorTrimmed,
-        );
+        // TODO(vibe): vibe similarity 임시 fallback. raw query 도입 시 실제 계산 복원.
+        const similarity = VIBE_SIMILARITY_FALLBACK;
 
         const reasons: string[] = [];
 

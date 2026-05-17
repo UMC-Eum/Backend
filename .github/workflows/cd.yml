@@ -1,0 +1,135 @@
+name: CD - Deploy to Staging (ECS)
+
+on:
+  push:
+    branches: ["dev"]
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Staging ECS
+    runs-on: ubuntu-latest
+    # TODO(staging-enable): 다음 셋이 모두 끝나면 `if: ${{ false }}`를 제거하여 활성화
+    #   1) staging RDS가 PostgreSQL 17 + pgvector로 교체됨
+    #   2) Secrets Manager `eum-backend/DATABASE_URL`이 새 PG URL로 갱신됨
+    #   3) GitHub OIDC IAM role ARN이 secret `AWS_OIDC_ROLE_STAGING`에 등록됨
+    if: ${{ false }}
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: ap-northeast-2
+      ECR_REGISTRY: 413790913159.dkr.ecr.ap-northeast-2.amazonaws.com
+      ECR_REPOSITORY: eum-backend
+      ECS_CLUSTER: eum-cluster
+      ECS_SERVICE: eum-backend-service
+      ECS_TASK_FAMILY: eum-backend
+      CONTAINER_NAME: eum-backend
+      HEALTH_URL: https://staging.eum-dating.com/api/v1/health
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_STAGING }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: tag
+        run: |
+          echo "image=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.image }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_FAMILY }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Render new task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.tag.outputs.image }}
+
+      - name: Run Prisma migrate (ECS one-off task)
+        env:
+          RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
+        run: |
+          set -euo pipefail
+
+          TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://$RENDERED_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "Registered task def: $TD_ARN"
+
+          OVERRIDES=$(jq -nc \
+            --arg name "${{ env.CONTAINER_NAME }}" \
+            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"]}]}')
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --launch-type EC2 \
+            --task-definition "$TD_ARN" \
+            --overrides "$OVERRIDES" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "Migrate task: $TASK_ARN"
+
+          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[?name==`${{ env.CONTAINER_NAME }}`].exitCode | [0]' \
+            --output text)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Prisma migrate failed (exit=$EXIT_CODE)"
+            exit 1
+          fi
+          echo "Prisma migrate completed"
+
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true
+
+      - name: Smoke test (ALB health)
+        run: |
+          for i in {1..12}; do
+            if curl -fsS --max-time 5 "$HEALTH_URL" > /dev/null; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "attempt $i/12 failed, retrying in 5s"
+            sleep 5
+          done
+          echo "::error::Health check failed after 60s"
+          exit 1

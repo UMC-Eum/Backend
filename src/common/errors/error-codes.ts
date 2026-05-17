@@ -176,6 +176,25 @@ export const ERROR_DEFINITIONS = {
     message: '차단 상태에서는 채팅 기능을 이용할 수 없어요.',
   },
 
+  // CLUB
+  CLUB_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-001',
+    message: '해당 클럽을 찾을 수 없어요.',
+  },
+  CLUB_FORBIDDEN_NOT_HOST: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-002',
+    message: '호스트만 이 작업을 수행할 수 있어요.',
+  },
+
+  // MEETING
+  MEETING_VALIDATION_FAILED: {
+    status: HttpStatus.BAD_REQUEST,
+    code: 'MEETING-001',
+    message: '입력값을 확인해 주세요.',
+  },
+
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {
     status: HttpStatus.SERVICE_UNAVAILABLE,

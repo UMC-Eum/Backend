@@ -83,7 +83,10 @@ export class ParticipantRepository {
     });
 
     const map = new Map<bigint, bigint>();
-    for (const r of rows) map.set(r.roomId, r.userId);
+    // TODO(schema-nullable): participant.userId가 nullable (탈퇴 유저). null인 row는 peer로 매핑할 수 없으니 skip.
+    for (const r of rows) {
+      if (r.userId !== null) map.set(r.roomId, r.userId);
+    }
 
     return map;
   }

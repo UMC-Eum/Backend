@@ -64,11 +64,12 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    // TODO(schema-nullable): User.address가 nullable. peerDetail.address가 null일 수 있음.
     const areaName =
-      peerDetail.address.emdName ??
-      peerDetail.address.sigunguName ??
-      peerDetail.address.sidoName ??
-      peerDetail.address.fullName ??
+      peerDetail.address?.emdName ??
+      peerDetail.address?.sigunguName ??
+      peerDetail.address?.sidoName ??
+      peerDetail.address?.fullName ??
       null;
 
     const size = query.size ?? 30;

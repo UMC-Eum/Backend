@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `User` MODIFY `age` INTEGER NOT NULL DEFAULT 50;

@@ -110,10 +110,11 @@ export class RoomRepository {
         },
       });
 
+      // TODO(business): joinRoom 시 "방 안의 내가 받은 안 읽은 메시지를 join 시점까지 모두 읽음 처리".
+      // 새 구조에서 sentToId 직접 필터 불가 → participant.userId !== me로 풀어냄 (1:1 채팅 가정).
       await tx.chatMessage.updateMany({
         where: {
-          roomId,
-          sentToId: userId,
+          participant: { roomId, userId: { not: userId } },
           readAt: null,
           deletedAt: null,
           sentAt: { lt: now },

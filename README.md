@@ -48,6 +48,16 @@ npm install
 `.env.example` 파일의 골격을 참고해주세요.
 > ⚠️ `.env` 파일은 Git에 커밋하지 않습니다.
 
+온보딩 AI 위임을 위해 아래 환경변수를 추가로 설정해야 합니다.
+
+```env
+FASTAPI_BASE_URL=http://localhost:8000
+FASTAPI_HEALTH_PATH=/health
+FASTAPI_PROFILE_ANALYSIS_PATH=/api/v1/onboarding/voice-profile/analyze
+FASTAPI_MATCH_RECOMMEND_PATH=/api/v1/recommendation/users
+FASTAPI_TIMEOUT_MS=10000
+```
+
 ---
 
 ### 4️⃣ Run (Development)
@@ -133,6 +143,12 @@ Response:
 {
   "status": "ok"
 }
+```
+
+FastAPI 상태 확인용 엔드포인트입니다.
+
+```http
+GET /api/v1/health/fatapi
 ```
 
 ---

@@ -14,6 +14,17 @@ export const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
   AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   AWS_S3_BUCKET: z.string().min(1),
+  FASTAPI_BASE_URL: z.string().url().default('http://localhost:8000'),
+  FASTAPI_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+  FASTAPI_PROFILE_ANALYSIS_PATH: z
+    .string()
+    .min(1)
+    .default('/api/v1/onboarding/voice-profile/analyze'),
+  FASTAPI_MATCH_RECOMMEND_PATH: z
+    .string()
+    .min(1)
+    .default('/api/v1/onboarding/matches/recommend'),
+  FASTAPI_HEALTH_PATH: z.string().min(1).default('/health'),
   KAKAO_CLIENT_ID: z.string().min(1),
   KAKAO_CLIENT_SECRET: z.string().min(1),
   JWT_ACCESS_SECRET: z.string().min(1).default('dev-access-secret'),

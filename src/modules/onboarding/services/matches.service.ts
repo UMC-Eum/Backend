@@ -1,31 +1,43 @@
 import { Injectable } from '@nestjs/common';
-import { MatchesRepository } from '../repositories/matches.repository';
+import { OnboardingAiService } from './onboarding-ai.service';
+import { AppException } from '../../../common/errors/app.exception';
 
 @Injectable()
 export class MatchesService {
-  constructor(private readonly matchesRepository: MatchesRepository) {}
+  constructor(private readonly onboardingAiService: OnboardingAiService) {}
 
-  async getRecommendedMatches(
-    userId: bigint,
-    size = 20,
-    cursorUserId?: bigint | null,
-  ) {
-    const items = await this.matchesRepository.findRecommendedMatches(
+  async getRecommendedMatches(userId: bigint, cursor?: string, size?: string) {
+    const result = await this.onboardingAiService.getRecommendedMatches(
       userId,
+      cursor,
       size,
-      cursorUserId,
     );
-
-    return {
-      nextCursor:
-        items.length > 0
-          ? this.generatorCursor(items[items.length - 1].userId)
-          : null,
-      items,
-    };
+    return this.extractDataPayload(result);
   }
 
-  private generatorCursor(userId: string | bigint | number): string {
-    return Buffer.from(userId.toString()).toString('base64');
+  private extractDataPayload(raw: unknown): Record<string, unknown> {
+    if (typeof raw !== 'object' || raw === null) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: 'Invalid response from FastAPI',
+      });
+    }
+
+    const record = raw as Record<string, unknown>;
+    const success = record.success;
+    if (
+      typeof success === 'object' &&
+      success !== null &&
+      'data' in success &&
+      typeof (success as { data?: unknown }).data === 'object' &&
+      (success as { data?: unknown }).data !== null
+    ) {
+      return (success as { data: Record<string, unknown> }).data;
+    }
+
+    if (typeof record.data === 'object' && record.data !== null) {
+      return record.data as Record<string, unknown>;
+    }
+
+    return record;
   }
 }

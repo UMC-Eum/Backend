@@ -52,6 +52,7 @@ npm install
 
 ```env
 FASTAPI_BASE_URL=http://localhost:8000
+FASTAPI_HEALTH_PATH=/health
 FASTAPI_PROFILE_ANALYSIS_PATH=/api/v1/onboarding/voice-profile/analyze
 FASTAPI_MATCH_RECOMMEND_PATH=/api/v1/recommendation/users
 FASTAPI_TIMEOUT_MS=10000
@@ -142,6 +143,12 @@ Response:
 {
   "status": "ok"
 }
+```
+
+FastAPI 상태 확인용 엔드포인트입니다.
+
+```http
+GET /api/v1/health/fatapi
 ```
 
 ---

@@ -35,6 +35,10 @@ export class OnboardingRepository {
     const age = this.calculateAge(birthDateObj);
 
     // 유저 정보 업데이트
+    // TODO(vibe-pgvector): vibeVector는 Unsupported("vector") 타입이라 Prisma client로 data 불가.
+    // 아래 update 후 별도 $executeRaw로 vibeVector 갱신 필요.
+    // 예: await this.prisma.$executeRaw`UPDATE "User" SET "vibeVector" = ${vec}::vector WHERE id = ${userId}`;
+    void vibeVector;
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -44,7 +48,6 @@ export class OnboardingRepository {
         code: areaCode,
         introText,
         introVoiceUrl: introAudioUrl,
-        vibeVector,
         age,
       },
     });

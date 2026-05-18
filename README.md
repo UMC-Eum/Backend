@@ -14,10 +14,11 @@ NestJS 기반으로 구성되어 있으며, 초기 프로젝트 세팅과 공통
 - **Swagger** (API Documentation)
 - **pino / pino-http** (HTTP Logging)
 - **@nestjs/config** (환경 변수 관리)
-- **Prisma** (ORM)
-- **MySQL** (Docker Compose 기반 개발 DB)
-- **Redis** (Docker Compose 기반 캐시/메시징)
-- **GitHub Actions** (CI)
+- **Prisma** (ORM, `@prisma/adapter-pg` 사용)
+- **PostgreSQL 17 + pgvector** (RDS / 로컬은 `pgvector/pgvector:pg17` 컨테이너)
+- **Redis** (ElastiCache / 로컬은 단일 컨테이너)
+- **AWS ECS on EC2** (staging 배포 대상, ECR + Service Connect)
+- **GitHub Actions** (CI/CD)
 
 ---
 
@@ -27,7 +28,7 @@ NestJS 기반으로 구성되어 있으며, 초기 프로젝트 세팅과 공통
 
 - Node.js >= 20
 - npm
-- (권장) Docker Desktop (MySQL/Redis를 docker-compose로 띄우는 경우)
+- (권장) Docker Desktop (로컬에서 PostgreSQL/Redis 컨테이너를 띄우는 경우)
 
 ---
 
@@ -69,37 +70,39 @@ npm run start:dev
 
 ---
 
-## 🐳 Docker Compose (MySQL / Redis)
+## 🐳 로컬 인프라 (PostgreSQL / Redis)
 
-개발 환경에서 MySQL/Redis는 docker-compose로 구동합니다.
+`docker-compose.yml`은 backend 이미지 단독 실행용입니다. DB/Redis는 외부(RDS/ElastiCache)에 두는 게 기본이며, 로컬 개발 시에는 다음과 같이 단일 컨테이너로 띄우는 것을 권장합니다.
 
-### 1) 컨테이너 실행
+### PostgreSQL 17 + pgvector
 
 ```bash
-docker compose up -d
+docker run -d --name eum-pg \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=eum_dev \
+  pgvector/pgvector:pg17
 ```
 
-* MySQL: `localhost:3307` → 컨테이너 내부 `3306`
-* Redis: `localhost:6379`
+> 마이그레이션이 `CREATE EXTENSION IF NOT EXISTS vector;`를 포함하므로 plain `postgres:17`이 아니라 `pgvector/pgvector:pg17` 이미지를 써야 합니다.
 
-> 로컬에 기존 MySQL이 3306을 사용 중인 경우를 피하기 위해 MySQL은 3307 포트를 사용합니다.
+`.env`에 다음 형식으로 `DATABASE_URL` 설정:
 
-### 2) 상태 확인
-
-```bash
-docker compose ps
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/eum_dev
 ```
 
-### 3) 컨테이너 종료
+### Redis
 
 ```bash
-docker compose down
+docker run -d --name eum-redis -p 6379:6379 redis:7
 ```
 
-> ⚠️ 데이터까지 초기화(볼륨 삭제)하려면:
+### backend 이미지 단독 실행 (선택)
 
 ```bash
-docker compose down -v
+docker compose up -d backend
 ```
 
 ---
@@ -150,18 +153,27 @@ GET /api/v1/health/fatapi
 
 ---
 
-## ✅ CI (GitHub Actions)
+## ✅ CI / CD (GitHub Actions)
 
-PR 또는 `main/dev` 브랜치에 push 시 CI가 자동 실행됩니다.
+**CI** — PR 또는 `main`/`dev` 브랜치 push 시 자동 실행 (`.github/workflows/ci.yml`):
 
 * Install (`npm ci`)
 * Prisma generate
+* Prisma migrate deploy (서비스 컨테이너: `pgvector/pgvector:pg17`)
 * Lint
 * Typecheck
 * Unit tests
 * Build
 
-CI 워크플로우 파일: `.github/workflows/ci.yml`
+**CD** — `dev` 브랜치에 머지되면 staging ECS로 자동 배포 (`.github/workflows/cd.yml`):
+
+* OIDC로 AWS 인증
+* ECR로 이미지 push (`linux/amd64`, `:<sha>` + `:latest`)
+* ECS one-off task로 `prisma migrate deploy` 실행
+* `eum-backend-service` 업데이트 + 안정화 대기
+* ALB 헬스(`https://staging.eum-dating.com/api/v1/health`) 스모크
+
+> CD job은 staging RDS PG 교체 / OIDC role 등록 / Secrets Manager 갱신이 끝날 때까지 `if: ${{ false }}`로 비활성 상태입니다. 활성화 절차는 `cd.yml`의 TODO 코멘트 참고.
 
 ---
 
@@ -170,10 +182,13 @@ CI 워크플로우 파일: `.github/workflows/ci.yml`
 ```txt
 .github/
 └─ workflows/
-   └─ ci.yml                 # GitHub Actions CI
+   ├─ ci.yml                 # PR/push 시 lint/test/build
+   ├─ cd.yml                 # dev push 시 staging ECS 배포 (비활성)
+   ├─ branch-check.yml       # 브랜치명 컨벤션 검증
+   └─ notion-sync.yml        # 이슈/PR → Notion 동기화
 
 prisma/
-└─ schema.prisma             # Prisma schema
+└─ schema.prisma             # Prisma schema (PostgreSQL + pgvector)
 
 src/
 ├─ modules/                  # 도메인별 기능 모듈
@@ -188,7 +203,7 @@ src/
 ├─ swagger.ts                # Swagger 설정
 └─ main.ts                   # 애플리케이션 엔트리 포인트
 
-docker-compose.yml           # MySQL/Redis 개발 인프라
+docker-compose.yml           # 로컬 backend 이미지 단독 실행용
 ```
 
 ---
@@ -199,8 +214,8 @@ docker-compose.yml           # MySQL/Redis 개발 인프라
 * HTTP 요청/응답 로그는 **pino 기반으로 자동 기록**됩니다.
 * Swagger는 크로스 브라우저 호환성을 위해 prefix 내부(`/api/v1/docs`)에 위치합니다.
 * Prisma 및 도메인 비즈니스 로직은 이후 단계에서 추가됩니다.
-* 개발 환경 DB는 docker-compose 기준으로 `DATABASE_URL`이 `3307`을 사용합니다.
-* CI 환경에서는 MySQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `3306/6379`입니다.
+* 로컬 DB는 `pgvector/pgvector:pg17` 컨테이너 기준으로 `DATABASE_URL`이 `5432`를 사용합니다.
+* CI 환경에서는 PostgreSQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `5432/6379`입니다.
 
 ---
 

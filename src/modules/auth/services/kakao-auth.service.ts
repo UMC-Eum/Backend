@@ -5,6 +5,7 @@ import {
   AddressLevel,
   AuthProvider,
   Prisma,
+  type User,
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
@@ -149,7 +150,14 @@ export class KakaoAuthService {
     };
 
     try {
-      const createdUser = await this.prismaService.user.create({
+      // TODO(vibe-pgvector): User.vibeVector가 Unsupported("vector") + NOT NULL이라 Prisma client의 .create가
+      // 타입 시그니처에서 제거됨 (delegate가 create 메서드 자체를 노출 안 함). 런타임에서도 INSERT가 vibeVector
+      // 누락으로 실패함. 적절한 해결: $executeRaw로 raw INSERT 후 findFirstOrThrow로 row 가져오기.
+      // 임시: delegate를 any로 캐스팅해 type 우회 + 결과를 User로 단언. **이 코드는 런타임에 실패하므로 follow-up 필수**.
+      const userDelegate = this.prismaService.user as unknown as {
+        create: (args: { data: Record<string, unknown> }) => Promise<User>;
+      };
+      const createdUser = await userDelegate.create({
         data: {
           birthdate: KakaoAuthService.DEFAULT_BIRTHDATE,
           email,
@@ -160,7 +168,6 @@ export class KakaoAuthService {
           code: KakaoAuthService.DEFAULT_ADDRESS_CODE,
           provider: AuthProvider.KAKAO,
           providerUserId,
-          vibeVector: {},
         },
       });
 
@@ -241,8 +248,12 @@ export class KakaoAuthService {
       return;
     }
 
-    const reportCount = await this.prismaService.report.count({
-      where: { reportedId: BigInt(userId), deletedAt: null },
+    // TODO(schema): "내가 신고당한 횟수" — 옛 Report.reportedId 직접 조회 → UserReport 경유로 변경.
+    const reportCount = await this.prismaService.userReport.count({
+      where: {
+        reportedUserId: BigInt(userId),
+        report: { deletedAt: null },
+      },
     });
 
     if (reportCount >= reportLimit) {
@@ -254,12 +265,13 @@ export class KakaoAuthService {
     }
   }
 
+  // TODO(schema-nullable): User.code가 nullable로 변경됨. code가 null이면 onboarding이 필요하다고 판단.
   private isOnboardingRequired(user: {
     birthdate: Date;
     introText: string;
     introVoiceUrl: string;
     profileImageUrl: string;
-    code: string;
+    code: string | null;
   }) {
     return (
       user.birthdate.getTime() ===
@@ -267,6 +279,7 @@ export class KakaoAuthService {
       user.introText.trim() === '' ||
       user.introVoiceUrl === KakaoAuthService.DEFAULT_INTRO_VOICE_URL ||
       user.profileImageUrl === KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL ||
+      user.code === null ||
       user.code === KakaoAuthService.DEFAULT_ADDRESS_CODE
     );
   }

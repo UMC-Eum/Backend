@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { toPgVectorLiteral } from 'src/common/utils/pgvector.util';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
-import { CreateProfileDto } from '../dtos/onboarding.dto';
+import {
+  AnalyzeClubVibeRequestDto,
+  CreateProfileDto,
+} from '../dtos/onboarding.dto';
 
 @Injectable()
 export class OnboardingRepository {
@@ -101,6 +104,62 @@ export class OnboardingRepository {
             personalityId: id,
             userId: userIdBigInt,
           })),
+        });
+      }
+    });
+  }
+
+  async updateClubVibe(
+    clubId: bigint,
+    dto: AnalyzeClubVibeRequestDto,
+    selectedKeywords: string[],
+    vibeVector: number[],
+  ): Promise<void> {
+    const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
+
+    const uniqueKeywords = Array.from(
+      new Set(
+        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
+      ),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.club.update({
+        where: { id: clubId },
+        data: {
+          introText: dto.transcript,
+          introVoiceUrl: dto.local_audio_path,
+        },
+      });
+
+      await tx.$executeRaw`
+        UPDATE "Club"
+        SET "vibeVector" = ${vibeVectorLiteral}::vector
+        WHERE "id" = ${clubId}
+      `;
+
+      await tx.clubKeyword.deleteMany({
+        where: { clubId },
+      });
+
+      if (uniqueKeywords.length > 0) {
+        const personalities = await Promise.all(
+          uniqueKeywords.map((keyword) =>
+            tx.personality.upsert({
+              where: { body: keyword },
+              update: {},
+              create: { body: keyword },
+              select: { id: true },
+            }),
+          ),
+        );
+
+        await tx.clubKeyword.createMany({
+          data: personalities.map(({ id }) => ({
+            clubId,
+            keywordId: id,
+          })),
+          skipDuplicates: true,
         });
       }
     });

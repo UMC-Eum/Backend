@@ -10,6 +10,8 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTopHostsQueryDto,
+  ListTopHostsResponseDto,
 } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
 
@@ -86,5 +88,48 @@ export class ClubController {
   })
   listClubs(@Query() query: ListClubsQueryDto): Promise<ListClubsResponseDto> {
     return this.clubService.listClubs(query);
+  }
+
+  @Get('top-hosts')
+  @ApiOperation({
+    summary: 'top host 조회',
+    description: '호스트 랭킹을 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '가져올 호스트 수',
+    example: 10,
+  })
+  @ApiOkResponse({
+    description: '조회 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            hosts: [
+              {
+                hostId: '42',
+                name: '김등산',
+                profileImageUrl: 'https://cdn.example.com/users/42.jpg',
+                clubCount: 5,
+                totalLikes: 123,
+              },
+            ],
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-21T00:00:00.000Z',
+          path: '/api/v1/clubs/top-hosts?limit=10',
+        },
+      },
+    },
+  })
+  listTopHosts(
+    @Query() query: ListTopHostsQueryDto,
+  ): Promise<ListTopHostsResponseDto> {
+    return this.clubService.listTopHosts(query.limit);
   }
 }

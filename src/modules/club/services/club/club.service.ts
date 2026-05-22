@@ -3,6 +3,7 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTopHostsResponseDto,
 } from '../../dtos/club.dto';
 import { ClubRepository } from '../../repositories/club.repository';
 import {
@@ -39,6 +40,19 @@ export class ClubService {
     return {
       nextCursor,
       items: page.map((row) => toClubListItemDto(row)),
+    };
+  }
+
+  async listTopHosts(limit: number): Promise<ListTopHostsResponseDto> {
+    const rows = await this.clubRepository.findTopHosts(limit);
+    return {
+      hosts: rows.map((row) => ({
+        hostId: row.hostId.toString(),
+        name: row.hostName,
+        profileImageUrl: row.profileImageUrl,
+        clubCount: row.clubCount,
+        totalLikes: row.totalLikes,
+      })),
     };
   }
 }

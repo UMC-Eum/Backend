@@ -57,6 +57,22 @@ export class ListClubsQueryDto {
   limit: number = 20;
 }
 
+export class ListTopHostsQueryDto {
+  @ApiPropertyOptional({
+    description: '가져올 호스트 수 (기본 10, 최대 50)',
+    example: 10,
+    default: 10,
+    minimum: 1,
+    maximum: 50,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit: number = 10;
+}
+
 export class ClubListItemDto {
   @ApiProperty({ description: '클럽 ID', example: '1' })
   clubId: string;
@@ -147,4 +163,33 @@ export class CreateClubMeetingResponseDto {
     example: '2026-05-01T20:25:00.000Z',
   })
   createdAt: string;
+}
+
+export class HostListItemDto {
+  @ApiProperty({ description: '호스트 ID', example: '42' })
+  hostId: string;
+
+  @ApiProperty({ description: '호스트 이름', example: '김등산' })
+  name: string;
+
+  @ApiProperty({
+    description: '호스트 프로필 이미지 URL',
+    example: 'https://cdn.example.com/users/42.jpg',
+    nullable: true,
+  })
+  profileImageUrl: string | null;
+
+  @ApiProperty({ description: '호스트가 운영하는 클럽 수', example: 5 })
+  clubCount: number;
+
+  @ApiProperty({
+    description: '호스트가 운영하는 클럽들의 총 좋아요 수',
+    example: 123,
+  })
+  totalLikes: number;
+}
+
+export class ListTopHostsResponseDto {
+  @ApiProperty({ type: [HostListItemDto] })
+  hosts: HostListItemDto[];
 }

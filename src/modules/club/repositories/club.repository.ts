@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ClubCategory, ClubUserStatus, Prisma } from '@prisma/client';
+import {
+  ActiveStatus,
+  ClubCategory,
+  ClubUserStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { ClubListSort } from '../dtos/club.dto';
 
@@ -45,6 +50,14 @@ const CLUB_LIST_SELECT = {
 export type ClubListRow = Prisma.ClubGetPayload<{
   select: typeof CLUB_LIST_SELECT;
 }>;
+
+export interface TopHostRow {
+  hostId: bigint;
+  hostName: string;
+  profileImageUrl: string | null;
+  clubCount: number;
+  totalLikes: number;
+}
 
 @Injectable()
 export class ClubRepository {
@@ -134,5 +147,86 @@ export class ClubRepository {
     }
 
     return [{ likes: 'desc' }, { id: 'desc' }];
+  }
+
+  async findTopHosts(limit: number): Promise<TopHostRow[]> {
+    const rows = await this.prisma.club.groupBy({
+      by: ['hostId'],
+
+      where: {
+        deletedAt: null,
+
+        hostId: {
+          not: null,
+        },
+      },
+
+      _count: {
+        id: true,
+      },
+
+      _sum: {
+        likes: true,
+      },
+
+      orderBy: [
+        {
+          _count: {
+            id: 'desc',
+          },
+        },
+
+        {
+          _sum: {
+            likes: 'desc',
+          },
+        },
+      ],
+
+      take: limit,
+    });
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const hostIds = rows
+      .map((row) => row.hostId)
+      .filter((hostId): hostId is bigint => hostId !== null);
+
+    const hosts = await this.prisma.user.findMany({
+      where: {
+        id: { in: hostIds },
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        profileImageUrl: true,
+      },
+    });
+
+    const hostMap = new Map(hosts.map((host) => [host.id, host]));
+
+    return rows.flatMap((row) => {
+      if (!row.hostId) {
+        return [];
+      }
+      const host = hostMap.get(row.hostId);
+      if (!host) {
+        return [];
+      }
+
+      return [
+        {
+          hostId: row.hostId,
+          hostName: host.nickname,
+          profileImageUrl: host.profileImageUrl ?? null,
+          clubCount: row._count.id,
+          totalLikes: row._sum.likes ?? 0,
+        },
+      ];
+    });
   }
 }

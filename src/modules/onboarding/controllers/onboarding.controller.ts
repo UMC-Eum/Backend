@@ -1,6 +1,8 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { OnboardingService } from '../services/onboarding.service';
 import {
+  AnalyzeClubVibeRequestDto,
+  AnalyzeClubVibeResponseDto,
   CreateProfileRequestDto,
   CreateProfileResponseDto,
 } from '../dtos/onboarding.dto';
@@ -41,5 +43,21 @@ export class OnboardingController {
         details: err,
       });
     }
+  }
+
+  @Post('club-vibe/analyze')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({
+    summary: '동호회 바이브 분석',
+    description:
+      '동호회 소개 텍스트/음성을 FastAPI로 분석한 뒤, 클럽 vibeVector와 키워드를 저장합니다.',
+  })
+  @ApiBody({ type: AnalyzeClubVibeRequestDto })
+  @ApiOkResponse({ type: AnalyzeClubVibeResponseDto })
+  async analyzeClubVibe(
+    @RequiredUserId() userId: number,
+    @Body() dto: AnalyzeClubVibeRequestDto,
+  ): Promise<AnalyzeClubVibeResponseDto> {
+    return this.onboardingService.analyzeClubVibe(userId, dto);
   }
 }

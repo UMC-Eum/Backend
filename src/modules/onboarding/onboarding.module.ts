@@ -8,6 +8,7 @@ import { MatchesService } from './services/matches.service';
 import { MatchesController } from './controllers/matches.controller';
 import { AuthModule } from '../auth/auth.module';
 import { OnboardingAiService } from './services/onboarding-ai.service';
+import { ClubRepository } from '../club/repositories/club.repository';
 
 @Module({
   imports: [AuthModule],
@@ -18,6 +19,7 @@ import { OnboardingAiService } from './services/onboarding-ai.service';
     OnboardingAiService,
     OnboardingRepository,
     MatchesService,
+    ClubRepository,
   ],
 })
 export class OnboardingModule {}

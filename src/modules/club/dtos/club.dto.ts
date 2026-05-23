@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { ClubCategory } from '@prisma/client';
+import { ClubAuthority, ClubCategory } from '@prisma/client';
 
 export enum ClubListSort {
   POPULAR = 'POPULAR',
@@ -131,6 +131,109 @@ export class ListClubsResponseDto {
 
   @ApiProperty({ type: [ClubListItemDto] })
   items: ClubListItemDto[];
+}
+
+export class ClubDetailHostDto {
+  @ApiProperty({ description: '호스트 사용자 ID', example: '7' })
+  userId: string;
+
+  @ApiProperty({ description: '호스트 닉네임', example: '보이스마스터' })
+  nickname: string;
+
+  @ApiProperty({
+    description: '호스트 프로필 이미지 URL',
+    example: 'https://cdn.example.com/profile/7.jpg',
+    nullable: true,
+  })
+  profileImageUrl: string | null;
+}
+
+export class ClubDetailMeetingDto {
+  @ApiProperty({ description: '정모 ID', example: '88' })
+  meetingId: string;
+
+  @ApiProperty({ description: '정모 이름', example: '주간 정모' })
+  name: string;
+
+  @ApiProperty({ description: '정모 요일', example: 'FRI', nullable: true })
+  day: string | null;
+
+  @ApiProperty({
+    description: '정모 시간',
+    example: '20:00:00',
+    nullable: true,
+  })
+  time: string | null;
+}
+
+export class ClubDetailResponseDto {
+  @ApiProperty({ description: '클럽 ID', example: '12' })
+  clubId: string;
+
+  @ApiProperty({ description: '클럽 이름', example: '등산 러버즈' })
+  name: string;
+
+  @ApiProperty({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OUTDOOR,
+  })
+  category: ClubCategory;
+
+  @ApiProperty({
+    description: '클럽 소개 음성 URL',
+    example: 'https://cdn.example.com/voice/12.mp3',
+    nullable: true,
+  })
+  introVoice: string | null;
+
+  @ApiProperty({
+    description: '클럽 소개',
+    example: '등산으로 친해져요',
+    nullable: true,
+  })
+  introText: string | null;
+
+  @ApiProperty({ description: '정원', example: 30 })
+  capacity: number;
+
+  @ApiProperty({ description: '활성 멤버 수', example: 18 })
+  memberCount: number;
+
+  @ApiProperty({ description: '좋아요 수', example: 142 })
+  likes: number;
+
+  @ApiProperty({ description: '좋아요 여부', example: false })
+  isLiked: boolean;
+
+  @ApiProperty({ description: '가입 여부', example: true })
+  isJoined: boolean;
+
+  @ApiProperty({
+    description: '내 권한',
+    enum: ClubAuthority,
+    nullable: true,
+    example: ClubAuthority.GENERAL,
+  })
+  myAuthority: ClubAuthority | null;
+
+  @ApiProperty({ type: ClubDetailHostDto, nullable: true })
+  host: ClubDetailHostDto | null;
+
+  @ApiProperty({
+    description: '클럽 키워드',
+    example: ['야외', '등산', '친목'],
+  })
+  keywords: string[];
+
+  @ApiProperty({ type: [ClubDetailMeetingDto] })
+  meetings: ClubDetailMeetingDto[];
+
+  @ApiProperty({
+    description: '생성 시각',
+    example: '2026-03-01T00:00:00.000Z',
+  })
+  createdAt: string;
 }
 
 export class CreateClubMeetingResponseDto {

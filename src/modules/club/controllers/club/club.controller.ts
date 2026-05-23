@@ -1,12 +1,17 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiQuery,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ClubCategory } from '@prisma/client';
 import {
+  ClubDetailResponseDto,
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
@@ -14,6 +19,9 @@ import {
   ListTopHostsResponseDto,
 } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
+import { RequiredUserId } from '../../../auth/decorators';
+import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
 
 @ApiTags('Club')
 @Controller('clubs')
@@ -131,5 +139,69 @@ export class ClubController {
     @Query() query: ListTopHostsQueryDto,
   ): Promise<ListTopHostsResponseDto> {
     return this.clubService.listTopHosts(query.limit);
+  }
+
+  @Get(':clubId')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 상세 조회',
+    description: '클럽 상세 정보와 내 가입/좋아요 상태를 조회합니다.',
+  })
+  @ApiParam({
+    name: 'clubId',
+    description: '조회할 클럽 ID',
+    example: 12,
+  })
+  @ApiOkResponse({
+    description: '조회 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: '12',
+            name: '등산 러버즈',
+            category: 'OUTDOOR',
+            introVoice: 'https://cdn.example.com/voice/12.mp3',
+            introText: '등산으로 친해져요',
+            capacity: 30,
+            memberCount: 18,
+            likes: 142,
+            isLiked: false,
+            isJoined: true,
+            myAuthority: 'GENERAL',
+            host: {
+              userId: '7',
+              nickname: '보이스마스터',
+              profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+            },
+            keywords: ['야외', '등산', '친목'],
+            meetings: [
+              {
+                meetingId: '88',
+                name: '주간 정모',
+                day: 'FRI',
+                time: '20:00:00',
+              },
+            ],
+            createdAt: '2026-03-01T00:00:00.000Z',
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T15:55:00.000Z',
+          path: '/api/v1/clubs/12',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  getClubDetail(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<ClubDetailResponseDto> {
+    return this.clubService.getClubDetail(userId, clubId);
   }
 }

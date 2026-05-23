@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ActiveStatus,
   ClubCategory,
+  ClubAuthority,
   ClubUserStatus,
   Prisma,
 } from '@prisma/client';
@@ -51,12 +52,76 @@ export type ClubListRow = Prisma.ClubGetPayload<{
   select: typeof CLUB_LIST_SELECT;
 }>;
 
+const CLUB_DETAIL_SELECT = {
+  id: true,
+  hostId: true,
+  name: true,
+  category: true,
+  introVoiceUrl: true,
+  introText: true,
+  capacity: true,
+  likes: true,
+  createdAt: true,
+  user: {
+    select: {
+      id: true,
+      nickname: true,
+      profileImageUrl: true,
+      deletedAt: true,
+      status: true,
+    },
+  },
+  clubKeywords: {
+    select: {
+      personality: {
+        select: {
+          body: true,
+        },
+      },
+    },
+  },
+  meetings: {
+    where: {
+      deletedAt: null,
+      isRegular: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      date: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  },
+  _count: {
+    select: {
+      clubUsers: {
+        where: {
+          leftAt: null,
+          status: ClubUserStatus.ACTIVE,
+        },
+      },
+    },
+  },
+} satisfies Prisma.ClubSelect;
+
+export type ClubDetailRow = Prisma.ClubGetPayload<{
+  select: typeof CLUB_DETAIL_SELECT;
+}>;
+
 export interface TopHostRow {
   hostId: bigint;
   hostName: string;
   profileImageUrl: string | null;
   clubCount: number;
   totalLikes: number;
+}
+
+export interface ClubUserStateRow {
+  authority: ClubAuthority;
+  status: ClubUserStatus;
+  leftAt: Date | null;
 }
 
 @Injectable()
@@ -83,6 +148,47 @@ export class ClubRepository {
       orderBy: this.buildListOrderBy(params.sort),
       take: params.limit + 1,
     });
+  }
+
+  async findDetailById(clubId: bigint): Promise<ClubDetailRow | null> {
+    return this.prisma.club.findFirst({
+      where: { id: clubId, deletedAt: null },
+      select: CLUB_DETAIL_SELECT,
+    });
+  }
+
+  // 동호회에 대한 유저의 상태를 반환한다. (가입 여부, 권한, 탈퇴 여부 등)
+  async findClubUserState(
+    clubId: bigint,
+    userId: bigint,
+  ): Promise<ClubUserStateRow | null> {
+    return this.prisma.clubUser.findUnique({
+      where: {
+        userId_clubId: {
+          userId,
+          clubId,
+        },
+      },
+      select: {
+        authority: true,
+        status: true,
+        leftAt: true,
+      },
+    });
+  }
+  // isLiked 내가 동호회에 좋아요를 눌렀는가
+  async hasClubLike(clubId: bigint, userId: bigint): Promise<boolean> {
+    const like = await this.prisma.clubLike.findUnique({
+      where: {
+        userId_clubId: {
+          userId,
+          clubId,
+        },
+      },
+      select: { id: true },
+    });
+
+    return Boolean(like);
   }
 
   private buildListWhere(

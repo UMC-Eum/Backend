@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { ClubAuthority, ClubUserStatus } from '@prisma/client';
 import {
+  ClubDetailResponseDto,
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
@@ -10,7 +12,8 @@ import {
   decodeClubCursor,
   encodeClubCursor,
 } from '../../utils/club-cursor.util';
-import { toClubListItemDto } from '../../utils/club.mapper';
+import { toClubDetailDto, toClubListItemDto } from '../../utils/club.mapper';
+import { AppException } from '../../../../common/errors/app.exception';
 
 @Injectable()
 export class ClubService {
@@ -54,5 +57,40 @@ export class ClubService {
         totalLikes: row.totalLikes,
       })),
     };
+  }
+
+  async getClubDetail(
+    userId: number,
+    clubId: number,
+  ): Promise<ClubDetailResponseDto> {
+    const clubKey = BigInt(clubId);
+    const userKey = BigInt(userId);
+
+    const club = await this.clubRepository.findDetailById(clubKey);
+    if (!club) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    const [isLiked, clubUser] = await Promise.all([
+      this.clubRepository.hasClubLike(clubKey, userKey),
+      this.clubRepository.findClubUserState(clubKey, userKey),
+    ]);
+
+    let isJoined = false;
+    let myAuthority: ClubAuthority | null = null;
+
+    if (club.hostId === userKey) {
+      isJoined = true;
+      myAuthority = ClubAuthority.HOST;
+    } else if (
+      clubUser &&
+      clubUser.leftAt === null &&
+      clubUser.status === ClubUserStatus.ACTIVE
+    ) {
+      isJoined = true;
+      myAuthority = clubUser.authority;
+    }
+
+    return toClubDetailDto(club, { isLiked, isJoined, myAuthority });
   }
 }

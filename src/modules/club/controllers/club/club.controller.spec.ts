@@ -1,0 +1,100 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { ClubAuthority, ClubCategory } from '@prisma/client';
+import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
+import { ClubListSort } from '../../dtos/club.dto';
+import { ClubService } from '../../services/club/club.service';
+import { ClubController } from './club.controller';
+
+describe('ClubController', () => {
+  let controller: ClubController;
+  const listClubs = jest.fn();
+  const listTopHosts = jest.fn();
+  const getClubDetail = jest.fn();
+
+  beforeEach(async () => {
+    listClubs.mockReset();
+    listTopHosts.mockReset();
+    getClubDetail.mockReset();
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [ClubController],
+      providers: [
+        {
+          provide: ClubService,
+          useValue: {
+            listClubs,
+            listTopHosts,
+            getClubDetail,
+          },
+        },
+      ],
+    })
+      .overrideGuard(AccessTokenGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
+
+    controller = module.get<ClubController>(ClubController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  it('클럽 목록 조회를 service에 위임한다', async () => {
+    const query = {
+      keyword: '등산',
+      category: ClubCategory.OUTDOOR,
+      sort: ClubListSort.RECENT,
+      limit: 10,
+    };
+    const response = { nextCursor: null, items: [] };
+    listClubs.mockResolvedValue(response);
+
+    await expect(controller.listClubs(query)).resolves.toBe(response);
+    expect(listClubs).toHaveBeenCalledWith(query);
+  });
+
+  it('top host 조회를 service에 위임한다', async () => {
+    const response = {
+      hosts: [
+        {
+          hostId: '42',
+          name: '김등산',
+          profileImageUrl: null,
+          clubCount: 5,
+          totalLikes: 123,
+        },
+      ],
+    };
+    listTopHosts.mockResolvedValue(response);
+
+    await expect(controller.listTopHosts({ limit: 10 })).resolves.toBe(
+      response,
+    );
+    expect(listTopHosts).toHaveBeenCalledWith(10);
+  });
+
+  it('클럽 상세 조회를 service에 위임한다', async () => {
+    const response = {
+      clubId: '12',
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoice: null,
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      memberCount: 18,
+      likes: 142,
+      isLiked: true,
+      isJoined: true,
+      myAuthority: ClubAuthority.HOST,
+      host: null,
+      keywords: [],
+      meetings: [],
+      createdAt: '2026-03-01T00:00:00.000Z',
+    };
+    getClubDetail.mockResolvedValue(response);
+
+    await expect(controller.getClubDetail(7, 12)).resolves.toBe(response);
+    expect(getClubDetail).toHaveBeenCalledWith(7, 12);
+  });
+});

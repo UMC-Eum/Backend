@@ -13,6 +13,7 @@ import { AgreementModule } from '../agreements/agreement.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
+import { ArticleModule } from '../article/article.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.modu
     OnboardingModule,
     AuthModule,
     UserModule,
+    ArticleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

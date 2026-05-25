@@ -76,6 +76,7 @@ jobs:
           image: ${{ steps.tag.outputs.image }}
 
       - name: Run Prisma migrate (ECS one-off task)
+        id: migrate
         env:
           RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
         run: |
@@ -84,6 +85,7 @@ jobs:
           TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json "file://$RENDERED_TASK_DEF" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "td_arn=$TD_ARN" >> "$GITHUB_OUTPUT"
           echo "Registered task def: $TD_ARN"
 
           OVERRIDES=$(jq -nc \
@@ -111,12 +113,18 @@ jobs:
           echo "Prisma migrate completed"
 
       - name: Deploy to ECS service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render.outputs.task-definition }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
-          wait-for-service-stability: true
+        # migrate 스텝에서 등록한 동일 TD 리비전을 재사용 (중복 register 방지)
+        env:
+          TD_ARN: ${{ steps.migrate.outputs.td_arn }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition "$TD_ARN"
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
 
       - name: Smoke test (ALB health)
         run: |

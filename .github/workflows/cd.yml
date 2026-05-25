@@ -12,13 +12,9 @@ jobs:
   deploy:
     name: Deploy to Staging ECS
     runs-on: ubuntu-latest
-    # TODO(staging-enable): 다음 셋이 모두 끝나면 `if: ${{ false }}`를 제거하여 활성화
-    #   1) staging RDS가 PostgreSQL 17 + pgvector로 교체됨
-    #   2) Secrets Manager `eum-backend/DATABASE_URL`이 새 PG URL로 갱신됨
-    #   3) GitHub OIDC IAM role ARN이 secret `AWS_OIDC_ROLE_STAGING`에 등록됨
-    if: ${{ false }}
+    # 인증: OIDC 대신 임시로 IAM 액세스 키 사용 (secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).
+    #       추후 GitHub OIDC role로 교체 권장.
     permissions:
-      id-token: write
       contents: read
 
     env:
@@ -35,10 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials (access key)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_STAGING }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR

@@ -391,6 +391,12 @@ export class ArticleRepository {
         select: {
           id: true,
           userId: true,
+          clubId: true,
+          club: {
+            select: {
+              hostId: true,
+            },
+          },
         },
       });
 
@@ -398,7 +404,25 @@ export class ArticleRepository {
         return { status: 'not_found' };
       }
 
-      if (article.userId !== viewerId) {
+      const isAuthor = article.userId === viewerId;
+      const isClubHostByOwner = article.club.hostId === viewerId;
+      const hostMembership =
+        isAuthor || isClubHostByOwner
+          ? null
+          : await tx.clubUser.findFirst({
+              where: {
+                clubId: article.clubId,
+                userId: viewerId,
+                authority: ClubAuthority.HOST,
+                status: 'ACTIVE',
+                leftAt: null,
+              },
+              select: {
+                id: true,
+              },
+            });
+
+      if (!isAuthor && !isClubHostByOwner && !hostMembership) {
         return { status: 'forbidden' };
       }
 

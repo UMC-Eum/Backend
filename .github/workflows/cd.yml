@@ -88,16 +88,25 @@ jobs:
           echo "td_arn=$TD_ARN" >> "$GITHUB_OUTPUT"
           echo "Registered task def: $TD_ARN"
 
+          # CPU=0: 클러스터에 예약 CPU 여유가 없어도 배치되도록 (migrate는 짧고 I/O 중심)
+          # memoryReservation=256: 배치 판단용 최소 메모리만 잡고, 호스트 잔여로 흡수
           OVERRIDES=$(jq -nc \
             --arg name "${{ env.CONTAINER_NAME }}" \
-            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"]}]}')
+            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"], cpu: 0, memoryReservation: 256}]}')
 
-          TASK_ARN=$(aws ecs run-task \
+          RUN_OUT=$(aws ecs run-task \
             --cluster ${{ env.ECS_CLUSTER }} \
             --launch-type EC2 \
             --task-definition "$TD_ARN" \
             --overrides "$OVERRIDES" \
-            --query 'tasks[0].taskArn' --output text)
+            --output json)
+
+          TASK_ARN=$(echo "$RUN_OUT" | jq -r '.tasks[0].taskArn // empty')
+          if [ -z "$TASK_ARN" ]; then
+            echo "::error::run-task가 마이그레이션 태스크를 시작하지 못했습니다 (배치 실패)"
+            echo "$RUN_OUT" | jq -r '.failures'
+            exit 1
+          fi
           echo "Migrate task: $TASK_ARN"
 
           aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"

@@ -1,6 +1,16 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -12,6 +22,7 @@ import {
 import { ClubCategory } from '@prisma/client';
 import {
   ClubDetailResponseDto,
+  LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
@@ -139,6 +150,49 @@ export class ClubController {
     @Query() query: ListTopHostsQueryDto,
   ): Promise<ListTopHostsResponseDto> {
     return this.clubService.listTopHosts(query.limit);
+  }
+
+  @Post(':clubId/like')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 좋아요',
+    description: '로그인한 사용자가 클럽에 좋아요를 누릅니다.',
+  })
+  @ApiParam({
+    name: 'clubId',
+    description: '좋아요할 클럽 ID',
+    example: 12,
+  })
+  @ApiOkResponse({
+    description: '좋아요 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: '12',
+            isLiked: true,
+            likeCount: 143,
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T18:05:00.000Z',
+          path: '/api/v1/clubs/12/like',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  @ApiConflictResponse({ description: '이미 좋아요한 클럽' })
+  likeClub(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<LikeClubResponseDto> {
+    return this.clubService.likeClub(userId, clubId);
   }
 
   @Get(':clubId')

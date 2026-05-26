@@ -130,10 +130,38 @@ jobs:
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
-            --task-definition "$TD_ARN"
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}
+            --task-definition "$TD_ARN" > /dev/null
+
+          # `aws ecs wait services-stable`은 옛 deployment가 ACTIVE로 남아있는 동안 풀리지 않아
+          # 새 태스크가 멀쩡히 떠도 자주 타임아웃까지 끌려간다. 더 실용적으로,
+          # PRIMARY deployment의 rolloutState=COMPLETED만 확인한다 (= 새 태스크 healthy + desiredCount 도달).
+          echo "Polling PRIMARY deployment rolloutState (max 10min, 15s 간격)..."
+          for i in $(seq 1 40); do
+            STATE=$(aws ecs describe-services \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --services ${{ env.ECS_SERVICE }} \
+              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" \
+              --output text)
+            echo "[$i/40] PRIMARY rolloutState=$STATE"
+            case "$STATE" in
+              COMPLETED)
+                echo "Deployment completed."
+                exit 0
+                ;;
+              FAILED)
+                echo "::error::PRIMARY deployment FAILED"
+                aws ecs describe-services \
+                  --cluster ${{ env.ECS_CLUSTER }} \
+                  --services ${{ env.ECS_SERVICE }} \
+                  --query 'services[0].deployments' --output json
+                exit 1
+                ;;
+            esac
+            sleep 15
+          done
+
+          echo "::error::Timeout: PRIMARY rolloutState가 10분 안에 COMPLETED 도달 못 함"
+          exit 1
 
       - name: Smoke test (ALB health)
         run: |

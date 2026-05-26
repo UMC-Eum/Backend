@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { MeetingJoinPolicy, Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
@@ -453,12 +453,19 @@ async function insertDummyData() {
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
       name: `Seed Meeting ${index + 1}`,
-      date: daysFromSeed(7 + index),
+      introText: `Seed meeting intro ${index + 1}`,
+      date: `2026-02-${String(index + 1).padStart(2, '0')} 10:00`,
+      spot: `Seed meeting spot ${index + 1}`,
+      capacity: 10 + index,
+      cost: index % 2 === 0 ? 'free' : `${(index + 1) * 1000} KRW`,
+      joinPolicy:
+        index % 2 === 0
+          ? MeetingJoinPolicy.AUTO
+          : MeetingJoinPolicy.APPROVAL_REQUIRED,
+      isRegular: index % 2 === 0,
       createdAt: daysFromSeed(index),
       updatedAt: daysFromSeed(index),
       clubId: BigInt(index + 1),
-      spot: `Seed meeting spot ${index + 1}`,
-      isRegular: index % 2 === 0,
     })),
     skipDuplicates: true,
   });

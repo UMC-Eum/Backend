@@ -68,6 +68,53 @@ function vectorLiteral(seed: number) {
   return `[${values.join(',')}]`;
 }
 
+async function resetDatabase() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to reset database while NODE_ENV=production');
+  }
+
+  await prisma.$executeRawUnsafe(`
+    TRUNCATE TABLE
+      "ClubReport",
+      "UserReport",
+      "ClubKeyword",
+      "MeetingMember",
+      "Meeting",
+      "ClubLike",
+      "ClubUserBadge",
+      "Badge",
+      "ClubUser",
+      "ArticlePhoto",
+      "ArticleLike",
+      "Comment",
+      "Article",
+      "UserWatchLog",
+      "UserMarketingAgreement",
+      "MarketingAgreement",
+      "ChatMedia",
+      "ChatMessage",
+      "ChatParticipant",
+      "ChatRoom",
+      "Notification",
+      "Report",
+      "Block",
+      "Address",
+      "UserPersonality",
+      "UserIdealPersonality",
+      "Personality",
+      "UserInterest",
+      "Interest",
+      "Heart",
+      "UserPhoto",
+      "RefreshToken",
+      "Club",
+      "User"
+    RESTART IDENTITY CASCADE
+  `);
+
+  console.log('Reset database tables.');
+}
+
 async function insertAddressSeed() {
   const addresses = readCsv<AddressCsv>('address.csv');
 
@@ -568,6 +615,7 @@ async function resetSequences() {
 
 async function main() {
   console.log('Start seeding...');
+  await resetDatabase();
   await insertAddressSeed();
   await insertKeywordSeed();
   await insertDummyData();

@@ -56,8 +56,8 @@ describe('ClubController', () => {
     const response = { nextCursor: null, items: [] };
     listClubs.mockResolvedValue(response);
 
-    await expect(controller.listClubs(query)).resolves.toBe(response);
-    expect(listClubs).toHaveBeenCalledWith(query);
+    await expect(controller.listClubs(7, query)).resolves.toBe(response);
+    expect(listClubs).toHaveBeenCalledWith(7, query);
   });
 
   it('top host 조회를 service에 위임한다', async () => {

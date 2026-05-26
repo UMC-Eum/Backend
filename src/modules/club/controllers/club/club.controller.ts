@@ -106,8 +106,14 @@ export class ClubController {
       },
     },
   })
-  listClubs(@Query() query: ListClubsQueryDto): Promise<ListClubsResponseDto> {
-    return this.clubService.listClubs(query);
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  async listClubs(
+    @RequiredUserId() userId: number,
+    @Query() query: ListClubsQueryDto,
+  ): Promise<ListClubsResponseDto> {
+    return this.clubService.listClubs(userId, query);
   }
 
   @Get('top-hosts')

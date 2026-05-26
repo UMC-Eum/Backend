@@ -113,4 +113,26 @@ export class ClubService {
       likeCount: result.likeCount,
     };
   }
+
+  async unlikeClub(
+    userId: number,
+    clubId: number,
+  ): Promise<LikeClubResponseDto> {
+    const clubKey = BigInt(clubId);
+    const userKey = BigInt(userId);
+
+    const result = await this.clubRepository.deleteClubLike(clubKey, userKey);
+    if (!result) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (result.isMissing) {
+      throw new AppException('CLUB_LIKE_NOT_FOUND');
+    }
+
+    return {
+      clubId: result.clubId.toString(),
+      isLiked: false,
+      likeCount: result.likeCount,
+    };
+  }
 }

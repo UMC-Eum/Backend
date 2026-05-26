@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -193,6 +194,48 @@ export class ClubController {
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
   ): Promise<LikeClubResponseDto> {
     return this.clubService.likeClub(userId, clubId);
+  }
+
+  @Delete(':clubId/like')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 좋아요 취소',
+    description: '로그인한 사용자가 클럽 좋아요를 취소합니다.',
+  })
+  @ApiParam({
+    name: 'clubId',
+    description: '좋아요를 취소할 클럽 ID',
+    example: 12,
+  })
+  @ApiOkResponse({
+    description: '좋아요 취소 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: '12',
+            isLiked: false,
+            likeCount: 142,
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T18:06:00.000Z',
+          path: '/api/v1/clubs/12/like',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiNotFoundResponse({ description: '클럽 또는 좋아요를 찾을 수 없음' })
+  unlikeClub(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<LikeClubResponseDto> {
+    return this.clubService.unlikeClub(userId, clubId);
   }
 
   @Get(':clubId')

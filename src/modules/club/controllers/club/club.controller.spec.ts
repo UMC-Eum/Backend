@@ -11,12 +11,14 @@ describe('ClubController', () => {
   const listTopHosts = jest.fn();
   const getClubDetail = jest.fn();
   const likeClub = jest.fn();
+  const unlikeClub = jest.fn();
 
   beforeEach(async () => {
     listClubs.mockReset();
     listTopHosts.mockReset();
     getClubDetail.mockReset();
     likeClub.mockReset();
+    unlikeClub.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClubController],
@@ -28,6 +30,7 @@ describe('ClubController', () => {
             listTopHosts,
             getClubDetail,
             likeClub,
+            unlikeClub,
           },
         },
       ],
@@ -111,5 +114,17 @@ describe('ClubController', () => {
 
     await expect(controller.likeClub(7, 12)).resolves.toBe(response);
     expect(likeClub).toHaveBeenCalledWith(7, 12);
+  });
+
+  it('클럽 좋아요 취소를 service에 위임한다', async () => {
+    const response = {
+      clubId: '12',
+      isLiked: false,
+      likeCount: 142,
+    };
+    unlikeClub.mockResolvedValue(response);
+
+    await expect(controller.unlikeClub(7, 12)).resolves.toBe(response);
+    expect(unlikeClub).toHaveBeenCalledWith(7, 12);
   });
 });

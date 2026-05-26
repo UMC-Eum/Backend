@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActiveStatus, Sex } from '@prisma/client';
+import { ActiveStatus, Sex, ClubAuthority } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -319,5 +319,50 @@ export class UserRepository {
         }
       }
     });
+  }
+
+  async listMyClubs(userId: number, role: 'ALL' | 'HOST' | 'MEMBER', cursor?: bigint, limit = 20) {
+    const whereRole = role === 'ALL' ? {} : role === 'HOST' ? { authority: ClubAuthority.HOST } : { authority: { not: ClubAuthority.HOST } };
+    const rows = await this.prismaService.clubUser.findMany({
+      where: { userId: BigInt(userId), status: 'ACTIVE', leftAt: null, ...whereRole },
+      include: { club: true },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    const hasNext = rows.length > limit;
+    const items = hasNext ? rows.slice(0, limit) : rows;
+    return { items, nextCursor: hasNext ? String(items[items.length - 1]?.id ?? '') : null };
+  }
+
+  async listMyLikedClubs(userId: number, cursor?: bigint, limit = 20) {
+    const rows = await this.prismaService.clubLike.findMany({
+      where: { userId: BigInt(userId) },
+      include: { club: true },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    const hasNext = rows.length > limit;
+    const items = hasNext ? rows.slice(0, limit) : rows;
+    return { items, nextCursor: hasNext ? String(items[items.length - 1]?.id ?? '') : null, hasMore: hasNext };
+  }
+
+  createVisit(visitedBy: number, visitedTo: number) {
+    return this.prismaService.userWatchLog.create({ data: { visitedBy: BigInt(visitedBy), visitedTo: BigInt(visitedTo) } });
+  }
+
+  listVisitors(visitedTo: number, cursor?: bigint, limit = 20) {
+    return this.prismaService.userWatchLog.findMany({
+      where: { visitedTo: BigInt(visitedTo), ...(cursor ? { id: { lt: cursor } } : {}) },
+      include: { userVisitedBy: { select: { id: true, nickname: true, profileImageUrl: true, age: true, sex: true, introText: true } } },
+      orderBy: { id: 'desc' },
+      take: limit + 1,
+    });
+  }
+
+
+  findClubUserByUserAndClub(userId: number, clubId: number) {
+    return this.prismaService.clubUser.findUnique({ where: { userId_clubId: { userId: BigInt(userId), clubId: BigInt(clubId) } } });
   }
 }

@@ -6,6 +6,7 @@ import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
 import { UserRepository } from '../../repositories/user.repository';
+import { MyClubRoleFilter } from '../../dtos/user-club.dto';
 
 @Injectable()
 export class UserService {
@@ -342,5 +343,52 @@ export class UserService {
       return Number(entry!.id);
     });
     await this.userRepository.updateIdealPersonalities(userId, ids);
+  }
+
+  async getMyClubs(userId: number, role: MyClubRoleFilter = 'ALL', cursor?: string, limit = 20) {
+    if (!userId) throw new AppException('AUTH_LOGIN_REQUIRED');
+    const result = await this.userRepository.listMyClubs(userId, role, cursor ? BigInt(cursor) : undefined, limit);
+    return {
+      clubs: result.items.map((it) => ({
+        clubId: Number(it.club.id), name: it.club.name, category: it.club.category, introText: it.club.introText,
+        thumbnailUrl: it.club.thumbnailUrl, capacity: it.club.capacity, memberCount: 0, likes: it.club.likes,
+        myAuthority: it.authority, joinedAt: it.joinedAt.toISOString(),
+      })),
+      nextCursor: result.nextCursor,
+    };
+  }
+
+  async getMyLikedClubs(userId: number, cursor?: string, limit = 20) {
+    if (!userId) throw new AppException('AUTH_LOGIN_REQUIRED');
+    const result = await this.userRepository.listMyLikedClubs(userId, cursor ? BigInt(cursor) : undefined, limit);
+    return {
+      clubs: await Promise.all(result.items.map(async (it) => ({
+        clubId: Number(it.club.id), name: it.club.name, category: it.club.category, introText: it.club.introText,
+        thumbnailUrl: it.club.thumbnailUrl, memberCount: 0, likeCount: it.club.likes,
+        isJoined: Boolean(await this.userRepository.findClubUserByUserAndClub(userId, Number(it.club.id))), likedAt: it.createdAt.toISOString(),
+      }))),
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+    };
+  }
+
+  async markVisit(me: number, targetUserId: number) {
+    if (!me) throw new AppException('AUTH_LOGIN_REQUIRED');
+    const created = await this.userRepository.createVisit(me, targetUserId);
+    return { watchLogId: Number(created.id), visitedTo: Number(created.visitedTo), visitedBy: Number(created.visitedBy), visitedAt: created.visitedAt.toISOString() };
+  }
+
+  async getMyVisitors(me: number, cursor?: string, limit = 20) {
+    if (!me) throw new AppException('AUTH_LOGIN_REQUIRED');
+    const rows = await this.userRepository.listVisitors(me, cursor ? BigInt(cursor) : undefined, limit);
+    const hasNext = rows.length > limit;
+    const items = hasNext ? rows.slice(0, limit) : rows;
+    return {
+      visitors: items.map((it) => ({
+        userId: Number(it.userVisitedBy.id), nickname: it.userVisitedBy.nickname, profileImageUrl: it.userVisitedBy.profileImageUrl,
+        age: it.userVisitedBy.age, sex: it.userVisitedBy.sex, introText: it.userVisitedBy.introText, visitedAt: it.visitedAt.toISOString(),
+      })),
+      nextCursor: hasNext ? String(items[items.length - 1]?.id ?? '') : null,
+    };
   }
 }

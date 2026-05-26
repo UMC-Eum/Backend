@@ -187,6 +187,21 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
+  CLUB_FORBIDDEN_NOT_MEMBER: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-003',
+    message: '클럽 멤버만 이 작업을 수행할 수 있어요.',
+  },
+  CLUB_MEMBER_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-004',
+    message: '해당 클럽 가입자를 찾을 수 없어요.',
+  },
+  CLUB_INVALID_MEMBER_STATUS_TRANSITION: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-005',
+    message: '현재 상태에서는 요청한 가입 처리 변경을 할 수 없어요.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Put, UseGuards, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -84,5 +84,49 @@ export class UserController {
     @Body() body: UserIdealPersonalitiesUpdateRequestDto,
   ) {
     return this.userService.updateIdealPersonalities(userId ?? 0, body);
+  }
+
+  @Get('me/clubs')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: '내 동호회 목록' })
+  getMyClubs(
+    @CurrentUser('userId') userId: number | null,
+    @Query('role') role?: 'ALL' | 'HOST' | 'MEMBER',
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.userService.getMyClubs(userId ?? 0, role ?? 'ALL', cursor, limit ? Number(limit) : 20);
+  }
+
+  @Get('me/clubs/liked')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: '찜한 동호회 목록' })
+  getMyLikedClubs(
+    @CurrentUser('userId') userId: number | null,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.userService.getMyLikedClubs(userId ?? 0, cursor, limit ? Number(limit) : 20);
+  }
+
+  @Post(':userId/visits')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: '프로필 조회 마크' })
+  markVisit(
+    @CurrentUser('userId') me: number | null,
+    @Param('userId') userId: string,
+  ) {
+    return this.userService.markVisit(me ?? 0, Number(userId));
+  }
+
+  @Get('me/visitors')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: '내 프로필 방문자 목록' })
+  getMyVisitors(
+    @CurrentUser('userId') me: number | null,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.userService.getMyVisitors(me ?? 0, cursor, limit ? Number(limit) : 20);
   }
 }

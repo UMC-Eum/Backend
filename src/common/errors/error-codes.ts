@@ -187,6 +187,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
+  CLUB_LIKE_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-003',
+    message: '이미 좋아요한 클럽입니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

@@ -17,6 +17,7 @@ describe('ClubService', () => {
   const findDetailById = jest.fn();
   const findClubUserState = jest.fn();
   const hasClubLike = jest.fn();
+  const createClubLike = jest.fn();
 
   const baseClubRow = {
     id: 12n,
@@ -49,6 +50,7 @@ describe('ClubService', () => {
     findDetailById.mockReset();
     findClubUserState.mockReset();
     hasClubLike.mockReset();
+    createClubLike.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -61,6 +63,7 @@ describe('ClubService', () => {
             findDetailById,
             findClubUserState,
             hasClubLike,
+            createClubLike,
           },
         },
       ],
@@ -230,5 +233,40 @@ describe('ClubService', () => {
         time: '19:00:00',
       },
     ]);
+  });
+
+  it('클럽 좋아요 생성 결과를 반환한다', async () => {
+    createClubLike.mockResolvedValue({
+      clubId: 12n,
+      likeCount: 143,
+      isDuplicate: false,
+    });
+
+    await expect(service.likeClub(7, 12)).resolves.toEqual({
+      clubId: '12',
+      isLiked: true,
+      likeCount: 143,
+    });
+    expect(createClubLike).toHaveBeenCalledWith(12n, 7n);
+  });
+
+  it('이미 좋아요한 클럽이면 CLUB_LIKE_ALREADY_EXISTS', async () => {
+    createClubLike.mockResolvedValue({
+      clubId: 12n,
+      likeCount: 143,
+      isDuplicate: true,
+    });
+
+    await expect(service.likeClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_LIKE_ALREADY_EXISTS',
+    } satisfies Partial<AppException>);
+  });
+
+  it('좋아요할 클럽이 없으면 CLUB_NOT_FOUND', async () => {
+    createClubLike.mockResolvedValue(null);
+
+    await expect(service.likeClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_NOT_FOUND',
+    } satisfies Partial<AppException>);
   });
 });

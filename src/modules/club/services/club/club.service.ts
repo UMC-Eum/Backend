@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ClubAuthority, ClubUserStatus } from '@prisma/client';
 import {
   ClubDetailResponseDto,
+  LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
@@ -92,5 +93,24 @@ export class ClubService {
     }
 
     return toClubDetailDto(club, { isLiked, isJoined, myAuthority });
+  }
+
+  async likeClub(userId: number, clubId: number): Promise<LikeClubResponseDto> {
+    const clubKey = BigInt(clubId);
+    const userKey = BigInt(userId);
+
+    const result = await this.clubRepository.createClubLike(clubKey, userKey);
+    if (!result) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (result.isDuplicate) {
+      throw new AppException('CLUB_LIKE_ALREADY_EXISTS');
+    }
+
+    return {
+      clubId: result.clubId.toString(),
+      isLiked: true,
+      likeCount: result.likeCount,
+    };
   }
 }

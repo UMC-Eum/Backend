@@ -1,141 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ActiveStatus,
-  ClubCategory,
-  ClubAuthority,
-  ClubUserStatus,
-  Prisma,
-} from '@prisma/client';
+import { ActiveStatus, ClubUserStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { ClubListSort } from '../dtos/club.dto';
-
-export interface ListClubsRepositoryParams {
-  keyword?: string;
-  category?: ClubCategory;
-  code?: string;
-  sort: ClubListSort;
-  cursor?:
-    | { type: 'DATE'; sortAt: Date; clubId: bigint }
-    | { type: 'NUMBER'; sortValue: number; clubId: bigint };
-  limit: number;
-}
-
-const CLUB_LIST_SELECT = {
-  id: true,
-  name: true,
-  introText: true,
-  category: true,
-  thumbnailUrl: true,
-  likes: true,
-  createdAt: true,
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
-  _count: {
-    select: {
-      clubUsers: {
-        where: {
-          leftAt: null,
-          status: ClubUserStatus.ACTIVE,
-        },
-      },
-    },
-  },
-} satisfies Prisma.ClubSelect;
-
-export type ClubListRow = Prisma.ClubGetPayload<{
-  select: typeof CLUB_LIST_SELECT;
-}>;
-
-const CLUB_DETAIL_SELECT = {
-  id: true,
-  hostId: true,
-  name: true,
-  category: true,
-  introVoiceUrl: true,
-  introText: true,
-  capacity: true,
-  likes: true,
-  createdAt: true,
-  user: {
-    select: {
-      id: true,
-      nickname: true,
-      profileImageUrl: true,
-      deletedAt: true,
-      status: true,
-    },
-  },
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
-  meetings: {
-    where: {
-      deletedAt: null,
-      isRegular: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      date: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  },
-  _count: {
-    select: {
-      clubUsers: {
-        where: {
-          leftAt: null,
-          status: ClubUserStatus.ACTIVE,
-        },
-      },
-    },
-  },
-} satisfies Prisma.ClubSelect;
-
-export type ClubDetailRow = Prisma.ClubGetPayload<{
-  select: typeof CLUB_DETAIL_SELECT;
-}>;
-
-export interface TopHostRow {
-  hostId: bigint;
-  hostName: string;
-  profileImageUrl: string | null;
-  clubCount: number;
-  totalLikes: number;
-}
-
-export interface ClubUserStateRow {
-  authority: ClubAuthority;
-  status: ClubUserStatus;
-  leftAt: Date | null;
-}
-
-export interface CreateClubLikeResult {
-  clubId: bigint;
-  likeCount: number;
-  isDuplicate: boolean;
-}
-
-export interface DeleteClubLikeResult {
-  clubId: bigint;
-  likeCount: number;
-  isMissing: boolean;
-}
+import {
+  CLUB_DETAIL_SELECT,
+  CLUB_LIST_SELECT,
+  MY_CLUB_LIST_SELECT,
+  type ClubDetailRow,
+  type ClubListRow,
+  type ClubUserStateRow,
+  type CreateClubLikeResult,
+  type DeleteClubLikeResult,
+  type ListClubsRepositoryParams,
+  type ListMyClubsRepositoryParams,
+  type MyClubRow,
+  type TopHostRow,
+} from './club.repository.types';
 
 @Injectable()
 export class ClubRepository {
@@ -159,6 +39,17 @@ export class ClubRepository {
       where: this.buildListWhere(params),
       select: CLUB_LIST_SELECT,
       orderBy: this.buildListOrderBy(params.sort),
+      take: params.limit + 1,
+    });
+  }
+
+  async findManyMyClubs(
+    params: ListMyClubsRepositoryParams,
+  ): Promise<MyClubRow[]> {
+    return this.prisma.clubUser.findMany({
+      where: this.buildMyClubsWhere(params),
+      select: MY_CLUB_LIST_SELECT,
+      orderBy: [{ joinedAt: 'desc' }, { id: 'desc' }],
       take: params.limit + 1,
     });
   }
@@ -351,6 +242,33 @@ export class ClubRepository {
     }
 
     return [{ likes: 'desc' }, { id: 'desc' }];
+  }
+
+  private buildMyClubsWhere(
+    params: ListMyClubsRepositoryParams,
+  ): Prisma.ClubUserWhereInput {
+    const and: Prisma.ClubUserWhereInput[] = [
+      {
+        userId: params.userId,
+        leftAt: null,
+        status: ClubUserStatus.ACTIVE,
+        club: { deletedAt: null },
+      },
+    ];
+
+    if (params.cursor) {
+      and.push({
+        OR: [
+          { joinedAt: { lt: params.cursor.joinedAt } },
+          {
+            joinedAt: params.cursor.joinedAt,
+            id: { lt: params.cursor.clubUserId },
+          },
+        ],
+      });
+    }
+
+    return { AND: and };
   }
 
   async findTopHosts(limit: number): Promise<TopHostRow[]> {

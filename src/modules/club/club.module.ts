@@ -7,9 +7,10 @@ import { ClubService } from './services/club/club.service';
 import { MeetingService } from './services/meeting/meeting.service';
 import { ClubRepository } from './repositories/club.repository';
 import { MeetingRepository } from './repositories/meeting.repository';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, UserModule],
   controllers: [ClubController, MeetingController],
   providers: [ClubService, MeetingService, ClubRepository, MeetingRepository],
 })

@@ -9,6 +9,7 @@ import { ClubService } from './club.service';
 import { ClubRepository } from '../../repositories/club.repository';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubListSort } from '../../dtos/club.dto';
+import { UserRepository } from '../../../user/repositories/user.repository';
 
 describe('ClubService', () => {
   let service: ClubService;
@@ -19,6 +20,7 @@ describe('ClubService', () => {
   const hasClubLike = jest.fn();
   const createClubLike = jest.fn();
   const deleteClubLike = jest.fn();
+  const findProfileById = jest.fn();
 
   const baseClubRow = {
     id: 12n,
@@ -53,6 +55,7 @@ describe('ClubService', () => {
     hasClubLike.mockReset();
     createClubLike.mockReset();
     deleteClubLike.mockReset();
+    findProfileById.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,6 +72,12 @@ describe('ClubService', () => {
             deleteClubLike,
           },
         },
+        {
+          provide: UserRepository,
+          useValue: {
+            findProfileById,
+          },
+        },
       ],
     }).compile();
 
@@ -76,6 +85,7 @@ describe('ClubService', () => {
   });
 
   it('클럽 목록을 DTO로 변환하고 다음 커서를 반환한다', async () => {
+    findProfileById.mockResolvedValue({ address: { code: '1100000000' } });
     findManyForList.mockResolvedValue([
       {
         id: 12n,
@@ -101,14 +111,16 @@ describe('ClubService', () => {
       },
     ]);
 
-    const result = await service.listClubs({
+    const result = await service.listClubs(7, {
       sort: ClubListSort.POPULAR,
       limit: 1,
     });
 
+    expect(findProfileById).toHaveBeenCalledWith(7);
     expect(findManyForList).toHaveBeenCalledWith({
       keyword: undefined,
       category: undefined,
+      code: '1100000000',
       sort: ClubListSort.POPULAR,
       cursor: undefined,
       limit: 1,
@@ -127,6 +139,18 @@ describe('ClubService', () => {
       },
     ]);
     expect(result.nextCursor).toEqual(expect.any(String));
+  });
+
+  it('클럽 목록 조회 시 유저가 없으면 로그인 필요 에러를 던진다', async () => {
+    findProfileById.mockResolvedValue(null);
+
+    await expect(
+      service.listClubs(7, {
+        sort: ClubListSort.POPULAR,
+        limit: 1,
+      }),
+    ).rejects.toThrow(AppException);
+    expect(findManyForList).not.toHaveBeenCalled();
   });
 
   it('top host 목록을 DTO로 변환한다', async () => {

@@ -15,12 +15,24 @@ import {
 } from '../../utils/club-cursor.util';
 import { toClubDetailDto, toClubListItemDto } from '../../utils/club.mapper';
 import { AppException } from '../../../../common/errors/app.exception';
+import { UserRepository } from '../../../user/repositories/user.repository';
 
 @Injectable()
 export class ClubService {
-  constructor(private readonly clubRepository: ClubRepository) {}
+  constructor(
+    private readonly clubRepository: ClubRepository,
+    private readonly userRepository: UserRepository,
+  ) {}
 
-  async listClubs(query: ListClubsQueryDto): Promise<ListClubsResponseDto> {
+  async listClubs(
+    userId: number,
+    query: ListClubsQueryDto,
+  ): Promise<ListClubsResponseDto> {
+    const user = await this.userRepository.findProfileById(userId);
+    if (!user) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
     const sort = query.sort ?? ClubListSort.POPULAR;
     const limit = query.limit ?? 20;
     const cursor = query.cursor
@@ -30,6 +42,7 @@ export class ClubService {
     const rows = await this.clubRepository.findManyForList({
       keyword: query.keyword?.trim() || undefined,
       category: query.category,
+      code: user.address?.code ?? undefined,
       sort,
       cursor,
       limit,

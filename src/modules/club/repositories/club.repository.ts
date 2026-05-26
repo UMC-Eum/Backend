@@ -12,6 +12,7 @@ import { ClubListSort } from '../dtos/club.dto';
 export interface ListClubsRepositoryParams {
   keyword?: string;
   category?: ClubCategory;
+  code?: string;
   sort: ClubListSort;
   cursor?:
     | { type: 'DATE'; sortAt: Date; clubId: bigint }
@@ -309,6 +310,10 @@ export class ClubRepository {
 
     if (params.category) {
       and.push({ category: params.category });
+    }
+
+    if (params.code) {
+      and.push({ code: params.code });
     }
 
     if (params.cursor) {

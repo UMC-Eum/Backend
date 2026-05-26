@@ -42,14 +42,7 @@ jobs:
             -H "Authorization: Bearer $NOTION_TOKEN" \
             -H "Notion-Version: $NOTION_VERSION" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"filter\": {
-                \"and\": [
-                  {\"property\": \"GitHub Number\", \"number\": {\"equals\": $ISSUE_NUM}},
-                  {\"property\": \"Type\", \"select\": {\"equals\": \"Issue\"}}
-                ]
-              }
-            }")
+            -d "{\"filter\": {\"property\": \"GitHub Number\", \"number\": {\"equals\": $ISSUE_NUM}}}")
           PAGE_ID=$(echo "$RESP" | jq -r '.results[0].id // empty')
           echo "page_id=$PAGE_ID" >> "$GITHUB_OUTPUT"
           echo "Found existing page: ${PAGE_ID:-none}"
@@ -61,20 +54,29 @@ jobs:
           # Strip [EUM-N] prefix if already present (re-runs)
           CLEAN_TITLE=$(echo "$ISSUE_TITLE" | sed -E 's/^\[EUM-[0-9]+\] *//')
 
+          # GitHub 레포명 → Notion 보드 Repository select 옵션 매핑.
+          # 보드 옵션이 소문자/약칭으로 통일되어 있어 명시적으로 매핑한다.
+          # 새 레포 추가 시 이 case 문에 한 줄 추가.
+          case "$REPO_NAME" in
+            Backend)  REPO_TAG="backend" ;;
+            Frontend) REPO_TAG="frontend" ;;
+            AiModel)  REPO_TAG="ai" ;;
+            *)        REPO_TAG=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]') ;;
+          esac
+
           BODY=$(jq -nc \
             --arg db "$NOTION_DB_ID" \
             --arg title "$CLEAN_TITLE" \
             --arg url "$ISSUE_URL" \
             --argjson num "$ISSUE_NUM" \
-            --arg repo "$REPO_NAME" \
+            --arg repo "$REPO_TAG" \
             '{
               parent: {database_id: $db},
               properties: {
                 "이름": {title: [{text: {content: $title}}]},
                 "GitHub URL": {url: $url},
                 "GitHub Number": {number: $num},
-                "Repository": {select: {name: $repo}},
-                "Type": {select: {name: "Issue"}}
+                "Repository": {select: {name: $repo}}
               }
             }')
 
@@ -91,9 +93,9 @@ jobs:
             exit 1
           fi
 
-          # Extract auto-issued EUM-N from ID property (unique_id)
-          EUM_NUM=$(echo "$RESP" | jq -r '.properties.ID.unique_id.number // empty')
-          EUM_PREFIX=$(echo "$RESP" | jq -r '.properties.ID.unique_id.prefix // "EUM"')
+          # Extract auto-issued EUM-N from 작업티켓 property (unique_id)
+          EUM_NUM=$(echo "$RESP" | jq -r '.properties["작업티켓"].unique_id.number // empty')
+          EUM_PREFIX=$(echo "$RESP" | jq -r '.properties["작업티켓"].unique_id.prefix // "EUM"')
           if [ -z "$EUM_NUM" ]; then
             echo "::warning::Could not extract EUM ticket number from new page"
             exit 0
@@ -196,7 +198,7 @@ jobs:
             -H "Authorization: Bearer $NOTION_TOKEN" \
             -H "Notion-Version: $NOTION_VERSION" \
             -H "Content-Type: application/json" \
-            -d "{\"filter\":{\"property\":\"ID\",\"unique_id\":{\"equals\":$NUM}}}")
+            -d "{\"filter\":{\"property\":\"작업티켓\",\"unique_id\":{\"equals\":$NUM}}}")
           PAGE_ID=$(echo "$RESP" | jq -r '.results[0].id // empty')
           if [ -z "$PAGE_ID" ]; then
             echo "::warning::No Notion page found for ${{ steps.extract.outputs.ticket }}"
@@ -260,7 +262,7 @@ jobs:
             -H "Authorization: Bearer $NOTION_TOKEN" \
             -H "Notion-Version: $NOTION_VERSION" \
             -H "Content-Type: application/json" \
-            -d "{\"filter\":{\"property\":\"ID\",\"unique_id\":{\"equals\":$NUM}}}")
+            -d "{\"filter\":{\"property\":\"작업티켓\",\"unique_id\":{\"equals\":$NUM}}}")
           PAGE_ID=$(echo "$RESP" | jq -r '.results[0].id // empty')
           CUR=$(echo "$RESP" | jq -r '.results[0].properties["상태"].status.name // empty')
           if [ -z "$PAGE_ID" ]; then

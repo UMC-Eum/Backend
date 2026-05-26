@@ -18,6 +18,7 @@ describe('ClubService', () => {
   const findClubUserState = jest.fn();
   const hasClubLike = jest.fn();
   const createClubLike = jest.fn();
+  const deleteClubLike = jest.fn();
 
   const baseClubRow = {
     id: 12n,
@@ -51,6 +52,7 @@ describe('ClubService', () => {
     findClubUserState.mockReset();
     hasClubLike.mockReset();
     createClubLike.mockReset();
+    deleteClubLike.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -64,6 +66,7 @@ describe('ClubService', () => {
             findClubUserState,
             hasClubLike,
             createClubLike,
+            deleteClubLike,
           },
         },
       ],
@@ -266,6 +269,41 @@ describe('ClubService', () => {
     createClubLike.mockResolvedValue(null);
 
     await expect(service.likeClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_NOT_FOUND',
+    } satisfies Partial<AppException>);
+  });
+
+  it('클럽 좋아요 취소 결과를 반환한다', async () => {
+    deleteClubLike.mockResolvedValue({
+      clubId: 12n,
+      likeCount: 142,
+      isMissing: false,
+    });
+
+    await expect(service.unlikeClub(7, 12)).resolves.toEqual({
+      clubId: '12',
+      isLiked: false,
+      likeCount: 142,
+    });
+    expect(deleteClubLike).toHaveBeenCalledWith(12n, 7n);
+  });
+
+  it('좋아요 취소할 기록이 없으면 CLUB_LIKE_NOT_FOUND', async () => {
+    deleteClubLike.mockResolvedValue({
+      clubId: 12n,
+      likeCount: 142,
+      isMissing: true,
+    });
+
+    await expect(service.unlikeClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_LIKE_NOT_FOUND',
+    } satisfies Partial<AppException>);
+  });
+
+  it('좋아요 취소할 클럽이 없으면 CLUB_NOT_FOUND', async () => {
+    deleteClubLike.mockResolvedValue(null);
+
+    await expect(service.unlikeClub(7, 12)).rejects.toMatchObject({
       internalCode: 'CLUB_NOT_FOUND',
     } satisfies Partial<AppException>);
   });

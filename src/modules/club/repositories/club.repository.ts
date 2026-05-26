@@ -130,6 +130,12 @@ export interface CreateClubLikeResult {
   isDuplicate: boolean;
 }
 
+export interface DeleteClubLikeResult {
+  clubId: bigint;
+  likeCount: number;
+  isMissing: boolean;
+}
+
 @Injectable()
 export class ClubRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -234,6 +240,46 @@ export class ClubRepository {
         clubId: updatedClub.id,
         likeCount: updatedClub.likes,
         isDuplicate: false,
+      };
+    });
+  }
+
+  async deleteClubLike(
+    clubId: bigint,
+    userId: bigint,
+  ): Promise<DeleteClubLikeResult | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const club = await tx.club.findFirst({
+        where: { id: clubId, deletedAt: null },
+        select: { id: true, likes: true },
+      });
+
+      if (!club) {
+        return null;
+      }
+
+      const deleted = await tx.clubLike.deleteMany({
+        where: { clubId, userId },
+      });
+
+      if (deleted.count === 0) {
+        return {
+          clubId: club.id,
+          likeCount: club.likes,
+          isMissing: true,
+        };
+      }
+
+      const updatedClub = await tx.club.update({
+        where: { id: clubId },
+        data: { likes: { decrement: 1 } },
+        select: { id: true, likes: true },
+      });
+
+      return {
+        clubId: updatedClub.id,
+        likeCount: updatedClub.likes,
+        isMissing: false,
       };
     });
   }

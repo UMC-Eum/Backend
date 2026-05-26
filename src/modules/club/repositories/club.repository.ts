@@ -124,6 +124,12 @@ export interface ClubUserStateRow {
   leftAt: Date | null;
 }
 
+export interface CreateClubLikeResult {
+  clubId: bigint;
+  likeCount: number;
+  isDuplicate: boolean;
+}
+
 @Injectable()
 export class ClubRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -189,6 +195,47 @@ export class ClubRepository {
     });
 
     return Boolean(like);
+  }
+
+  async createClubLike(
+    clubId: bigint,
+    userId: bigint,
+  ): Promise<CreateClubLikeResult | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const club = await tx.club.findFirst({
+        where: { id: clubId, deletedAt: null },
+        select: { id: true, likes: true },
+      });
+
+      if (!club) {
+        return null;
+      }
+
+      const created = await tx.clubLike.createMany({
+        data: { clubId, userId },
+        skipDuplicates: true,
+      });
+
+      if (created.count === 0) {
+        return {
+          clubId: club.id,
+          likeCount: club.likes,
+          isDuplicate: true,
+        };
+      }
+
+      const updatedClub = await tx.club.update({
+        where: { id: clubId },
+        data: { likes: { increment: 1 } },
+        select: { id: true, likes: true },
+      });
+
+      return {
+        clubId: updatedClub.id,
+        likeCount: updatedClub.likes,
+        isDuplicate: false,
+      };
+    });
   }
 
   private buildListWhere(

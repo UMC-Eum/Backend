@@ -236,6 +236,17 @@ export class ClubDetailResponseDto {
   createdAt: string;
 }
 
+export class LikeClubResponseDto {
+  @ApiProperty({ description: '클럽 ID', example: '12' })
+  clubId: string;
+
+  @ApiProperty({ description: '좋아요 여부', example: true })
+  isLiked: boolean;
+
+  @ApiProperty({ description: '좋아요 수', example: 143 })
+  likeCount: number;
+}
+
 export class CreateClubMeetingResponseDto {
   @ApiProperty({ description: '정모 ID', example: 88 })
   meetingId: number;

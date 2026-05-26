@@ -3,11 +3,13 @@ import { ClubAuthority, ClubCategory } from '@prisma/client';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { ClubListSort } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
-import { ClubController } from './club.controller';
+import { ClubController, UserClubController } from './club.controller';
 
 describe('ClubController', () => {
   let controller: ClubController;
+  let userClubController: UserClubController;
   const listClubs = jest.fn();
+  const listMyClubs = jest.fn();
   const listTopHosts = jest.fn();
   const getClubDetail = jest.fn();
   const likeClub = jest.fn();
@@ -15,18 +17,20 @@ describe('ClubController', () => {
 
   beforeEach(async () => {
     listClubs.mockReset();
+    listMyClubs.mockReset();
     listTopHosts.mockReset();
     getClubDetail.mockReset();
     likeClub.mockReset();
     unlikeClub.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ClubController],
+      controllers: [ClubController, UserClubController],
       providers: [
         {
           provide: ClubService,
           useValue: {
             listClubs,
+            listMyClubs,
             listTopHosts,
             getClubDetail,
             likeClub,
@@ -40,6 +44,7 @@ describe('ClubController', () => {
       .compile();
 
     controller = module.get<ClubController>(ClubController);
+    userClubController = module.get<UserClubController>(UserClubController);
   });
 
   it('should be defined', () => {
@@ -58,6 +63,17 @@ describe('ClubController', () => {
 
     await expect(controller.listClubs(7, query)).resolves.toBe(response);
     expect(listClubs).toHaveBeenCalledWith(7, query);
+  });
+
+  it('내 클럽 목록 조회를 service에 위임한다', async () => {
+    const query = { cursor: 'cursor', limit: 10 };
+    const response = { clubs: [], nextCursor: null };
+    listMyClubs.mockResolvedValue(response);
+
+    await expect(userClubController.listMyClubs(7, query)).resolves.toBe(
+      response,
+    );
+    expect(listMyClubs).toHaveBeenCalledWith(7, query);
   });
 
   it('top host 조회를 service에 위임한다', async () => {

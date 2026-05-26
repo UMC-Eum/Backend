@@ -1,529 +1,583 @@
-import {
-  ActiveStatus,
-  AddressLevel,
-  AuthProvider,
-  BlockStatus,
-  ChatMediaType,
-  ChatRoomStatus,
-  NotificationType,
-  PrismaClient,
-  Sex,
-} from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import * as fs from 'fs';
-import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
-import { Prisma } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 
 dotenv.config();
+
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
-// prisma/seed.ts 상단에 추가
-interface RawUserRecord {
-  id: string;
-  birthdate: string;
-  email: string;
-  sex: string;
-  createdAt: string;
-  nickname: string;
-  updatedAt: string;
-  deletedAt?: string;
-  idealVoiceUrl?: string;
-  introVoiceUrl: string;
-  introText: string;
-  profileImageUrl: string;
-  status: string;
-  code: string;
-  provider: string;
-  providerUserId: string;
-  vibeVector: string;
-  age: string;
-}
-interface RawAddressRecord {
+type AddressCsv = {
   code: string;
   sidoCode: string;
   sigunguCode: string;
   emdCode: string;
   riCode: string;
-  fullName: string;
   sidoName: string;
   sigunguName?: string;
   emdName?: string;
   riName?: string;
-  level: string; // CSV에서는 일단 문자열로 들어옴
+  fullName: string;
+  level: string;
   parentCode?: string;
-}
-// 1. 공통 및 단순 테이블
-interface RawInterestRecord {
+};
+
+type KeywordCsv = {
   id: string;
   body: string;
-}
+};
 
-interface RawPersonalityRecord {
-  id: string;
-  body: string;
-}
-
-interface RawMarketingAgreementRecord {
-  id: string;
-  body: string;
-}
-
-// 2. 유저 관련 매핑 및 활동
-interface RawUserInterestRecord {
-  id: string;
-  interestId: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-}
-
-interface RawUserPersonalityRecord {
-  id: string;
-  userId: string;
-  personalityId: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-}
-
-interface RawUserIdealPersonalityRecord {
-  id: string;
-  userId: string;
-  personalityId: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-}
-
-interface RawUserMarketingAgreementRecord {
-  id: string;
-  marketingAgreementId: string;
-  userId: string;
-  agreedAt: string;
-  isAgreed: string; // CSV에서는 보통 'true'/'false' 문자열
-  deletedAt?: string;
-}
-
-// 3. 소셜 및 매칭 (Heart, Block, Report)
-interface RawHeartRecord {
-  id: string;
-  sentById: string;
-  sentToId: string;
-  createdAt: string;
-  deletedAt?: string;
-  status: string;
-}
-
-interface RawBlockRecord {
-  id: string;
-  blockedById: string;
-  blockedId: string;
-  blockedAt: string;
-  reason: string;
-  status: string;
-  deletedAt?: string;
-}
-
-interface RawReportRecord {
-  id: string;
-  reportedById: string;
-  reportedId: string;
-  reportedAt: string;
-  reason: string;
-  category?: string;
-  chatRoomId?: string;
-  deletedAt?: string;
-}
-
-// 4. 채팅 및 알림
-interface RawChatRoomRecord {
-  id: string;
-  userId: string;
-  startedAt: string;
-  endedAt?: string;
-  status: string;
-}
-
-interface RawChatParticipantRecord {
-  id: string;
-  userId: string;
-  roomId: string;
-  joinedAt: string;
-  endedAt?: string;
-}
-
-interface RawChatMessageRecord {
-  id: string;
-  sentById: string;
-  sentToId: string;
-  roomId: string;
-  sentAt: string;
-  updatedAt: string;
-  readAt?: string;
-  deletedAt?: string;
-}
-
-interface RawChatMediaRecord {
-  id: string;
-  messageId: string;
-  url?: string;
-  type: string;
-  text?: string;
-  durationSec?: string;
-}
-
-interface RawNotificationRecord {
-  id: string;
-  userId: string;
-  type: string;
-  isRead: string;
-  title: string;
-  body: string;
-  createdAt: string;
-  deletedAt?: string;
-  sentById?: string;
-}
 const ROOT = process.cwd();
+const DATA_DIR = path.join(ROOT, 'prisma', 'data');
+const DUMMY_COUNT = 10;
+const REPORT_COUNT = DUMMY_COUNT * 2;
+const ADDRESS_CHUNK_SIZE = 5_000;
+const now = new Date('2026-01-10T09:00:00.000Z');
 
-function dataPath(file: string) {
-  return path.join(ROOT, 'prisma', 'data', file);
+function dataPath(fileName: string) {
+  return path.join(DATA_DIR, fileName);
 }
 
-async function main() {
-  console.log('🌱 모든 테이블 CSV 데이터 시딩 시작...');
+function readCsv<T>(fileName: string): T[] {
+  return parse(fs.readFileSync(dataPath(fileName), 'utf8'), {
+    bom: true,
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  }) as T[];
+}
 
-  // 1. CSV 파일 경로 설정 (나머지 테이블 추가)
-  const paths = {
-    user: dataPath('user.csv'),
-    address: dataPath('address.csv'),
-    interest: dataPath('interest.csv'),
-    personality: dataPath('personality.csv'),
-    marketingAgreement: dataPath('marketingAgreement.csv'),
-    userInterest: dataPath('userInterest.csv'),
-    userPersonality: dataPath('userPersonality.csv'),
-    userIdealPersonality: dataPath('userIdealPersonality.csv'),
-    userMarketingAgreement: dataPath('userMarketingAgreement.csv'),
-    heart: dataPath('heart.csv'),
-    block: dataPath('block.csv'),
-    report: dataPath('report.csv'),
-    chatRoom: dataPath('chatroom.csv'),
-    chatParticipant: dataPath('chatParticipant.csv'),
-    chatMessage: dataPath('chatMessage.csv'),
-    chatMedia: dataPath('chatMedia.csv'),
-    notification: dataPath('notification.csv'),
-  };
+function nullable(value?: string) {
+  return value && value.length > 0 ? value : null;
+}
 
-  // 2. 파일 읽기 및 파싱 함수 (반복 줄이기용)
-  const parseCsv = <T>(filePath: string): T[] => {
-    if (!fs.existsSync(filePath)) {
-      console.warn(`⚠️ 파일이 없어요: ${filePath}`);
-      return [];
-    }
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return parse(content, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-      bom: true,
-    });
-  };
+function daysFromSeed(days: number) {
+  return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+}
 
-  // 3. 데이터 로드
-  const addresses = parseCsv<RawAddressRecord>(paths.address);
-  console.log(`📊 데이터 로드 완료: 주소(${addresses.length})`);
-  const users = parseCsv<RawUserRecord>(paths.user);
-  console.log(`📊 데이터 로드 완료: 유저(${users.length})`);
-  const interests = parseCsv<RawInterestRecord>(paths.interest);
-  console.log(`📊 데이터 로드 완료: 관심사(${interests.length})`);
-  const personalities = parseCsv<RawPersonalityRecord>(paths.personality);
-  console.log(`📊 데이터 로드 완료: 성향(${personalities.length})`);
-  const marketingAgreements = parseCsv<RawMarketingAgreementRecord>(
-    paths.marketingAgreement,
-  );
-  console.log(
-    `📊 데이터 로드 완료: 마케팅 약관(${marketingAgreements.length})`,
-  );
-  const userInterests = parseCsv<RawUserInterestRecord>(paths.userInterest);
-  console.log(`📊 데이터 로드 완료: 유저별 관심사(${userInterests.length})`);
-  const userPersonalities = parseCsv<RawUserPersonalityRecord>(
-    paths.userPersonality,
-  );
-  console.log(`📊 데이터 로드 완료: 유저별 성향(${userPersonalities.length})`);
-  const userIdealPersonalities = parseCsv<RawUserIdealPersonalityRecord>(
-    paths.userIdealPersonality,
-  );
-  console.log(
-    `📊 데이터 로드 완료: 이상형 성향(${userIdealPersonalities.length})`,
-  );
-  const userMarketingAgreements = parseCsv<RawUserMarketingAgreementRecord>(
-    paths.userMarketingAgreement,
-  );
-  console.log(
-    `📊 데이터 로드 완료: 유저별 마케팅 동의 현황(${userMarketingAgreements.length})`,
-  );
-  const hearts = parseCsv<RawHeartRecord>(paths.heart);
-  console.log(`📊 데이터 로드 완료: 마음(${hearts.length})`);
-  const blocks = parseCsv<RawBlockRecord>(paths.block);
-  console.log(`📊 데이터 로드 완료: 차단(${blocks.length})`);
-  const reports = parseCsv<RawReportRecord>(paths.report);
-  console.log(`📊 데이터 로드 완료: 신고(${reports.length})`);
-  const chatRooms = parseCsv<RawChatRoomRecord>(paths.chatRoom);
-  console.log(`📊 데이터 로드 완료: 채팅방(${chatRooms.length})`);
-  const chatParticipants = parseCsv<RawChatParticipantRecord>(
-    paths.chatParticipant,
-  );
-  console.log(`📊 데이터 로드 완료: 채팅 참여자(${chatParticipants.length})`);
-  const chatMessages = parseCsv<RawChatMessageRecord>(paths.chatMessage);
-  console.log(`📊 데이터 로드 완료: 채팅 메세지(${chatMessages.length})`);
-  const chatMedias = parseCsv<RawChatMediaRecord>(paths.chatMedia);
-  console.log(`📊 데이터 로드 완료: 채팅 미디어(${chatMedias.length})`);
-  const notifications = parseCsv<RawNotificationRecord>(paths.notification);
-  console.log(`📊 데이터 로드 완료: 알림(${notifications.length})`);
+function vectorLiteral(seed: number) {
+  const values = Array.from({ length: 6 }, (_, index) => {
+    const sign = (seed + index) % 2 === 0 ? 1 : -1;
+    return (sign * (seed + index + 1) * 0.1).toFixed(1);
+  });
 
-  // 4. DB에 넣기
-  console.log('📍 주소 데이터 삽입 중...');
-  // 10,000개씩 묶어서 처리 (4만 9천 개면 총 5번의 쿼리로 끝남)
-  const ADDRESS_CHUNK_SIZE = 10000;
+  return `[${values.join(',')}]`;
+}
+
+async function insertAddressSeed() {
+  const addresses = readCsv<AddressCsv>('address.csv');
+
   for (let i = 0; i < addresses.length; i += ADDRESS_CHUNK_SIZE) {
-    const chunk = addresses.slice(i, i + ADDRESS_CHUNK_SIZE).map((addr) => ({
-      code: addr.code,
-      sidoCode: addr.sidoCode,
-      sigunguCode: addr.sigunguCode,
-      emdCode: addr.emdCode,
-      riCode: addr.riCode,
-      fullName: addr.fullName,
-      sidoName: addr.sidoName,
-      sigunguName: addr.sigunguName || null,
-      emdName: addr.emdName || null,
-      riName: addr.riName || null,
-      level: addr.level as AddressLevel, // AddressLevel Enum 캐스팅
-      parentCode: addr.parentCode || null,
-    }));
-
     await prisma.address.createMany({
-      data: chunk,
-      skipDuplicates: true, // 이미 있는 주소는 건너뛰기 (에러 방지)
-    });
-
-    console.log(
-      `✅ 주소 삽입 중... (${Math.min(i + ADDRESS_CHUNK_SIZE, addresses.length)}/${addresses.length})`,
-    );
-  }
-
-  console.log('📍 주소 삽입 완료! 이제 유저 데이터를 삽입합니다.');
-  for (const user of users) {
-    await prisma.user.upsert({
-      where: { email: user.email }, // 중복 방지를 위해 email 기준 업데이트/생성
-      update: {}, // 이미 있으면 업데이트 안 함 (필요시 수정)
-      create: {
-        id: BigInt(user.id),
-        birthdate: new Date(user.birthdate),
-        email: user.email,
-        sex: user.sex as Sex,
-        createdAt: new Date(user.createdAt),
-        nickname: user.nickname,
-        updatedAt: new Date(user.updatedAt),
-        deletedAt: user.deletedAt ? new Date(user.deletedAt) : null,
-        idealVoiceUrl: user.idealVoiceUrl || null,
-        introVoiceUrl: user.introVoiceUrl,
-        introText: user.introText,
-        profileImageUrl: user.profileImageUrl,
-        status: user.status as ActiveStatus,
-        code: user.code,
-        provider: user.provider as AuthProvider,
-        providerUserId: user.providerUserId,
-        // vibeVector는 JSON 객체로 변환해서 저장
-        vibeVector: user.vibeVector
-          ? (JSON.parse(user.vibeVector) as unknown as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-        age: Number(user.age),
-      },
+      data: addresses.slice(i, i + ADDRESS_CHUNK_SIZE).map((address) => ({
+        code: address.code,
+        sidoCode: address.sidoCode,
+        sigunguCode: address.sigunguCode,
+        emdCode: address.emdCode,
+        riCode: address.riCode,
+        fullName: address.fullName,
+        sidoName: address.sidoName,
+        sigunguName: nullable(address.sigunguName),
+        emdName: nullable(address.emdName),
+        riName: nullable(address.riName),
+        level: address.level as Prisma.AddressCreateManyInput['level'],
+        parentCode: nullable(address.parentCode),
+      })),
+      skipDuplicates: true,
     });
   }
-  // 5. 기초 정보 (Interest, Personality, MarketingAgreement)
-  console.log('📍 기초 정보 삽입 중...');
+
+  console.log(`Seeded addresses from CSV: ${addresses.length}`);
+}
+
+async function insertKeywordSeed() {
+  const interests = readCsv<KeywordCsv>('interest.csv');
+  const personalities = readCsv<KeywordCsv>('personality.csv');
+
   await prisma.interest.createMany({
-    data: interests.map((i) => ({ id: BigInt(i.id), body: i.body })),
+    data: interests.map((interest) => ({
+      id: BigInt(interest.id),
+      body: interest.body,
+    })),
     skipDuplicates: true,
   });
 
   await prisma.personality.createMany({
-    data: personalities.map((p) => ({ id: BigInt(p.id), body: p.body })),
+    data: personalities.map((personality) => ({
+      id: BigInt(personality.id),
+      body: personality.body,
+    })),
+    skipDuplicates: true,
+  });
+
+  console.log(
+    `Seeded interests/personality from CSV: ${interests.length}/${personalities.length}`,
+  );
+}
+
+async function insertUsers() {
+  const rows = Array.from({ length: DUMMY_COUNT }, (_, index) => {
+    const id = BigInt(index + 1);
+    const sex = index % 2 === 0 ? 'M' : 'F';
+
+    return Prisma.sql`(
+      ${id},
+      ${daysFromSeed(-(18_250 + index * 365))},
+      ${50 + index},
+      ${`seed-user-${index + 1}@example.com`},
+      ${sex}::"Sex",
+      ${daysFromSeed(index)},
+      ${`seed-user-${index + 1}`},
+      ${daysFromSeed(index)},
+      ${`https://cdn.example.com/voice/intro/seed-user-${index + 1}.m4a`},
+      ${`seed intro text ${index + 1}`},
+      ${`https://cdn.example.com/images/profile/seed-user-${index + 1}.jpg`},
+      ${'ACTIVE'}::"ActiveStatus",
+      ${index < 5 ? '1111010100' : '1111010200'},
+      ${'KAKAO'}::"AuthProvider",
+      ${`SEED_PROVIDER_${index + 1}`},
+      ${vectorLiteral(index)}::vector
+    )`;
+  });
+
+  await prisma.$executeRaw`
+    INSERT INTO "User" (
+      "id", "birthdate", "age", "email", "sex", "createdAt", "nickname",
+      "updatedAt", "introVoiceUrl", "introText", "profileImageUrl", "status",
+      "code", "provider", "providerUserId", "vibeVector"
+    )
+    VALUES ${Prisma.join(rows)}
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+async function insertClubs() {
+  const categories = [
+    'SPORTS',
+    'LANGUAGE',
+    'VOLUNTEER',
+    'OUTDOOR',
+    'CULTURE',
+    'OTHERS',
+  ];
+  const rows = Array.from({ length: DUMMY_COUNT }, (_, index) => {
+    const id = BigInt(index + 1);
+
+    return Prisma.sql`(
+      ${id},
+      ${BigInt(index + 1)},
+      ${`Seed Club ${index + 1}`},
+      ${`https://cdn.example.com/voice/club/seed-club-${index + 1}.m4a`},
+      ${`seed club intro ${index + 1}`},
+      ${categories[index % categories.length]}::"ClubCategory",
+      ${20 + index},
+      ${daysFromSeed(index)},
+      ${daysFromSeed(index)},
+      ${index < 5 ? '1111010100' : '1111010200'},
+      ${index * 2},
+      ${vectorLiteral(index + 20)}::vector,
+      ${`https://cdn.example.com/images/club/seed-club-${index + 1}.jpg`}
+    )`;
+  });
+
+  await prisma.$executeRaw`
+    INSERT INTO "Club" (
+      "id", "hostId", "name", "introVoiceUrl", "introText", "category",
+      "capacity", "createdAt", "updatedAt", "code", "likes", "vibeVector",
+      "thumbnailUrl"
+    )
+    VALUES ${Prisma.join(rows)}
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+async function insertDummyData() {
+  await insertUsers();
+
+  await prisma.refreshToken.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      tokenHash: `seed-refresh-token-hash-${index + 1}`,
+      expiresAt: daysFromSeed(30 + index),
+      createdAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.userPhoto.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      url: `https://cdn.example.com/images/user-photo/seed-${index + 1}.jpg`,
+      createdAt: daysFromSeed(index),
+    })),
     skipDuplicates: true,
   });
 
   await prisma.marketingAgreement.createMany({
-    data: marketingAgreements.map((m) => ({ id: BigInt(m.id), body: m.body })),
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      body: `Seed marketing agreement ${index + 1}`,
+    })),
     skipDuplicates: true,
   });
 
-  // 6. 유저 매핑 (Interest, Personality, Ideal, Marketing)
-  console.log('📍 유저 매핑 데이터 삽입 중...');
   await prisma.userInterest.createMany({
-    data: userInterests.map((ui) => ({
-      id: BigInt(ui.id),
-      userId: BigInt(ui.userId),
-      interestId: BigInt(ui.interestId),
-      createdAt: new Date(ui.createdAt),
-      updatedAt: new Date(ui.updatedAt),
-      deletedAt: ui.deletedAt ? new Date(ui.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      interestId: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      createdAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
   });
 
   await prisma.userPersonality.createMany({
-    data: userPersonalities.map((up) => ({
-      id: BigInt(up.id),
-      userId: BigInt(up.userId),
-      personalityId: BigInt(up.personalityId),
-      createdAt: new Date(up.createdAt),
-      updatedAt: new Date(up.updatedAt),
-      deletedAt: up.deletedAt ? new Date(up.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      personalityId: BigInt(index + 1),
+      createdAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
   });
 
   await prisma.userIdealPersonality.createMany({
-    data: userIdealPersonalities.map((uip) => ({
-      id: BigInt(uip.id),
-      userId: BigInt(uip.userId),
-      personalityId: BigInt(uip.personalityId),
-      createdAt: new Date(uip.createdAt),
-      updatedAt: new Date(uip.updatedAt),
-      deletedAt: uip.deletedAt ? new Date(uip.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      personalityId: BigInt(index + 11),
+      createdAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
   });
 
   await prisma.userMarketingAgreement.createMany({
-    data: userMarketingAgreements.map((uma) => ({
-      id: BigInt(uma.id),
-      userId: BigInt(uma.userId),
-      marketingAgreementId: BigInt(uma.marketingAgreementId),
-      agreedAt: new Date(uma.agreedAt),
-      isAgreed: uma.isAgreed === 'true' || uma.isAgreed === '1',
-      deletedAt: uma.deletedAt ? new Date(uma.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      marketingAgreementId: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      agreedAt: daysFromSeed(index),
+      isAgreed: index % 3 !== 0,
     })),
     skipDuplicates: true,
   });
 
-  // 7. 소셜 (Heart, Block, Report)
-  console.log('📍 소셜 활동 데이터 삽입 중...');
   await prisma.heart.createMany({
-    data: hearts.map((h) => ({
-      id: BigInt(h.id),
-      sentById: BigInt(h.sentById),
-      sentToId: BigInt(h.sentToId),
-      createdAt: new Date(h.createdAt),
-      deletedAt: h.deletedAt ? new Date(h.deletedAt) : null,
-      status: h.status as ActiveStatus,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      sentById: BigInt(index + 1),
+      sentToId: BigInt(((index + 1) % DUMMY_COUNT) + 1),
+      createdAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
   });
 
   await prisma.block.createMany({
-    data: blocks.map((b) => ({
-      id: BigInt(b.id),
-      blockedById: BigInt(b.blockedById),
-      blockedId: BigInt(b.blockedId),
-      blockedAt: new Date(b.blockedAt),
-      reason: b.reason,
-      status: b.status as BlockStatus,
-      deletedAt: b.deletedAt ? new Date(b.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      blockedById: BigInt(index + 1),
+      blockedId: BigInt(((index + 2) % DUMMY_COUNT) + 1),
+      blockedAt: daysFromSeed(index),
+      reason: `seed block reason ${index + 1}`,
     })),
     skipDuplicates: true,
   });
 
-  await prisma.report.createMany({
-    data: reports.map((r) => ({
-      id: BigInt(r.id),
-      reportedById: BigInt(r.reportedById),
-      reportedId: BigInt(r.reportedId),
-      reportedAt: new Date(r.reportedAt),
-      reason: r.reason,
-      category: r.category || null,
-      chatRoomId: r.chatRoomId ? BigInt(r.chatRoomId) : null,
-      deletedAt: r.deletedAt ? new Date(r.deletedAt) : null,
-    })),
-    skipDuplicates: true,
-  });
+  await insertClubs();
 
-  // 8. 채팅 및 알림
-  console.log('📍 채팅 및 알림 데이터 삽입 중...');
   await prisma.chatRoom.createMany({
-    data: chatRooms.map((cr) => ({
-      id: BigInt(cr.id),
-      userId: BigInt(cr.userId),
-      startedAt: new Date(cr.startedAt),
-      endedAt: cr.endedAt ? new Date(cr.endedAt) : null,
-      status: cr.status as ChatRoomStatus,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      startedAt: daysFromSeed(index),
+      status: 'ACTIVE',
+      type: index < 5 ? 'DIRECT' : 'CLUB',
+      clubId: index < 5 ? null : BigInt(index + 1),
     })),
     skipDuplicates: true,
   });
 
   await prisma.chatParticipant.createMany({
-    data: chatParticipants.map((cp) => ({
-      id: BigInt(cp.id),
-      userId: BigInt(cp.userId),
-      roomId: BigInt(cp.roomId),
-      joinedAt: new Date(cp.joinedAt),
-      endedAt: cp.endedAt ? new Date(cp.endedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      roomId: BigInt(index + 1),
+      joinedAt: daysFromSeed(index),
+      role: index < 5 ? 'GENERAL' : 'HOST',
     })),
     skipDuplicates: true,
   });
 
   await prisma.chatMessage.createMany({
-    data: chatMessages.map((cm) => ({
-      id: BigInt(cm.id),
-      sentById: BigInt(cm.sentById),
-      sentToId: BigInt(cm.sentToId),
-      roomId: BigInt(cm.roomId),
-      sentAt: new Date(cm.sentAt),
-      updatedAt: new Date(cm.updatedAt),
-      readAt: cm.readAt ? new Date(cm.readAt) : null,
-      deletedAt: cm.deletedAt ? new Date(cm.deletedAt) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      participantId: BigInt(index + 1),
+      sentAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
+      readAt: index % 2 === 0 ? daysFromSeed(index + 1) : null,
     })),
     skipDuplicates: true,
   });
 
   await prisma.chatMedia.createMany({
-    data: chatMedias.map((cm) => ({
-      id: BigInt(cm.id),
-      messageId: BigInt(cm.messageId),
-      url: cm.url || null,
-      type: cm.type as ChatMediaType,
-      text: cm.text || null,
-      durationSec: cm.durationSec ? parseInt(cm.durationSec) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      messageId: BigInt(index + 1),
+      type: 'TEXT',
+      text: `seed chat message ${index + 1}`,
     })),
     skipDuplicates: true,
   });
 
   await prisma.notification.createMany({
-    data: notifications.map((n) => ({
-      id: BigInt(n.id),
-      userId: BigInt(n.userId),
-      type: n.type as NotificationType,
-      isRead: n.isRead === 'true' || n.isRead === '1',
-      title: n.title,
-      body: n.body,
-      createdAt: new Date(n.createdAt),
-      deletedAt: n.deletedAt ? new Date(n.deletedAt) : null,
-      sentById: n.sentById ? BigInt(n.sentById) : null,
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      type: index % 2 === 0 ? 'CHAT' : 'RECOMMEND',
+      isRead: index % 3 === 0,
+      createdAt: daysFromSeed(index),
+      title: `Seed notification ${index + 1}`,
+      body: `Seed notification body ${index + 1}`,
+      sentById: BigInt(((index + 1) % DUMMY_COUNT) + 1),
     })),
     skipDuplicates: true,
   });
 
-  console.log('✅ 시딩 완료!');
+  await prisma.userWatchLog.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      visitedAt: daysFromSeed(index),
+      visitedTo: BigInt(index + 1),
+      visitedBy: BigInt(((index + 1) % DUMMY_COUNT) + 1),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.clubUser.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      clubId: BigInt(index + 1),
+      joinedAt: daysFromSeed(index),
+      authority: 'HOST',
+      status: 'ACTIVE',
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.badge.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      name: `Seed Badge ${index + 1}`,
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.clubUserBadge.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      clubUserId: BigInt(index + 1),
+      badgeId: BigInt(index + 1),
+      createdAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.clubLike.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      clubId: BigInt(((index + 1) % DUMMY_COUNT) + 1),
+      createdAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.meeting.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      name: `Seed Meeting ${index + 1}`,
+      date: daysFromSeed(7 + index),
+      createdAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
+      clubId: BigInt(index + 1),
+      spot: `Seed meeting spot ${index + 1}`,
+      isRegular: index % 2 === 0,
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.meetingMember.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      meetingId: BigInt(index + 1),
+      clubUserId: BigInt(index + 1),
+      joinedAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.clubKeyword.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      clubId: BigInt(index + 1),
+      keywordId: BigInt(index + 21),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.article.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      title: `Seed Article ${index + 1}`,
+      contents: `Seed article contents ${index + 1}`,
+      category: index % 2 === 0 ? 'FREE' : 'NOTICE',
+      userId: BigInt(index + 1),
+      clubId: BigInt(index + 1),
+      createdAt: daysFromSeed(index),
+      updatedAt: daysFromSeed(index),
+      isPinned: index === 0,
+      view: index * 10,
+      likes: index,
+      isPublic: true,
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.comment.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      contents: `Seed comment ${index + 1}`,
+      userId: BigInt(index + 1),
+      articleId: BigInt(index + 1),
+      depth: 0,
+      createdAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.articleLike.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      articleId: BigInt(index + 1),
+      userId: BigInt(index + 1),
+      createdAt: daysFromSeed(index),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.articlePhoto.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      photoUrl: `https://cdn.example.com/images/article/seed-${index + 1}.jpg`,
+      createdAt: daysFromSeed(index),
+      articleId: BigInt(index + 1),
+      clubUserId: BigInt(index + 1),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.report.createMany({
+    data: Array.from({ length: REPORT_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      reportedById: BigInt((index % DUMMY_COUNT) + 1),
+      reportedAt: daysFromSeed(index),
+      reason: `seed report reason ${index + 1}`,
+      category: index % 2 === 0 ? 'OTHERS' : 'SPAM',
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.userReport.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      reportId: BigInt(index + 1),
+      reportedUserId: BigInt(((index + 1) % DUMMY_COUNT) + 1),
+    })),
+    skipDuplicates: true,
+  });
+
+  await prisma.clubReport.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
+      id: BigInt(index + 1),
+      reportId: BigInt(DUMMY_COUNT + index + 1),
+      reportedClubId: BigInt(index + 1),
+    })),
+    skipDuplicates: true,
+  });
+
+  console.log(`Seeded dummy data: about ${DUMMY_COUNT} rows per table`);
+}
+
+async function resetSequences() {
+  const tableNames = [
+    'User',
+    'RefreshToken',
+    'UserPhoto',
+    'Heart',
+    'Interest',
+    'UserInterest',
+    'Personality',
+    'UserIdealPersonality',
+    'UserPersonality',
+    'Block',
+    'Report',
+    'Notification',
+    'ChatRoom',
+    'ChatParticipant',
+    'ChatMessage',
+    'ChatMedia',
+    'MarketingAgreement',
+    'UserMarketingAgreement',
+    'UserWatchLog',
+    'Article',
+    'Comment',
+    'ArticleLike',
+    'ArticlePhoto',
+    'Club',
+    'ClubUser',
+    'Badge',
+    'ClubUserBadge',
+    'ClubLike',
+    'Meeting',
+    'MeetingMember',
+    'ClubKeyword',
+    'UserReport',
+    'ClubReport',
+  ];
+
+  for (const tableName of tableNames) {
+    await prisma.$executeRawUnsafe(`
+      SELECT setval(
+        pg_get_serial_sequence('"${tableName}"', 'id'),
+        COALESCE((SELECT MAX("id") FROM "${tableName}"), 1),
+        true
+      )
+    `);
+  }
+}
+
+async function main() {
+  console.log('Start seeding...');
+  await insertAddressSeed();
+  await insertKeywordSeed();
+  await insertDummyData();
+  await resetSequences();
+  console.log('Seed completed.');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ 시딩 중 에러 발생:', e);
+  .catch((error) => {
+    console.error('Seed failed:', error);
     process.exit(1);
   })
   .finally(async () => {

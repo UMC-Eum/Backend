@@ -3,7 +3,9 @@ import { ClubListSort } from '../dtos/club.dto';
 import type {
   ClubListRow,
   ListClubsRepositoryParams,
-} from '../repositories/club.repository';
+  ListMyClubsRepositoryParams,
+  MyClubRow,
+} from '../repositories/club.repository.types';
 
 type ClubCursorPayload =
   | {
@@ -16,6 +18,11 @@ type ClubCursorPayload =
       sortValue: number;
       clubId: string;
     };
+
+type MyClubCursorPayload = {
+  joinedAt: string;
+  clubUserId: string;
+};
 
 function b64urlEncode(input: string): string {
   return Buffer.from(input, 'utf8')
@@ -75,6 +82,34 @@ export function encodeClubCursor(row: ClubListRow, sort: ClubListSort): string {
   return b64urlEncode(JSON.stringify(toClubCursorPayload(row, sort)));
 }
 
+export function decodeMyClubCursor(
+  cursor: string,
+): ListMyClubsRepositoryParams['cursor'] {
+  try {
+    const parsed = JSON.parse(b64urlDecode(cursor)) as Record<string, unknown>;
+
+    if (
+      typeof parsed.joinedAt !== 'string' ||
+      typeof parsed.clubUserId !== 'string'
+    ) {
+      throw new Error('invalid my club cursor');
+    }
+
+    return {
+      joinedAt: new Date(parsed.joinedAt),
+      clubUserId: BigInt(parsed.clubUserId),
+    };
+  } catch {
+    throw new AppException('VALIDATION_INVALID_FORMAT', {
+      message: 'cursor 형식이 올바르지 않습니다.',
+    });
+  }
+}
+
+export function encodeMyClubCursor(row: MyClubRow): string {
+  return b64urlEncode(JSON.stringify(toMyClubCursorPayload(row)));
+}
+
 function toClubCursorPayload(
   row: ClubListRow,
   sort: ClubListSort,
@@ -91,5 +126,12 @@ function toClubCursorPayload(
     sort,
     sortValue: row.likes,
     clubId: row.id.toString(),
+  };
+}
+
+function toMyClubCursorPayload(row: MyClubRow): MyClubCursorPayload {
+  return {
+    joinedAt: row.joinedAt.toISOString(),
+    clubUserId: row.id.toString(),
   };
 }

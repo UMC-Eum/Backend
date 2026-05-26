@@ -192,6 +192,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-003',
     message: '이미 좋아요한 클럽입니다.',
   },
+  CLUB_LIKE_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-004',
+    message: '좋아요한 클럽이 아닙니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

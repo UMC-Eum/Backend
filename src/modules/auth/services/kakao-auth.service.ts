@@ -5,7 +5,6 @@ import {
   AddressLevel,
   AuthProvider,
   Prisma,
-  type User,
 } from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';

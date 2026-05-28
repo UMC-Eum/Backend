@@ -149,47 +149,63 @@ export class KakaoAuthService {
       },
     };
 
-    try {
-      // TODO(vibe-pgvector): User.vibeVector가 Unsupported("vector") + NOT NULL이라 Prisma client의 .create가
-      // 타입 시그니처에서 제거됨 (delegate가 create 메서드 자체를 노출 안 함). 런타임에서도 INSERT가 vibeVector
-      // 누락으로 실패함. 적절한 해결: $executeRaw로 raw INSERT 후 findFirstOrThrow로 row 가져오기.
-      // 임시: delegate를 any로 캐스팅해 type 우회 + 결과를 User로 단언. **이 코드는 런타임에 실패하므로 follow-up 필수**.
-      const userDelegate = this.prismaService.user as unknown as {
-        create: (args: { data: Record<string, unknown> }) => Promise<User>;
-      };
-      const createdUser = await userDelegate.create({
+    const existing = await this.prismaService.user.findUnique({ where });
+    if (existing) {
+      const updatedUser = await this.prismaService.user.update({
+        where,
         data: {
-          birthdate: KakaoAuthService.DEFAULT_BIRTHDATE,
           email,
           nickname,
-          introVoiceUrl: KakaoAuthService.DEFAULT_INTRO_VOICE_URL,
-          introText: '',
-          profileImageUrl: KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL,
-          code: KakaoAuthService.DEFAULT_ADDRESS_CODE,
-          provider: AuthProvider.KAKAO,
-          providerUserId,
         },
       });
 
-      return { user: createdUser, isNewUser: true };
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const updatedUser = await this.prismaService.user.update({
-          where,
-          data: {
-            email,
-            nickname,
-          },
-        });
-
-        return { user: updatedUser, isNewUser: false };
-      }
-
-      throw error;
+      return { user: updatedUser, isNewUser: false };
     }
+
+    const insertedRows = await this.prismaService.$queryRaw<
+      Array<{ id: bigint }>
+    >(Prisma.sql`
+      INSERT INTO "User" (
+        "birthdate",
+        "email",
+        "nickname",
+        "updatedAt",
+        "introVoiceUrl",
+        "introText",
+        "profileImageUrl",
+        "code",
+        "provider",
+        "providerUserId",
+        "vibeVector"
+      )
+      VALUES (
+        ${KakaoAuthService.DEFAULT_BIRTHDATE},
+        ${email},
+        ${nickname},
+        NOW(),
+        ${KakaoAuthService.DEFAULT_INTRO_VOICE_URL},
+        ${''},
+        ${KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL},
+        ${KakaoAuthService.DEFAULT_ADDRESS_CODE},
+        ${AuthProvider.KAKAO}::"AuthProvider",
+        ${providerUserId},
+        '[0]'::vector
+      )
+      RETURNING "id"
+    `);
+
+    const createdId = insertedRows[0]?.id;
+    if (!createdId) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: '카카오 신규 유저 생성에 실패했습니다.',
+      });
+    }
+
+    const createdUser = await this.prismaService.user.findUniqueOrThrow({
+      where: { id: createdId },
+    });
+
+    return { user: createdUser, isNewUser: true };
   }
 
   private async rotateRefreshTokens(refreshToken: string, userId: number) {

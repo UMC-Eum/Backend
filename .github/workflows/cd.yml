@@ -121,10 +121,50 @@ jobs:
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
-            --task-definition "$TD_ARN"
-          aws ecs wait services-stable \
+            --task-definition "$TD_ARN" > /dev/null
+
+          # `aws ecs wait services-stable`은 옛 deployment가 ACTIVE로 남아있는 동안 풀리지 않아
+          # 새 태스크가 멀쩡히 떠도 자주 타임아웃까지 끌려간다. 더 실용적으로,
+          # PRIMARY deployment의 rolloutState=COMPLETED만 확인한다 (= 새 태스크 healthy + desiredCount 도달).
+          # 이미지 pull(1~3분) + ALB healthcheck warmup(1~2.5분) + 컨테이너 부팅까지 합하면 7~12분이
+          # 일반적이라, 여유롭게 60회 × 15s = 15분으로 설정한다.
+          MAX_ATTEMPTS=60
+          INTERVAL=15
+          echo "Polling PRIMARY deployment rolloutState (max $((MAX_ATTEMPTS * INTERVAL / 60))min, ${INTERVAL}s 간격)..."
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            INFO=$(aws ecs describe-services \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --services ${{ env.ECS_SERVICE }} \
+              --query "services[0].deployments[?status=='PRIMARY'] | [0]" \
+              --output json)
+            STATE=$(echo "$INFO" | jq -r '.rolloutState // "UNKNOWN"')
+            RUNNING=$(echo "$INFO" | jq -r '.runningCount // 0')
+            DESIRED=$(echo "$INFO" | jq -r '.desiredCount // 0')
+            FAILED_TASKS=$(echo "$INFO" | jq -r '.failedTasks // 0')
+            echo "[$i/$MAX_ATTEMPTS] PRIMARY rolloutState=$STATE running=$RUNNING/$DESIRED failedTasks=$FAILED_TASKS"
+            case "$STATE" in
+              COMPLETED)
+                echo "Deployment completed."
+                exit 0
+                ;;
+              FAILED)
+                echo "::error::PRIMARY deployment FAILED"
+                aws ecs describe-services \
+                  --cluster ${{ env.ECS_CLUSTER }} \
+                  --services ${{ env.ECS_SERVICE }} \
+                  --query 'services[0].deployments' --output json
+                exit 1
+                ;;
+            esac
+            sleep "$INTERVAL"
+          done
+
+          echo "::error::Timeout: PRIMARY rolloutState가 $((MAX_ATTEMPTS * INTERVAL / 60))분 안에 COMPLETED 도달 못 함"
+          aws ecs describe-services \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}
+            --services ${{ env.ECS_SERVICE }} \
+            --query 'services[0].deployments' --output json
+          exit 1
 
       - name: Smoke test (ALB health)
         run: |

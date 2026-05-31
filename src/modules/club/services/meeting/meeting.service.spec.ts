@@ -10,6 +10,8 @@ describe('MeetingService', () => {
   let service: MeetingService;
   const findById = jest.fn();
   const create = jest.fn();
+  const findMeetingById = jest.fn();
+  const softDeleteWithMembers = jest.fn();
 
   const validDto: CreateMeetingRequestDto = {
     name: '매주하는 새벽등산',
@@ -27,12 +29,21 @@ describe('MeetingService', () => {
   beforeEach(async () => {
     findById.mockReset();
     create.mockReset();
+    findMeetingById.mockReset();
+    softDeleteWithMembers.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MeetingService,
         { provide: ClubRepository, useValue: { findById } },
-        { provide: MeetingRepository, useValue: { create } },
+        {
+          provide: MeetingRepository,
+          useValue: {
+            create,
+            findById: findMeetingById,
+            softDeleteWithMembers,
+          },
+        },
       ],
     }).compile();
 
@@ -125,5 +136,131 @@ describe('MeetingService', () => {
       internalCode: 'MEETING_VALIDATION_FAILED',
     });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  describe('deleteMeeting', () => {
+    const meetingId = 88n;
+
+    it('호스트가 정모를 삭제하면 Meeting + MeetingMember가 soft delete된다', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findMeetingById.mockResolvedValue({
+        id: meetingId,
+        clubId,
+        deletedAt: null,
+      });
+      softDeleteWithMembers.mockResolvedValue(undefined);
+
+      const result = await service.deleteMeeting(hostUserId, clubId, meetingId);
+
+      expect(result.meetingId).toBe(Number(meetingId));
+      expect(result.clubId).toBe(Number(clubId));
+      expect(typeof result.deletedAt).toBe('string');
+      expect(softDeleteWithMembers).toHaveBeenCalledTimes(1);
+      expect(softDeleteWithMembers).toHaveBeenCalledWith(
+        meetingId,
+        expect.any(Date),
+      );
+    });
+
+    it('호스트가 아니면 CLUB_FORBIDDEN_NOT_HOST', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: 999n,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+      });
+      expect(findMeetingById).not.toHaveBeenCalled();
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
+    });
+
+    it('클럽이 없으면 CLUB_NOT_FOUND', async () => {
+      findById.mockResolvedValue(null);
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'CLUB_NOT_FOUND',
+      });
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
+    });
+
+    it('soft-deleted 클럽이면 CLUB_NOT_FOUND', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'CLUB_NOT_FOUND',
+      });
+    });
+
+    it('정모가 없으면 MEETING_NOT_FOUND', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findMeetingById.mockResolvedValue(null);
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'MEETING_NOT_FOUND',
+      });
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
+    });
+
+    it('이미 삭제된 정모면 MEETING_NOT_FOUND', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findMeetingById.mockResolvedValue({
+        id: meetingId,
+        clubId,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'MEETING_NOT_FOUND',
+      });
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
+    });
+
+    it('clubId/meetingId 불일치면 MEETING_NOT_FOUND', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findMeetingById.mockResolvedValue({
+        id: meetingId,
+        clubId: 9999n,
+        deletedAt: null,
+      });
+
+      await expect(
+        service.deleteMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'MEETING_NOT_FOUND',
+      });
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
+    });
   });
 });

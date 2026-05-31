@@ -194,6 +194,11 @@ export const ERROR_DEFINITIONS = {
     code: 'MEETING-001',
     message: '입력값을 확인해 주세요.',
   },
+  MEETING_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'MEETING-002',
+    message: '해당 정모를 찾을 수 없어요.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

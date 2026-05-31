@@ -24,3 +24,9 @@ export interface CreateMeetingResponseDto {
   attendeeCount: number;
   createdAt: string;
 }
+
+export interface DeleteMeetingResponseDto {
+  meetingId: number;
+  clubId: number;
+  deletedAt: string;
+}

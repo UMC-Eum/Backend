@@ -6,6 +6,7 @@ import { MeetingRepository } from '../../repositories/meeting.repository';
 import {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
+  DeleteMeetingResponseDto,
 } from '../../dtos/meeting.dto';
 
 @Injectable()
@@ -54,6 +55,34 @@ export class MeetingService {
       isRegular: created.isRegular,
       attendeeCount: 0,
       createdAt: created.createdAt.toISOString(),
+    };
+  }
+
+  async deleteMeeting(
+    userId: bigint,
+    clubId: bigint,
+    meetingId: bigint,
+  ): Promise<DeleteMeetingResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== userId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const meeting = await this.meetingRepository.findById(meetingId);
+    if (!meeting || meeting.deletedAt || meeting.clubId !== clubId) {
+      throw new AppException('MEETING_NOT_FOUND');
+    }
+
+    const deletedAt = new Date();
+    await this.meetingRepository.softDeleteWithMembers(meetingId, deletedAt);
+
+    return {
+      meetingId: Number(meeting.id),
+      clubId: Number(meeting.clubId),
+      deletedAt: deletedAt.toISOString(),
     };
   }
 

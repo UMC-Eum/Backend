@@ -1,10 +1,18 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -15,6 +23,7 @@ import { MeetingService } from '../../services/meeting/meeting.service';
 import type {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
+  DeleteMeetingResponseDto,
 } from '../../dtos/meeting.dto';
 
 @ApiTags('Meeting')
@@ -61,6 +70,24 @@ export class MeetingController {
       BigInt(userId),
       BigInt(clubId),
       dto,
+    );
+  }
+
+  @Delete(':meetingId')
+  @ApiOperation({ summary: '정모 삭제 (호스트만, soft delete)' })
+  @ApiOkResponse({ description: '정모 삭제 완료' })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  async deleteMeeting(
+    @RequiredUserId() userId: number,
+    @Param('clubId') clubId: string,
+    @Param('meetingId') meetingId: string,
+  ): Promise<DeleteMeetingResponseDto> {
+    return this.meetingService.deleteMeeting(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
     );
   }
 }

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { MeetingJoinPolicy } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { MeetingRepository } from '../../repositories/meeting.repository';
 import {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
+  DeleteMeetingResponseDto,
 } from '../../dtos/meeting.dto';
 
 @Injectable()
@@ -27,8 +27,6 @@ export class MeetingService {
     if (club.hostId !== userId) {
       throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
     }
-
-    this.validateDto(dto);
 
     const created = await this.meetingRepository.create({
       clubId,
@@ -57,23 +55,33 @@ export class MeetingService {
     };
   }
 
-  private validateDto(dto: CreateMeetingRequestDto): void {
-    const violations: string[] = [];
-    if (!dto.name || dto.name.length > 50) violations.push('name');
-    if (!dto.introText || dto.introText.length > 200)
-      violations.push('introText');
-    if (!dto.date || dto.date.length > 100) violations.push('date');
-    if (!dto.spot) violations.push('spot');
-    if (!Number.isInteger(dto.capacity) || dto.capacity <= 0)
-      violations.push('capacity');
-    if (dto.cost !== undefined && dto.cost.length > 50) violations.push('cost');
-    if (!Object.values(MeetingJoinPolicy).includes(dto.joinPolicy))
-      violations.push('joinPolicy');
-
-    if (violations.length > 0) {
-      throw new AppException('MEETING_VALIDATION_FAILED', {
-        details: { fields: violations },
-      });
+  async deleteMeeting(
+    userId: bigint,
+    clubId: bigint,
+    meetingId: bigint,
+  ): Promise<DeleteMeetingResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
     }
+    if (club.hostId !== userId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const deletedAt = new Date();
+    const deleted = await this.meetingRepository.softDeleteWithMembers(
+      clubId,
+      meetingId,
+      deletedAt,
+    );
+    if (!deleted) {
+      throw new AppException('MEETING_NOT_FOUND');
+    }
+
+    return {
+      meetingId: Number(meetingId),
+      clubId: Number(clubId),
+      deletedAt: deletedAt.toISOString(),
+    };
   }
 }

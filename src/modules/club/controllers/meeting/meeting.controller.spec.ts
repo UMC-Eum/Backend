@@ -30,7 +30,10 @@ describe('MeetingController', () => {
         },
         {
           provide: MeetingService,
-          useValue: { createMeeting: jest.fn() },
+          useValue: {
+            createMeeting: jest.fn(),
+            deleteMeeting: jest.fn(),
+          },
         },
         AccessTokenGuard,
       ],

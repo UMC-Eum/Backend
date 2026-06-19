@@ -15,4 +15,19 @@ export class ClubRepository {
       select: { id: true, hostId: true, deletedAt: true },
     });
   }
+
+  async findActiveClubUser(
+    userId: bigint,
+    clubId: bigint,
+  ): Promise<{ id: bigint } | null> {
+    return this.prisma.clubUser.findFirst({
+      where: {
+        userId,
+        clubId,
+        status: 'ACTIVE',
+        leftAt: null,
+      },
+      select: { id: true },
+    });
+  }
 }

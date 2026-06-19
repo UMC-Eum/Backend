@@ -187,12 +187,27 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
+  CLUB_FORBIDDEN_NOT_MEMBER: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-003',
+    message: '클럽 멤버만 참여할 수 있어요.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {
     status: HttpStatus.BAD_REQUEST,
     code: 'MEETING-001',
     message: '입력값을 확인해 주세요.',
+  },
+  MEETING_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'MEETING-002',
+    message: '해당 정모를 찾을 수 없어요.',
+  },
+  MEETING_CAPACITY_BELOW_ATTENDEES: {
+    status: HttpStatus.CONFLICT,
+    code: 'MEETING-003',
+    message: '현재 참석자 수보다 수용 인원을 낮출 수 없어요.',
   },
 
   // SYSTEM

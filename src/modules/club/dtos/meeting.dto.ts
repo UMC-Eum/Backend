@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDefined,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -60,6 +61,7 @@ export class RecurrenceInputDto {
     description: 'WEEKLY일 때 필수 (1개 이상)',
   })
   @ValidateIf((o: RecurrenceInputDto) => o.type === RecurrenceType.WEEKLY)
+  @IsDefined()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayUnique()
@@ -71,6 +73,7 @@ export class RecurrenceInputDto {
     description: 'MONTHLY일 때 필수 (1-31)',
   })
   @ValidateIf((o: RecurrenceInputDto) => o.type === RecurrenceType.MONTHLY)
+  @IsDefined()
   @IsInt()
   @Min(1)
   @Max(31)

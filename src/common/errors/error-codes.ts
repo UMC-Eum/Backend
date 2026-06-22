@@ -212,23 +212,6 @@ export const ERROR_DEFINITIONS = {
     message: '입력값을 확인해 주세요.',
   },
 
-  // ARTICLE
-  ARTICLE_NOT_FOUND: {
-    status: HttpStatus.NOT_FOUND,
-    code: 'ARTICLE-001',
-    message: '게시글을 찾을 수 없습니다.',
-  },
-  ARTICLE_FORBIDDEN: {
-    status: HttpStatus.FORBIDDEN,
-    code: 'ARTICLE-002',
-    message: '게시글을 수정할 권한이 없습니다.',
-  },
-  ARTICLE_CLUB_NOT_FOUND: {
-    status: HttpStatus.NOT_FOUND,
-    code: 'ARTICLE-003',
-    message: '동호회를 찾을 수 없습니다.',
-  },
-
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {
     status: HttpStatus.SERVICE_UNAVAILABLE,

@@ -14,6 +14,10 @@ import {
   DeleteArticleResponseDto,
   LikeArticleResponseDto,
   UpdateArticleResponseDto,
+  PinArticleDto,
+  PinArticleResponseDto,
+  ArticleListItemDto,
+  ListArticlesResponseDto,
 } from '../dtos/article.dto';
 import { ListArticlesQueryDto } from '../dtos/list-articles-query.dto';
 import { AppException } from '../../../common/errors/app.exception';
@@ -28,17 +32,57 @@ export class ArticleService {
   async findClubArticles(
     clubId: number,
     query: ListArticlesQueryDto,
-  ): Promise<ArticleDto[]> {
+  ): Promise<ListArticlesResponseDto> {
     await this.ensureClubExists(clubId);
 
+    const take = query.limit ?? 20;
     const result = await this.articleRepository.findArticlesByClub(clubId, {
       category: query.category,
       sort: query.sort ?? 'recent',
       cursor: this.normalizeCursor(query.cursor),
-      take: query.limit ?? 20,
+      take: take + 1, // fetch one extra to detect hasMore
     });
 
-    return result.map((article) => this.toArticleDto(article));
+    const hasMore = result.length > take;
+    const items = hasMore ? result.slice(0, take) : result;
+
+    const articles = items.map((article) => {
+      const firstPhoto = article.articlePhotos[0];
+      const previewMax = 120;
+      const rawPreview = article.contents ?? '';
+      const preview = rawPreview.length > previewMax ? rawPreview.slice(0, previewMax).trim() + '...' : rawPreview;
+
+      return {
+        articleId: Number(article.id),
+        title: article.title,
+        preview,
+        category: article.category,
+        isPinned: article.isPinned,
+        viewCount: article.view,
+        likeCount: article.likes,
+        commentCount: article._count.comments,
+        thumbnailUrl: firstPhoto ? firstPhoto.photoUrl : null,
+        author: article.user
+          ? {
+              userId: Number(article.user.id),
+              nickname: article.user.nickname,
+              profileImageUrl: article.user.profileImageUrl,
+            }
+          : null,
+        createdAt: article.createdAt.toISOString(),
+      } as ArticleListItemDto;
+    });
+
+    const nextCursor = hasMore
+      ? Buffer.from(JSON.stringify({ id: String(items[items.length - 1].id) })).toString('base64')
+      : null;
+
+    return {
+      clubId,
+      articles,
+      nextCursor,
+      hasMore,
+    };
   }
 
   async createArticle(
@@ -101,6 +145,34 @@ export class ArticleService {
 
     return {
       articleId: Number(result.article.id),
+      updatedAt: result.article.updatedAt.toISOString(),
+    };
+  }
+
+  async pinArticle(
+    userId: number,
+    clubId: number,
+    articleId: number,
+    pinArticleDto: PinArticleDto,
+  ): Promise<PinArticleResponseDto> {
+    const result = await this.articleRepository.pinArticle(
+      userId,
+      clubId,
+      articleId,
+      pinArticleDto.isPinned,
+    );
+
+    if (result.status === 'not_found') {
+      throw new AppException('ARTICLE_NOT_FOUND');
+    }
+
+    if (result.status === 'forbidden') {
+      throw new AppException('ARTICLE_FORBIDDEN');
+    }
+
+    return {
+      articleId: Number(result.article.id),
+      isPinned: result.article.isPinned,
       updatedAt: result.article.updatedAt.toISOString(),
     };
   }
@@ -187,8 +259,21 @@ export class ArticleService {
       return undefined;
     }
 
-    const parsedCursor = BigInt(cursor);
-    return parsedCursor > 0n ? parsedCursor : undefined;
+    try {
+      // Base64 디코딩 시도
+      const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
+      const parsed = JSON.parse(decoded);
+      const id = BigInt(parsed.id);
+      return id > 0n ? id : undefined;
+    } catch {
+      // 디코딩 실패 시 (호환성) 직접 숫자 파싱 시도
+      try {
+        const id = BigInt(cursor);
+        return id > 0n ? id : undefined;
+      } catch {
+        return undefined;
+      }
+    }
   }
 
   private toArticleDto(article: ArticleEntity): ArticleDto {
@@ -304,6 +389,40 @@ export class ArticleService {
       profileImageUrl: user.profileImageUrl,
       authority:
         authorAuthorities.get(user.id.toString()) ?? ClubAuthority.GENERAL,
+    };
+  }
+
+  async findArchivePhotos(
+    clubId: number,
+    query: ListArticlesQueryDto,
+  ): Promise<{ items: { photoId: number; articleId: number; photoUrl: string; createdAt: string }[]; nextCursor: string | null; hasMore: boolean }> {
+    await this.ensureClubExists(clubId);
+
+    const take = query.limit ?? 20;
+    const result = await this.articleRepository.findArchivePhotos(clubId, {
+      sort: query.sort ?? 'recent',
+      cursor: this.normalizeCursor(query.cursor),
+      take: take + 1, // fetch one extra to detect hasMore
+    });
+
+    const hasMore = result.length > take;
+    const items = hasMore ? result.slice(0, take) : result;
+
+    const photos = items.map((photo) => ({
+      photoId: Number(photo.id),
+      articleId: Number(photo.articleId),
+      photoUrl: photo.photoUrl,
+      createdAt: photo.createdAt.toISOString(),
+    }));
+
+    const nextCursor = hasMore
+      ? Buffer.from(JSON.stringify({ id: String(items[items.length - 1].id) })).toString('base64')
+      : null;
+
+    return {
+      items: photos,
+      nextCursor,
+      hasMore,
     };
   }
 }

@@ -36,12 +36,12 @@ export class ListArticlesQueryDto {
   sort?: ArticleSort;
 
   @ApiPropertyOptional({
-    description: '다음 페이지 커서. 첫 페이지에서는 생략하거나 0을 전달',
-    example: '0',
+    description: '다음 페이지 커서 (Base64 인코딩). 첫 페이지에서는 생략',
+    example: 'eyJpZCI6IjExIn0=',
   })
   @IsOptional()
   @IsString()
-  @Matches(/^\d+$/)
+  @Matches(/^[A-Za-z0-9+/]*={0,2}$/, { message: 'cursor must be a valid Base64 string' })
   cursor?: string;
 
   @ApiPropertyOptional({

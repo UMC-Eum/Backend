@@ -84,6 +84,11 @@ export type UnlikeArticleResult =
   | { status: 'success'; article: { id: bigint; likes: number } }
   | { status: 'not_found' };
 
+export type PinArticleResult =
+  | { status: 'success'; article: { id: bigint; isPinned: boolean; updatedAt: Date } }
+  | { status: 'not_found' }
+  | { status: 'forbidden' };
+
 @Injectable()
 export class ArticleRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -120,8 +125,8 @@ export class ArticleRepository {
       take: params.take,
       orderBy:
         params.sort === 'popular'
-          ? [{ likes: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
-          : [{ createdAt: 'desc' }, { id: 'desc' }],
+          ? [{ isPinned: 'desc' }, { likes: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
+          : [{ isPinned: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       ...(params.cursor && {
         cursor: { id: params.cursor },
         skip: 1,
@@ -373,6 +378,74 @@ export class ArticleRepository {
     });
   }
 
+  async pinArticle(
+    userId: number,
+    clubId: number,
+    articleId: number,
+    isPinned: boolean,
+  ): Promise<PinArticleResult> {
+    const viewerId = BigInt(userId);
+
+    return this.prisma.$transaction(async (tx) => {
+        const article = await tx.article.findFirst({
+          where: {
+            id: BigInt(articleId),
+            clubId: BigInt(clubId),
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            userId: true,
+            clubId: true,
+            club: {
+              select: {
+                hostId: true,
+              },
+            },
+          },
+        });
+
+        if (!article) {
+          return { status: 'not_found' };
+        }
+
+        const isAuthor = article.userId === viewerId;
+        const isClubHostByOwner = article.club.hostId === viewerId;
+        const hostMembership =
+          isAuthor || isClubHostByOwner
+            ? null
+            : await tx.clubUser.findFirst({
+                where: {
+                  clubId: article.clubId,
+                  userId: viewerId,
+                  authority: ClubAuthority.HOST,
+                  status: 'ACTIVE',
+                  leftAt: null,
+                },
+                select: { id: true },
+              });
+
+        if (!isAuthor && !isClubHostByOwner && !hostMembership) {
+          return { status: 'forbidden' };
+        }
+
+        const updated = await tx.article.update({
+          where: { id: article.id },
+          data: { isPinned },
+          select: {
+            id: true,
+            isPinned: true,
+            updatedAt: true,
+          },
+        });
+
+        return {
+          status: 'success',
+          article: updated,
+        };
+    });
+  }
+
   async deleteArticle(
     userId: number,
     clubId: number,
@@ -573,6 +646,40 @@ export class ArticleRepository {
         status: 'success',
         article: updated,
       };
+    });
+  }
+
+  async findArchivePhotos(
+    clubId: number,
+    params: {
+      sort: ArticleSort;
+      cursor?: bigint;
+      take: number;
+    },
+  ): Promise<Array<{ id: bigint; photoUrl: string; articleId: bigint; createdAt: Date }>> {
+    return this.prisma.articlePhoto.findMany({
+      where: {
+        article: {
+          clubId: BigInt(clubId),
+          deletedAt: null,
+        },
+        deletedAt: null,
+      },
+      take: params.take,
+      orderBy:
+        params.sort === 'popular'
+          ? [{ article: { likes: 'desc' } }, { createdAt: 'desc' }, { id: 'desc' }]
+          : [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(params.cursor && {
+        cursor: { id: params.cursor },
+        skip: 1,
+      }),
+      select: {
+        id: true,
+        photoUrl: true,
+        articleId: true,
+        createdAt: true,
+      },
     });
   }
 }

@@ -1,5 +1,6 @@
-import { ApiProperty, OmitType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { ArticleCategory, ClubAuthority } from '@prisma/client';
+import { IsBoolean } from 'class-validator';
 
 export class ArticleAuthorDto {
   @ApiProperty({ example: 42 })
@@ -67,6 +68,82 @@ export class ArticleDto {
   createdAt!: string;
 }
 
+export class ArticleListAuthorDto extends ArticleAuthorDto {}
+
+export class ArticleListItemDto {
+  @ApiProperty({ example: 1 })
+  articleId!: number;
+
+  @ApiProperty({ example: '이번 주 정모 후기 공유합니다!' })
+  title!: string;
+
+  @ApiProperty({ example: '어제 정말 즐거운 시간이었어요. 다음에도 꼭 참석하고 싶네요...' })
+  preview!: string;
+
+  @ApiProperty({ example: ArticleCategory.REVIEW, enum: ArticleCategory })
+  category!: ArticleCategory;
+
+  @ApiProperty({ example: false })
+  isPinned!: boolean;
+
+  @ApiProperty({ example: 0 })
+  viewCount!: number;
+
+  @ApiProperty({ example: 0 })
+  likeCount!: number;
+
+  @ApiProperty({ example: 0 })
+  commentCount!: number;
+
+  @ApiProperty({ example: null, nullable: true })
+  thumbnailUrl!: string | null;
+
+  @ApiProperty({ type: ArticleListAuthorDto, nullable: true })
+  author!: ArticleListAuthorDto | null;
+
+  @ApiProperty({ example: '2026-05-01T14:30:00.000Z' })
+  createdAt!: string;
+}
+
+export class ListArticlesResponseDto {
+  @ApiProperty({ example: 12 })
+  clubId!: number;
+
+  @ApiProperty({ type: [ArticleListItemDto] })
+  articles!: ArticleListItemDto[];
+
+  @ApiProperty({ example: 'eyJpZCI6MTAyM30=' })
+  nextCursor!: string | null;
+
+  @ApiProperty({ example: true })
+  hasMore!: boolean;
+}
+
+export class ArchivePhotoItemDto {
+  @ApiProperty({ example: 101 })
+  photoId!: number;
+
+  @ApiProperty({ example: 1 })
+  articleId!: number;
+
+  @ApiProperty({ example: 'https://cdn.example.com/articles/abc123.jpg' })
+  photoUrl!: string;
+
+  @ApiProperty({ example: '2026-05-01T17:40:00.000Z' })
+  createdAt!: string;
+}
+
+export class GetArchiveResponseDto {
+  @ApiProperty({ type: [ArchivePhotoItemDto] })
+  items!: ArchivePhotoItemDto[];
+
+  @ApiProperty({ example: 'eyJpZCI6MTAyM30=' })
+  nextCursor!: string | null;
+
+  @ApiProperty({ example: true })
+  hasMore!: boolean;
+}
+
 export class ArticleCommentReplyDto {
   @ApiProperty({ example: 556 })
   commentId!: number;
@@ -119,6 +196,23 @@ export class UpdateArticleResponseDto {
   articleId!: number;
 
   @ApiProperty({ example: '2026-05-01T15:00:00.000Z' })
+  updatedAt!: string;
+}
+
+export class PinArticleDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  isPinned!: boolean;
+}
+
+export class PinArticleResponseDto {
+  @ApiProperty({ example: 1 })
+  articleId!: number;
+
+  @ApiProperty({ example: true })
+  isPinned!: boolean;
+
+  @ApiProperty({ example: '2026-05-01T17:40:00.000Z' })
   updatedAt!: string;
 }
 

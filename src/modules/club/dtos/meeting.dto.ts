@@ -131,6 +131,7 @@ export class CreateMeetingRequestDto {
   joinPolicy!: MeetingJoinPolicy;
 
   @ApiProperty({ type: RecurrenceInputDto })
+  @IsDefined()
   @ValidateNested()
   @Type(() => RecurrenceInputDto)
   @Validate(RecurrenceShapeConstraint)

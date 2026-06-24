@@ -193,6 +193,28 @@ export const ERROR_DEFINITIONS = {
     message: '클럽 회원만 이용할 수 있는 기능이에요',
   },
 
+  // COMMENT
+  COMMENT_PARENT_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'COMMENT-001',
+    message: '부모 댓글을 찾을 수 없습니다.',
+  },
+  COMMENT_DEPTH_EXCEEDED: {
+    status: HttpStatus.BAD_REQUEST,
+    code: 'COMMENT-002',
+    message: '대댓글까지만 작성할 수 있습니다.',
+  },
+  COMMENT_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'COMMENT-003',
+    message: '댓글을 찾을 수 없습니다.',
+  },
+  COMMENT_FORBIDDEN_NOT_AUTHOR: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'COMMENT-004',
+    message: '댓글 작성자만 삭제할 수 있습니다.',
+  },
+
   // CLUB
   CLUB_NOT_FOUND: {
     status: HttpStatus.NOT_FOUND,

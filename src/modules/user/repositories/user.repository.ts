@@ -31,67 +31,77 @@ export class UserRepository {
   }) {
     await this.ensureDefaultAddress(defaultAddressCode);
 
-    const where = {
-      provider_providerUserId: {
-        provider: AuthProvider.KAKAO,
-        providerUserId,
-      },
-    };
+    return this.prismaService.$transaction(async (tx) => {
+      const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
+        Prisma.sql`
+          INSERT INTO "User" (
+            "birthdate",
+            "email",
+            "nickname",
+            "updatedAt",
+            "introVoiceUrl",
+            "introText",
+            "profileImageUrl",
+            "code",
+            "provider",
+            "providerUserId",
+            "vibeVector"
+          )
+          VALUES (
+            ${defaultBirthdate},
+            ${email},
+            ${nickname},
+            NOW(),
+            ${defaultIntroVoiceUrl},
+            ${''},
+            ${defaultProfileImageUrl},
+            ${defaultAddressCode},
+            ${AuthProvider.KAKAO}::"AuthProvider",
+            ${providerUserId},
+            '[0]'::vector
+          )
+          ON CONFLICT ("provider", "providerUserId") DO NOTHING
+          RETURNING "id"
+        `,
+      );
 
-    const existing = await this.prismaService.user.findUnique({ where });
-    if (existing) {
-      const updatedUser = await this.prismaService.user.update({
-        where,
-        data: {
-          email,
+      const insertedId = insertedRows[0]?.id;
+      if (insertedId) {
+        const createdUser = await tx.user.findUniqueOrThrow({
+          where: { id: insertedId },
+        });
+
+        return { user: createdUser, isNewUser: true };
+      }
+
+      const updatedUser = await tx.user.update({
+        where: {
+          provider_providerUserId: {
+            provider: AuthProvider.KAKAO,
+            providerUserId,
+          },
         },
+        data: { email },
       });
 
       return { user: updatedUser, isNewUser: false };
-    }
-
-    const insertedRows = await this.prismaService.$queryRaw<
-      Array<{ id: bigint }>
-    >(Prisma.sql`
-      INSERT INTO "User" (
-        "birthdate",
-        "email",
-        "nickname",
-        "updatedAt",
-        "introVoiceUrl",
-        "introText",
-        "profileImageUrl",
-        "code",
-        "provider",
-        "providerUserId",
-        "vibeVector"
-      )
-      VALUES (
-        ${defaultBirthdate},
-        ${email},
-        ${nickname},
-        NOW(),
-        ${defaultIntroVoiceUrl},
-        ${''},
-        ${defaultProfileImageUrl},
-        ${defaultAddressCode},
-        ${AuthProvider.KAKAO}::"AuthProvider",
-        ${providerUserId},
-        '[0]'::vector
-      )
-      RETURNING "id"
-    `);
-
-    const createdId = insertedRows[0]?.id;
-    if (!createdId) {
-      return null;
-    }
-
-    const createdUser = await this.prismaService.user.findUniqueOrThrow({
-      where: { id: createdId },
     });
+  }
 
-    return { user: createdUser, isNewUser: true };
+  countActiveReportsByUserId(userId: number) {
+    return this.prismaService.userReport.count({
+      where: {
+        reportedUserId: BigInt(userId),
+        report: { deletedAt: null },
+      },
+    });
+  }
+
+  markInactive(userId: number) {
+    return this.prismaService.user.update({
+      where: { id: BigInt(userId) },
+      data: { status: ActiveStatus.INACTIVE },
+    });
   }
 
   findProfileById(userId: number) {

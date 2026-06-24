@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { ActiveStatus } from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
-import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtTokenService } from './jwt-token.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { KakaoLoginRequestDto } from '../dtos/kakao-login-request.dto';
@@ -49,7 +48,6 @@ export class KakaoAuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtTokenService: JwtTokenService,
-    private readonly prismaService: PrismaService,
     private readonly userRepository: UserRepository,
     private readonly authRepository: AuthRepository,
   ) {}
@@ -181,19 +179,11 @@ export class KakaoAuthService {
       return;
     }
 
-    // TODO(schema): "내가 신고당한 횟수" — 옛 Report.reportedId 직접 조회 → UserReport 경유로 변경.
-    const reportCount = await this.prismaService.userReport.count({
-      where: {
-        reportedUserId: BigInt(userId),
-        report: { deletedAt: null },
-      },
-    });
+    const reportCount =
+      await this.userRepository.countActiveReportsByUserId(userId);
 
     if (reportCount >= reportLimit) {
-      await this.prismaService.user.update({
-        where: { id: BigInt(userId) },
-        data: { status: ActiveStatus.INACTIVE },
-      });
+      await this.userRepository.markInactive(userId);
       throw new AppException('AUTH_USER_BLOCKED');
     }
   }

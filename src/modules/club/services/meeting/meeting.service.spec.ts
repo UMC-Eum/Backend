@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DayOfWeek, MeetingJoinPolicy, RecurrenceType } from '@prisma/client';
+import {
+  ClubAuthority,
+  DayOfWeek,
+  MeetingJoinPolicy,
+  RecurrenceType,
+} from '@prisma/client';
 import { MeetingService } from './meeting.service';
 import { ClubRepository } from '../../repositories/club.repository';
 import {
@@ -23,6 +28,10 @@ describe('MeetingService', () => {
   const findAttendeesPreview = jest.fn();
   const isAttending = jest.fn();
   const softDeleteWithMembers = jest.fn();
+  const findMemberByMeetingAndClubUser = jest.fn();
+  const joinMeeting = jest.fn();
+  const leaveMeeting = jest.fn();
+  const listActiveMembers = jest.fn();
 
   const validDto: CreateMeetingRequestDto = {
     name: '매주하는 새벽등산',
@@ -74,6 +83,10 @@ describe('MeetingService', () => {
       findAttendeesPreview,
       isAttending,
       softDeleteWithMembers,
+      findMemberByMeetingAndClubUser,
+      joinMeeting,
+      leaveMeeting,
+      listActiveMembers,
     ].forEach((fn) => fn.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
@@ -93,6 +106,10 @@ describe('MeetingService', () => {
             findAttendeesPreview,
             isAttending,
             softDeleteWithMembers,
+            findMemberByMeetingAndClubUser,
+            joinMeeting,
+            leaveMeeting,
+            listActiveMembers,
           },
         },
       ],
@@ -106,7 +123,14 @@ describe('MeetingService', () => {
   });
 
   describe('createMeeting', () => {
-    it('호스트가 만들면 정모가 생성된다', async () => {
+    beforeEach(() => {
+      findActiveClubUser.mockResolvedValue({ id: 555n });
+      findAttendeesPreview.mockResolvedValue([
+        { userId: 42n, nickname: '호스트', profileImageUrl: 'u-host' },
+      ]);
+    });
+
+    it('호스트가 만들면 정모가 생성되고 호스트가 자동 참석된다', async () => {
       findById.mockResolvedValue({
         id: clubId,
         hostId: hostUserId,
@@ -118,11 +142,15 @@ describe('MeetingService', () => {
 
       expect(result.meetingId).toBe(Number(meetingId));
       expect(result.clubId).toBe(Number(clubId));
-      expect(result.attendeeCount).toBe(0);
+      expect(result.attendeeCount).toBe(1);
+      expect(result.isAttending).toBe(true);
+      expect(result.attendeesPreview).toHaveLength(1);
       expect(result.dateLabel).toBe('매주 목요일 오후 7시');
       expect(result.recurrence.type).toBe(RecurrenceType.WEEKLY);
       expect(result.recurrence.daysOfWeek).toEqual([DayOfWeek.THU]);
-      expect(create).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ hostClubUserId: 555n }),
+      );
     });
 
     it('호스트가 아니면 CLUB_FORBIDDEN_NOT_HOST', async () => {
@@ -156,6 +184,19 @@ describe('MeetingService', () => {
       await expect(
         service.createMeeting(hostUserId, clubId, validDto),
       ).rejects.toMatchObject({ internalCode: 'CLUB_NOT_FOUND' });
+    });
+
+    it('호스트의 ClubUser가 없으면 CLUB_FORBIDDEN_NOT_MEMBER', async () => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findActiveClubUser.mockResolvedValue(null);
+      await expect(
+        service.createMeeting(hostUserId, clubId, validDto),
+      ).rejects.toMatchObject({ internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER' });
+      expect(create).not.toHaveBeenCalled();
     });
   });
 
@@ -365,6 +406,222 @@ describe('MeetingService', () => {
       await expect(
         service.deleteMeeting(hostUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'CLUB_NOT_FOUND' });
+    });
+  });
+
+  describe('joinMeeting', () => {
+    const memberUserId = 200n;
+    const memberClubUserId = 777n;
+
+    beforeEach(() => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findActiveClubUser.mockResolvedValue({ id: memberClubUserId });
+      findDetail.mockResolvedValue({ ...baseMeetingRow, capacity: 10 });
+      findMemberByMeetingAndClubUser.mockResolvedValue(null);
+      countAttendees.mockResolvedValue(3);
+      joinMeeting.mockResolvedValue({
+        id: 5001n,
+        meetingId,
+        clubUserId: memberClubUserId,
+        joinedAt: new Date('2026-05-01T11:05:00.000Z'),
+        deletedAt: null,
+      });
+    });
+
+    it('정상 참석', async () => {
+      const result = await service.joinMeeting(memberUserId, clubId, meetingId);
+      expect(result.meetingMemberId).toBe(5001);
+      expect(result.clubUserId).toBe(Number(memberClubUserId));
+      expect(result.userId).toBe(Number(memberUserId));
+      expect(result.joinedAt).toMatch(/\+09:00$/);
+      expect(joinMeeting).toHaveBeenCalledWith(meetingId, memberClubUserId);
+    });
+
+    it('soft-deleted row가 있으면 revive (upsert)', async () => {
+      findMemberByMeetingAndClubUser.mockResolvedValue({
+        id: 5001n,
+        meetingId,
+        clubUserId: memberClubUserId,
+        joinedAt: new Date('2026-04-01T10:00:00.000Z'),
+        deletedAt: new Date('2026-04-15T10:00:00.000Z'),
+      });
+      await service.joinMeeting(memberUserId, clubId, meetingId);
+      expect(joinMeeting).toHaveBeenCalled();
+    });
+
+    it('이미 ACTIVE row면 MEETING_ALREADY_JOINED', async () => {
+      findMemberByMeetingAndClubUser.mockResolvedValue({
+        id: 5001n,
+        meetingId,
+        clubUserId: memberClubUserId,
+        joinedAt: new Date(),
+        deletedAt: null,
+      });
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_ALREADY_JOINED' });
+      expect(joinMeeting).not.toHaveBeenCalled();
+    });
+
+    it('정원 초과면 MEETING_CAPACITY_EXCEEDED', async () => {
+      countAttendees.mockResolvedValue(10);
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_CAPACITY_EXCEEDED' });
+      expect(joinMeeting).not.toHaveBeenCalled();
+    });
+
+    it('비멤버면 CLUB_FORBIDDEN_NOT_MEMBER', async () => {
+      findActiveClubUser.mockResolvedValue(null);
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER' });
+    });
+
+    it('클럽 없으면 CLUB_NOT_FOUND', async () => {
+      findById.mockResolvedValue(null);
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'CLUB_NOT_FOUND' });
+    });
+
+    it('정모 없으면 MEETING_NOT_FOUND', async () => {
+      findDetail.mockResolvedValue(null);
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
+    });
+  });
+
+  describe('leaveMeeting', () => {
+    const memberUserId = 200n;
+    const memberClubUserId = 777n;
+
+    beforeEach(() => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findActiveClubUser.mockResolvedValue({ id: memberClubUserId });
+      findDetail.mockResolvedValue(baseMeetingRow);
+      leaveMeeting.mockResolvedValue(1);
+    });
+
+    it('정상 취소', async () => {
+      const result = await service.leaveMeeting(
+        memberUserId,
+        clubId,
+        meetingId,
+      );
+      expect(result.meetingId).toBe(Number(meetingId));
+      expect(result.userId).toBe(Number(memberUserId));
+      expect(result.canceledAt).toMatch(/\+09:00$/);
+    });
+
+    it('호스트 본인이면 MEETING_HOST_CANNOT_LEAVE', async () => {
+      await expect(
+        service.leaveMeeting(hostUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_HOST_CANNOT_LEAVE' });
+      expect(leaveMeeting).not.toHaveBeenCalled();
+    });
+
+    it('미참석 상태면 MEETING_NOT_JOINED', async () => {
+      leaveMeeting.mockResolvedValue(0);
+      await expect(
+        service.leaveMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_JOINED' });
+    });
+
+    it('비멤버면 CLUB_FORBIDDEN_NOT_MEMBER', async () => {
+      findActiveClubUser.mockResolvedValue(null);
+      await expect(
+        service.leaveMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER' });
+    });
+
+    it('정모 없으면 MEETING_NOT_FOUND', async () => {
+      findDetail.mockResolvedValue(null);
+      await expect(
+        service.leaveMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
+    });
+  });
+
+  describe('listAttendees', () => {
+    const memberUserId = 200n;
+    const memberClubUserId = 777n;
+
+    const makeRow = (id: bigint, joinedAtMs: number) => ({
+      id,
+      clubUserId: id,
+      joinedAt: new Date(joinedAtMs),
+      userId: id,
+      nickname: `user-${id}`,
+      profileImageUrl: `u-${id}`,
+      authority: ClubAuthority.GENERAL,
+    });
+
+    beforeEach(() => {
+      findById.mockResolvedValue({
+        id: clubId,
+        hostId: hostUserId,
+        deletedAt: null,
+      });
+      findActiveClubUser.mockResolvedValue({ id: memberClubUserId });
+      findDetail.mockResolvedValue(baseMeetingRow);
+      countAttendees.mockResolvedValue(14);
+    });
+
+    it('첫 페이지: size+1 받아서 hasMore 판정', async () => {
+      const rows = [makeRow(1n, 1000), makeRow(2n, 2000), makeRow(3n, 3000)];
+      listActiveMembers.mockResolvedValue(rows);
+
+      const result = await service.listAttendees(
+        memberUserId,
+        clubId,
+        meetingId,
+        { size: 2 },
+      );
+
+      expect(result.attendeeCount).toBe(14);
+      expect(result.attendees).toHaveLength(2);
+      expect(result.hasMore).toBe(true);
+      expect(result.nextCursor).not.toBeNull();
+      expect(listActiveMembers).toHaveBeenCalledWith(meetingId, null, 3);
+    });
+
+    it('마지막 페이지면 hasMore=false, nextCursor=null', async () => {
+      listActiveMembers.mockResolvedValue([makeRow(1n, 1000)]);
+
+      const result = await service.listAttendees(
+        memberUserId,
+        clubId,
+        meetingId,
+        { size: 10 },
+      );
+
+      expect(result.attendees).toHaveLength(1);
+      expect(result.hasMore).toBe(false);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('비멤버면 CLUB_FORBIDDEN_NOT_MEMBER', async () => {
+      findActiveClubUser.mockResolvedValue(null);
+      await expect(
+        service.listAttendees(memberUserId, clubId, meetingId, {}),
+      ).rejects.toMatchObject({ internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER' });
+    });
+
+    it('정모 없으면 MEETING_NOT_FOUND', async () => {
+      findDetail.mockResolvedValue(null);
+      await expect(
+        service.listAttendees(memberUserId, clubId, meetingId, {}),
+      ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
     });
   });
 });

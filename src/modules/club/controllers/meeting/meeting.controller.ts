@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -17,6 +18,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -29,6 +31,10 @@ import {
   CreateMeetingResponseDto,
   DeleteMeetingResponseDto,
   GetMeetingDetailResponseDto,
+  JoinMeetingResponseDto,
+  LeaveMeetingResponseDto,
+  ListAttendeesQueryDto,
+  ListAttendeesResponseDto,
   UpdateMeetingRequestDto,
   UpdateMeetingResponseDto,
 } from '../../dtos/meeting.dto';
@@ -122,6 +128,72 @@ export class MeetingController {
       BigInt(userId),
       BigInt(clubId),
       BigInt(meetingId),
+    );
+  }
+
+  @Post(':meetingId/attendees/me')
+  @ApiOperation({ summary: '정모 참석 (클럽 멤버만, AUTO 정책)' })
+  @ApiCreatedResponse({
+    description: '정모 참석 완료',
+    type: JoinMeetingResponseDto,
+  })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  @ApiConflictResponse({ description: '이미 참석 중이거나 정원이 가득 참' })
+  async joinMeeting(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+  ): Promise<JoinMeetingResponseDto> {
+    return this.meetingService.joinMeeting(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
+    );
+  }
+
+  @Delete(':meetingId/attendees/me')
+  @ApiOperation({ summary: '정모 참석 취소 (본인, 호스트 불가)' })
+  @ApiOkResponse({
+    description: '정모 참석 취소 완료',
+    type: LeaveMeetingResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: '클럽/정모 없음 또는 참석 중인 정모가 아님',
+  })
+  async leaveMeeting(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+  ): Promise<LeaveMeetingResponseDto> {
+    return this.meetingService.leaveMeeting(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
+    );
+  }
+
+  @Get(':meetingId/attendees')
+  @ApiOperation({
+    summary: '정모 참석자 목록 (클럽 멤버만, cursor pagination)',
+  })
+  @ApiQuery({ name: 'cursor', required: false })
+  @ApiQuery({ name: 'size', required: false, example: 30 })
+  @ApiOkResponse({
+    description: '참석자 목록 조회 성공',
+    type: ListAttendeesResponseDto,
+  })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  async listAttendees(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+    @Query() query: ListAttendeesQueryDto,
+  ): Promise<ListAttendeesResponseDto> {
+    return this.meetingService.listAttendees(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
+      query,
     );
   }
 }

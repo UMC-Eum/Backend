@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { DayOfWeek, MeetingJoinPolicy, RecurrenceType } from '@prisma/client';
+import {
+  ClubAuthority,
+  DayOfWeek,
+  MeetingJoinPolicy,
+  RecurrenceType,
+} from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 export type MeetingDetailRow = {
@@ -28,6 +33,24 @@ export type AttendeePreviewRow = {
   profileImageUrl: string;
 };
 
+export type MeetingMemberRow = {
+  id: bigint;
+  meetingId: bigint;
+  clubUserId: bigint;
+  joinedAt: Date;
+  deletedAt: Date | null;
+};
+
+export type AttendeeListRow = {
+  id: bigint;
+  clubUserId: bigint;
+  joinedAt: Date;
+  userId: bigint;
+  nickname: string;
+  profileImageUrl: string;
+  authority: ClubAuthority;
+};
+
 const MEETING_DETAIL_SELECT = {
   id: true,
   clubId: true,
@@ -54,6 +77,7 @@ export class MeetingRepository {
 
   async create(data: {
     clubId: bigint;
+    hostClubUserId: bigint;
     name: string;
     introText: string;
     spot: string;
@@ -66,9 +90,16 @@ export class MeetingRepository {
     hour: number;
     minute: number;
   }): Promise<MeetingDetailRow> {
-    return this.prisma.meeting.create({
-      data,
-      select: MEETING_DETAIL_SELECT,
+    const { hostClubUserId, ...meetingData } = data;
+    return this.prisma.$transaction(async (tx) => {
+      const meeting = await tx.meeting.create({
+        data: meetingData,
+        select: MEETING_DETAIL_SELECT,
+      });
+      await tx.meetingMember.create({
+        data: { meetingId: meeting.id, clubUserId: hostClubUserId },
+      });
+      return meeting;
     });
   }
 
@@ -177,5 +208,100 @@ export class MeetingRepository {
 
       return true;
     });
+  }
+
+  async findMemberByMeetingAndClubUser(
+    meetingId: bigint,
+    clubUserId: bigint,
+  ): Promise<MeetingMemberRow | null> {
+    return this.prisma.meetingMember.findUnique({
+      where: { meetingId_clubUserId: { meetingId, clubUserId } },
+      select: {
+        id: true,
+        meetingId: true,
+        clubUserId: true,
+        joinedAt: true,
+        deletedAt: true,
+      },
+    });
+  }
+
+  async joinMeeting(
+    meetingId: bigint,
+    clubUserId: bigint,
+  ): Promise<MeetingMemberRow> {
+    const joinedAt = new Date();
+    return this.prisma.meetingMember.upsert({
+      where: { meetingId_clubUserId: { meetingId, clubUserId } },
+      create: { meetingId, clubUserId, joinedAt },
+      update: { deletedAt: null, joinedAt },
+      select: {
+        id: true,
+        meetingId: true,
+        clubUserId: true,
+        joinedAt: true,
+        deletedAt: true,
+      },
+    });
+  }
+
+  async leaveMeeting(
+    meetingId: bigint,
+    clubUserId: bigint,
+    deletedAt: Date,
+  ): Promise<number> {
+    const result = await this.prisma.meetingMember.updateMany({
+      where: { meetingId, clubUserId, deletedAt: null },
+      data: { deletedAt },
+    });
+    return result.count;
+  }
+
+  async listActiveMembers(
+    meetingId: bigint,
+    cursor: { joinedAt: Date; id: bigint } | null,
+    take: number,
+  ): Promise<AttendeeListRow[]> {
+    const rows = await this.prisma.meetingMember.findMany({
+      where: {
+        meetingId,
+        deletedAt: null,
+        ...(cursor
+          ? {
+              OR: [
+                { joinedAt: { gt: cursor.joinedAt } },
+                {
+                  joinedAt: cursor.joinedAt,
+                  id: { gt: cursor.id },
+                },
+              ],
+            }
+          : {}),
+      },
+      take,
+      orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        clubUserId: true,
+        joinedAt: true,
+        clubUser: {
+          select: {
+            authority: true,
+            user: {
+              select: { id: true, nickname: true, profileImageUrl: true },
+            },
+          },
+        },
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      clubUserId: r.clubUserId,
+      joinedAt: r.joinedAt,
+      userId: r.clubUser.user.id,
+      nickname: r.clubUser.user.nickname,
+      profileImageUrl: r.clubUser.user.profileImageUrl,
+      authority: r.clubUser.authority,
+    }));
   }
 }

@@ -1,4 +1,9 @@
-import { DayOfWeek, MeetingJoinPolicy, RecurrenceType } from '@prisma/client';
+import {
+  ClubAuthority,
+  DayOfWeek,
+  MeetingJoinPolicy,
+  RecurrenceType,
+} from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -296,4 +301,96 @@ export class DeleteMeetingResponseDto {
 
   @ApiProperty({ example: '2026-05-31T12:00:00+09:00' })
   deletedAt!: string;
+}
+
+export class JoinMeetingResponseDto {
+  @ApiProperty({ example: 5001 })
+  meetingMemberId!: number;
+
+  @ApiProperty({ example: 88 })
+  meetingId!: number;
+
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({ example: '2026-05-01T20:05:00+09:00' })
+  joinedAt!: string;
+}
+
+export class LeaveMeetingResponseDto {
+  @ApiProperty({ example: 88 })
+  meetingId!: number;
+
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({ example: '2026-05-01T20:10:00+09:00' })
+  canceledAt!: string;
+}
+
+export class ListAttendeesQueryDto {
+  @ApiPropertyOptional({ description: 'opaque cursor (base64url)' })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({ example: 30, minimum: 1, maximum: 100, default: 30 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  size?: number;
+}
+
+export class AttendeeUserDto {
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({ example: '달콤한목소리' })
+  nickname!: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/profile/42.jpg' })
+  profileImageUrl!: string;
+
+  @ApiProperty({ enum: ClubAuthority, example: ClubAuthority.GENERAL })
+  authority!: ClubAuthority;
+}
+
+export class AttendeeItemDto {
+  @ApiProperty({ example: 5001 })
+  meetingMemberId!: number;
+
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ type: AttendeeUserDto })
+  user!: AttendeeUserDto;
+
+  @ApiProperty({ example: '2026-05-01T20:05:00+09:00' })
+  joinedAt!: string;
+}
+
+export class ListAttendeesResponseDto {
+  @ApiProperty({ example: 88 })
+  meetingId!: number;
+
+  @ApiProperty({ example: 14 })
+  attendeeCount!: number;
+
+  @ApiProperty({ type: [AttendeeItemDto] })
+  attendees!: AttendeeItemDto[];
+
+  @ApiProperty({
+    example:
+      'eyJqb2luZWRBdCI6IjIwMjYtMDUtMDFUMjA6MDc6MDArMDk6MDAiLCJpZCI6IjUwMDIifQ',
+    nullable: true,
+  })
+  nextCursor!: string | null;
+
+  @ApiProperty({ example: true })
+  hasMore!: boolean;
 }

@@ -250,7 +250,7 @@ export class ArticleService {
     const exists = await this.articleRepository.existsClub(clubId);
 
     if (!exists) {
-      throw new AppException('ARTICLE_CLUB_NOT_FOUND');
+      throw new AppException('CLUB_NOT_FOUND');
     }
   }
 

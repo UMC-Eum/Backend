@@ -187,11 +187,6 @@ export const ERROR_DEFINITIONS = {
     code: 'ARTICLE-002',
     message: '게시글을 수정할 권한이 없습니다.',
   },
-  ARTICLE_CLUB_NOT_FOUND: {
-    status: HttpStatus.NOT_FOUND,
-    code: 'ARTICLE-003',
-    message: '동호회를 찾을 수 없습니다.',
-  },
 
   // CLUB
   CLUB_NOT_FOUND: {

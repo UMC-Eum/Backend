@@ -1,11 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ActiveStatus,
-  AddressLevel,
-  AuthProvider,
-  Prisma,
-} from '@prisma/client';
+import { ActiveStatus } from '@prisma/client';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
@@ -13,6 +8,8 @@ import { JwtTokenService } from './jwt-token.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { KakaoLoginRequestDto } from '../dtos/kakao-login-request.dto';
 import { KakaoLoginResponseDto } from '../dtos/kakao-login-response.dto';
+import { UserRepository } from '../../user/repositories/user.repository';
+import { AuthRepository } from '../repositories/auth.repository';
 
 export type KakaoLoginResult = KakaoLoginResponseDto & {
   refreshToken: string;
@@ -53,6 +50,8 @@ export class KakaoAuthService {
     private readonly configService: ConfigService,
     private readonly jwtTokenService: JwtTokenService,
     private readonly prismaService: PrismaService,
+    private readonly userRepository: UserRepository,
+    private readonly authRepository: AuthRepository,
   ) {}
 
   async loginWithKakao(
@@ -77,11 +76,21 @@ export class KakaoAuthService {
     const email =
       profile.kakao_account?.email ?? `kakao-${providerUserId}@kakao.local`;
 
-    const userRecord = await this.upsertUser({
+    const userRecord = await this.userRepository.upsertKakaoUser({
       providerUserId,
       nickname,
       email,
+      defaultBirthdate: KakaoAuthService.DEFAULT_BIRTHDATE,
+      defaultAddressCode: KakaoAuthService.DEFAULT_ADDRESS_CODE,
+      defaultIntroVoiceUrl: KakaoAuthService.DEFAULT_INTRO_VOICE_URL,
+      defaultProfileImageUrl: KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL,
     });
+
+    if (!userRecord) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: '카카오 신규 유저 생성에 실패했습니다.',
+      });
+    }
 
     const userId = Number(userRecord.user.id) || 0;
     await this.ensureUserCanLogin(userId, userRecord.user.status);
@@ -131,82 +140,6 @@ export class KakaoAuthService {
     };
   }
 
-  private async upsertUser({
-    providerUserId,
-    nickname,
-    email,
-  }: {
-    providerUserId: string;
-    nickname: string;
-    email: string;
-  }) {
-    await this.ensureDefaultAddress();
-    const where = {
-      provider_providerUserId: {
-        provider: AuthProvider.KAKAO,
-        providerUserId,
-      },
-    };
-
-    const existing = await this.prismaService.user.findUnique({ where });
-    if (existing) {
-      const updatedUser = await this.prismaService.user.update({
-        where,
-        data: {
-          email,
-          nickname,
-        },
-      });
-
-      return { user: updatedUser, isNewUser: false };
-    }
-
-    const insertedRows = await this.prismaService.$queryRaw<
-      Array<{ id: bigint }>
-    >(Prisma.sql`
-      INSERT INTO "User" (
-        "birthdate",
-        "email",
-        "nickname",
-        "updatedAt",
-        "introVoiceUrl",
-        "introText",
-        "profileImageUrl",
-        "code",
-        "provider",
-        "providerUserId",
-        "vibeVector"
-      )
-      VALUES (
-        ${KakaoAuthService.DEFAULT_BIRTHDATE},
-        ${email},
-        ${nickname},
-        NOW(),
-        ${KakaoAuthService.DEFAULT_INTRO_VOICE_URL},
-        ${''},
-        ${KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL},
-        ${KakaoAuthService.DEFAULT_ADDRESS_CODE},
-        ${AuthProvider.KAKAO}::"AuthProvider",
-        ${providerUserId},
-        '[0]'::vector
-      )
-      RETURNING "id"
-    `);
-
-    const createdId = insertedRows[0]?.id;
-    if (!createdId) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: '카카오 신규 유저 생성에 실패했습니다.',
-      });
-    }
-
-    const createdUser = await this.prismaService.user.findUniqueOrThrow({
-      where: { id: createdId },
-    });
-
-    return { user: createdUser, isNewUser: true };
-  }
-
   private async rotateRefreshTokens(refreshToken: string, userId: number) {
     const refreshSecret = this.configService.get<string>(
       'JWT_REFRESH_SECRET',
@@ -216,36 +149,21 @@ export class KakaoAuthService {
     const expiresAt = new Date(payload.exp * 1000);
 
     const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
-    await this.prismaService.$transaction(
-      async (tx) => {
-        const existingToken = await tx.refreshToken.findUnique({
-          where: { tokenHash },
-        });
+    const result = await this.authRepository.rotateRefreshToken({
+      userId,
+      tokenHash,
+      expiresAt,
+    });
 
-        if (existingToken) {
-          this.logger.warn('Refresh token hash collision detected.', {
-            userId,
-            tokenHash,
-          });
-          throw new AppException('SERVER_TEMPORARY_ERROR', {
-            message: 'Refresh token collision detected.',
-          });
-        }
-
-        await tx.refreshToken.updateMany({
-          where: { userId: BigInt(userId), revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
-        await tx.refreshToken.create({
-          data: {
-            userId: BigInt(userId),
-            tokenHash,
-            expiresAt,
-          },
-        });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+    if (!result.created) {
+      this.logger.warn('Refresh token hash collision detected.', {
+        userId,
+        tokenHash,
+      });
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Refresh token collision detected.',
+      });
+    }
   }
 
   private async ensureUserCanLogin(
@@ -297,27 +215,6 @@ export class KakaoAuthService {
       user.code === null ||
       user.code === KakaoAuthService.DEFAULT_ADDRESS_CODE
     );
-  }
-
-  private async ensureDefaultAddress() {
-    await this.prismaService.address.upsert({
-      where: { code: KakaoAuthService.DEFAULT_ADDRESS_CODE },
-      update: {},
-      create: {
-        code: KakaoAuthService.DEFAULT_ADDRESS_CODE,
-        sidoCode: '00',
-        sigunguCode: '000',
-        emdCode: '000',
-        riCode: '00',
-        fullName: 'Unknown',
-        sidoName: 'Unknown',
-        sigunguName: null,
-        emdName: null,
-        riName: null,
-        level: AddressLevel.SIGUNGU,
-        parentCode: null,
-      },
-    });
   }
 
   private async fetchKakaoToken(

@@ -2,9 +2,9 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import type { SignOptions } from 'jsonwebtoken';
-import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { AuthTokenPayload, JwtTokenService } from './jwt-token.service';
 import { AppException } from '../../../common/errors/app.exception';
+import { AuthRepository } from '../repositories/auth.repository';
 
 @Injectable()
 export class AuthTokenService {
@@ -13,7 +13,7 @@ export class AuthTokenService {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtTokenService: JwtTokenService,
-    private readonly prismaService: PrismaService,
+    private readonly authRepository: AuthRepository,
   ) {}
 
   async refreshTokens(refreshToken: string) {
@@ -74,9 +74,8 @@ export class AuthTokenService {
 
   private async assertRefreshTokenActive(refreshToken: string, userId: number) {
     const tokenHash = this.hashToken(refreshToken);
-    const existingToken = await this.prismaService.refreshToken.findUnique({
-      where: { tokenHash },
-    });
+    const existingToken =
+      await this.authRepository.findRefreshTokenByHash(tokenHash);
 
     if (!existingToken || String(existingToken.userId) !== String(userId)) {
       throw new UnauthorizedException();
@@ -89,11 +88,9 @@ export class AuthTokenService {
 
   private async revokeRefreshToken(refreshToken: string) {
     const tokenHash = this.hashToken(refreshToken);
-    const result = await this.prismaService.refreshToken.updateMany({
-      where: { tokenHash, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    if (result.count === 0) {
+    const revokedCount =
+      await this.authRepository.revokeRefreshTokenByHash(tokenHash);
+    if (revokedCount === 0) {
       this.logger.warn('Refresh token already revoked or not found.', {
         tokenHash,
       });
@@ -102,11 +99,7 @@ export class AuthTokenService {
   }
 
   async revokeAllUserTokens(userId: number) {
-    const result = await this.prismaService.refreshToken.updateMany({
-      where: { userId: BigInt(userId), revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    return result.count;
+    return this.authRepository.revokeAllUserTokens(userId);
   }
 
   private async storeRefreshToken(refreshToken: string, userId: number) {
@@ -118,9 +111,8 @@ export class AuthTokenService {
     const expiresAt = new Date(payload.exp * 1000);
 
     const tokenHash = this.hashToken(refreshToken);
-    const existingToken = await this.prismaService.refreshToken.findUnique({
-      where: { tokenHash },
-    });
+    const existingToken =
+      await this.authRepository.findRefreshTokenByHash(tokenHash);
 
     if (existingToken) {
       this.logger.warn('Refresh token hash collision detected.', {
@@ -132,12 +124,10 @@ export class AuthTokenService {
       });
     }
 
-    await this.prismaService.refreshToken.create({
-      data: {
-        userId: BigInt(userId),
-        tokenHash,
-        expiresAt,
-      },
+    await this.authRepository.createRefreshToken({
+      userId,
+      tokenHash,
+      expiresAt,
     });
   }
 

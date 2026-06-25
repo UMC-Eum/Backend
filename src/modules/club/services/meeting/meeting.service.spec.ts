@@ -623,5 +623,29 @@ describe('MeetingService', () => {
         service.listAttendees(memberUserId, clubId, meetingId, {}),
       ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
     });
+
+    it('cursor의 id가 BigInt 파싱 불가면 VALIDATION_INVALID_FORMAT', async () => {
+      const payload = { joinedAt: '2026-05-01T20:07:00.000Z', id: 'abc' };
+      const cursor = Buffer.from(JSON.stringify(payload), 'utf8')
+        .toString('base64')
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replaceAll('=', '');
+      await expect(
+        service.listAttendees(memberUserId, clubId, meetingId, { cursor }),
+      ).rejects.toMatchObject({ internalCode: 'VALIDATION_INVALID_FORMAT' });
+    });
+
+    it('cursor의 joinedAt이 Invalid Date면 VALIDATION_INVALID_FORMAT', async () => {
+      const payload = { joinedAt: 'not-a-date', id: '5002' };
+      const cursor = Buffer.from(JSON.stringify(payload), 'utf8')
+        .toString('base64')
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replaceAll('=', '');
+      await expect(
+        service.listAttendees(memberUserId, clubId, meetingId, { cursor }),
+      ).rejects.toMatchObject({ internalCode: 'VALIDATION_INVALID_FORMAT' });
+    });
   });
 });

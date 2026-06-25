@@ -332,15 +332,7 @@ export class MeetingService {
     }
 
     const size = query.size ?? 30;
-    const cursorPayload = query.cursor
-      ? decodeAttendeesCursor(query.cursor)
-      : null;
-    const cursor = cursorPayload
-      ? {
-          joinedAt: new Date(cursorPayload.joinedAt),
-          id: BigInt(cursorPayload.id),
-        }
-      : null;
+    const cursor = query.cursor ? decodeAttendeesCursor(query.cursor) : null;
 
     const [attendeeCount, rows] = await Promise.all([
       this.meetingRepository.countAttendees(meetingId),

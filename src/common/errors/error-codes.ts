@@ -229,6 +229,11 @@ export const ERROR_DEFINITIONS = {
     code: 'MEETING-007',
     message: '호스트는 본인 정모 참석을 취소할 수 없어요.',
   },
+  MEETING_APPROVAL_NOT_SUPPORTED: {
+    status: HttpStatus.NOT_IMPLEMENTED,
+    code: 'MEETING-008',
+    message: '승인 정모는 곧 지원될 예정이에요.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

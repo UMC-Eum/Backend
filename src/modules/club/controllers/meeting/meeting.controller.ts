@@ -19,6 +19,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
+  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -139,6 +140,7 @@ export class MeetingController {
   })
   @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
   @ApiConflictResponse({ description: '이미 참석 중이거나 정원이 가득 참' })
+  @ApiResponse({ status: 501, description: '승인 정모는 아직 미지원' })
   async joinMeeting(
     @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,

@@ -495,6 +495,20 @@ describe('MeetingService', () => {
         service.joinMeeting(memberUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
     });
+
+    it('APPROVAL_REQUIRED 정책이면 MEETING_APPROVAL_NOT_SUPPORTED', async () => {
+      findDetail.mockResolvedValue({
+        ...baseMeetingRow,
+        capacity: 10,
+        joinPolicy: MeetingJoinPolicy.APPROVAL_REQUIRED,
+      });
+      await expect(
+        service.joinMeeting(memberUserId, clubId, meetingId),
+      ).rejects.toMatchObject({
+        internalCode: 'MEETING_APPROVAL_NOT_SUPPORTED',
+      });
+      expect(joinMeeting).not.toHaveBeenCalled();
+    });
   });
 
   describe('leaveMeeting', () => {

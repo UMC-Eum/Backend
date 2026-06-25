@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { MeetingJoinPolicy } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { toKstIso } from '../../../../common/utils/datetime.util';
 import { encodeCursor } from '../../../../common/utils/cursor.util';
@@ -232,6 +233,10 @@ export class MeetingService {
     const meeting = await this.meetingRepository.findDetail(clubId, meetingId);
     if (!meeting) {
       throw new AppException('MEETING_NOT_FOUND');
+    }
+
+    if (meeting.joinPolicy === MeetingJoinPolicy.APPROVAL_REQUIRED) {
+      throw new AppException('MEETING_APPROVAL_NOT_SUPPORTED');
     }
 
     const existing =

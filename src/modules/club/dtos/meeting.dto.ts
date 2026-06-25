@@ -33,7 +33,7 @@ export class RecurrenceShapeConstraint implements ValidatorConstraintInterface {
     if (!value || typeof value !== 'object') return true;
     const r = value as RecurrenceInputDto;
 
-    const hasWeekDays = Array.isArray(r.daysOfWeek) && r.daysOfWeek.length > 0;
+    const hasWeekDays = r.daysOfWeek !== undefined && r.daysOfWeek !== null;
     const hasMonthDay = r.dayOfMonth !== undefined && r.dayOfMonth !== null;
 
     if (r.type !== RecurrenceType.WEEKLY && hasWeekDays) return false;
@@ -45,8 +45,8 @@ export class RecurrenceShapeConstraint implements ValidatorConstraintInterface {
     const r = args.value as RecurrenceInputDto | undefined;
     if (
       r?.type !== RecurrenceType.WEEKLY &&
-      Array.isArray(r?.daysOfWeek) &&
-      r.daysOfWeek.length > 0
+      r?.daysOfWeek !== undefined &&
+      r?.daysOfWeek !== null
     ) {
       return 'daysOfWeek는 type=WEEKLY일 때만 허용됩니다.';
     }

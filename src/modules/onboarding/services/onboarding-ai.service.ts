@@ -12,6 +12,7 @@ export class OnboardingAiService {
   private readonly profileAnalysisPath: string;
   private readonly clubVibeAnalysisPath: string;
   private readonly matchRecommendPath: string;
+  private readonly clubRecommendPath: string;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.getOrThrow<string>('FASTAPI_BASE_URL');
@@ -30,6 +31,10 @@ export class OnboardingAiService {
     this.matchRecommendPath = this.configService.get<string>(
       'FASTAPI_MATCH_RECOMMEND_PATH',
       '/onboarding/matches/recommend',
+    );
+    this.clubRecommendPath = this.configService.get<string>(
+      'FASTAPI_CLUB_RECOMMEND_PATH',
+      '/api/v1/recommendation/clubs',
     );
   }
 
@@ -202,6 +207,29 @@ export class OnboardingAiService {
 
     return this.callFastApiGet<FastApiMatchesResponse>(
       this.matchRecommendPath,
+      query,
+    );
+  }
+
+  async getRecommendedClubs(
+    userId: bigint,
+    cursor?: string,
+    size?: string,
+  ): Promise<FastApiMatchesResponse> {
+    const query: Record<string, string> = {
+      userId: userId.toString(),
+    };
+
+    if (cursor !== undefined) {
+      query.cursor = cursor;
+    }
+
+    if (size !== undefined) {
+      query.size = size;
+    }
+
+    return this.callFastApiGet<FastApiMatchesResponse>(
+      this.clubRecommendPath,
       query,
     );
   }

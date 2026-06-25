@@ -12,13 +12,9 @@ jobs:
   deploy:
     name: Deploy to Staging ECS
     runs-on: ubuntu-latest
-    # TODO(staging-enable): 다음 셋이 모두 끝나면 `if: ${{ false }}`를 제거하여 활성화
-    #   1) staging RDS가 PostgreSQL 17 + pgvector로 교체됨
-    #   2) Secrets Manager `eum-backend/DATABASE_URL`이 새 PG URL로 갱신됨
-    #   3) GitHub OIDC IAM role ARN이 secret `AWS_OIDC_ROLE_STAGING`에 등록됨
-    if: ${{ false }}
+    # 인증: OIDC 대신 임시로 IAM 액세스 키 사용 (secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).
+    #       추후 GitHub OIDC role로 교체 권장.
     permissions:
-      id-token: write
       contents: read
 
     env:
@@ -35,10 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials (access key)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_STAGING }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -79,6 +76,7 @@ jobs:
           image: ${{ steps.tag.outputs.image }}
 
       - name: Run Prisma migrate (ECS one-off task)
+        id: migrate
         env:
           RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
         run: |
@@ -87,18 +85,28 @@ jobs:
           TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json "file://$RENDERED_TASK_DEF" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "td_arn=$TD_ARN" >> "$GITHUB_OUTPUT"
           echo "Registered task def: $TD_ARN"
 
+          # CPU=0: 클러스터에 예약 CPU 여유가 없어도 배치되도록 (migrate는 짧고 I/O 중심)
+          # memoryReservation=256: 배치 판단용 최소 메모리만 잡고, 호스트 잔여로 흡수
           OVERRIDES=$(jq -nc \
             --arg name "${{ env.CONTAINER_NAME }}" \
-            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"]}]}')
+            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"], cpu: 0, memoryReservation: 256}]}')
 
-          TASK_ARN=$(aws ecs run-task \
+          RUN_OUT=$(aws ecs run-task \
             --cluster ${{ env.ECS_CLUSTER }} \
             --launch-type EC2 \
             --task-definition "$TD_ARN" \
             --overrides "$OVERRIDES" \
-            --query 'tasks[0].taskArn' --output text)
+            --output json)
+
+          TASK_ARN=$(echo "$RUN_OUT" | jq -r '.tasks[0].taskArn // empty')
+          if [ -z "$TASK_ARN" ]; then
+            echo "::error::run-task가 마이그레이션 태스크를 시작하지 못했습니다 (배치 실패)"
+            echo "$RUN_OUT" | jq -r '.failures'
+            exit 1
+          fi
           echo "Migrate task: $TASK_ARN"
 
           aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
@@ -114,12 +122,46 @@ jobs:
           echo "Prisma migrate completed"
 
       - name: Deploy to ECS service
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render.outputs.task-definition }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
-          wait-for-service-stability: true
+        # migrate 스텝에서 등록한 동일 TD 리비전을 재사용 (중복 register 방지)
+        env:
+          TD_ARN: ${{ steps.migrate.outputs.td_arn }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition "$TD_ARN" > /dev/null
+
+          # `aws ecs wait services-stable`은 옛 deployment가 ACTIVE로 남아있는 동안 풀리지 않아
+          # 새 태스크가 멀쩡히 떠도 자주 타임아웃까지 끌려간다. 더 실용적으로,
+          # PRIMARY deployment의 rolloutState=COMPLETED만 확인한다 (= 새 태스크 healthy + desiredCount 도달).
+          echo "Polling PRIMARY deployment rolloutState (max 10min, 15s 간격)..."
+          for i in $(seq 1 40); do
+            STATE=$(aws ecs describe-services \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --services ${{ env.ECS_SERVICE }} \
+              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" \
+              --output text)
+            echo "[$i/40] PRIMARY rolloutState=$STATE"
+            case "$STATE" in
+              COMPLETED)
+                echo "Deployment completed."
+                exit 0
+                ;;
+              FAILED)
+                echo "::error::PRIMARY deployment FAILED"
+                aws ecs describe-services \
+                  --cluster ${{ env.ECS_CLUSTER }} \
+                  --services ${{ env.ECS_SERVICE }} \
+                  --query 'services[0].deployments' --output json
+                exit 1
+                ;;
+            esac
+            sleep 15
+          done
+
+          echo "::error::Timeout: PRIMARY rolloutState가 10분 안에 COMPLETED 도달 못 함"
+          exit 1
 
       - name: Smoke test (ALB health)
         run: |

@@ -229,20 +229,33 @@ export class MeetingRepository {
   async joinMeeting(
     meetingId: bigint,
     clubUserId: bigint,
-  ): Promise<MeetingMemberRow> {
-    const joinedAt = new Date();
-    return this.prisma.meetingMember.upsert({
-      where: { meetingId_clubUserId: { meetingId, clubUserId } },
-      create: { meetingId, clubUserId, joinedAt },
-      update: { deletedAt: null, joinedAt },
-      select: {
-        id: true,
-        meetingId: true,
-        clubUserId: true,
-        joinedAt: true,
-        deletedAt: true,
+    capacity: number,
+  ): Promise<{ member: MeetingMemberRow | null; capacityExceeded: boolean }> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const count = await tx.meetingMember.count({
+          where: { meetingId, deletedAt: null },
+        });
+        if (count >= capacity) {
+          return { member: null, capacityExceeded: true };
+        }
+        const joinedAt = new Date();
+        const member = await tx.meetingMember.upsert({
+          where: { meetingId_clubUserId: { meetingId, clubUserId } },
+          create: { meetingId, clubUserId, joinedAt },
+          update: { deletedAt: null, joinedAt },
+          select: {
+            id: true,
+            meetingId: true,
+            clubUserId: true,
+            joinedAt: true,
+            deletedAt: true,
+          },
+        });
+        return { member, capacityExceeded: false };
       },
-    });
+      { isolationLevel: 'Serializable' },
+    );
   }
 
   async leaveMeeting(

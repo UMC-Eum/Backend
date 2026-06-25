@@ -248,16 +248,18 @@ export class MeetingService {
       throw new AppException('MEETING_ALREADY_JOINED');
     }
 
-    const attendeeCount =
-      await this.meetingRepository.countAttendees(meetingId);
-    if (attendeeCount >= meeting.capacity) {
+    const { member, capacityExceeded } =
+      await this.meetingRepository.joinMeeting(
+        meetingId,
+        clubUser.id,
+        meeting.capacity,
+      );
+    if (capacityExceeded) {
       throw new AppException('MEETING_CAPACITY_EXCEEDED');
     }
-
-    const member = await this.meetingRepository.joinMeeting(
-      meetingId,
-      clubUser.id,
-    );
+    if (!member) {
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
 
     return {
       meetingMemberId: Number(member.id),

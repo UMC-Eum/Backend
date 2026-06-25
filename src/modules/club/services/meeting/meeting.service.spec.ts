@@ -422,13 +422,15 @@ describe('MeetingService', () => {
       findActiveClubUser.mockResolvedValue({ id: memberClubUserId });
       findDetail.mockResolvedValue({ ...baseMeetingRow, capacity: 10 });
       findMemberByMeetingAndClubUser.mockResolvedValue(null);
-      countAttendees.mockResolvedValue(3);
       joinMeeting.mockResolvedValue({
-        id: 5001n,
-        meetingId,
-        clubUserId: memberClubUserId,
-        joinedAt: new Date('2026-05-01T11:05:00.000Z'),
-        deletedAt: null,
+        member: {
+          id: 5001n,
+          meetingId,
+          clubUserId: memberClubUserId,
+          joinedAt: new Date('2026-05-01T11:05:00.000Z'),
+          deletedAt: null,
+        },
+        capacityExceeded: false,
       });
     });
 
@@ -438,7 +440,7 @@ describe('MeetingService', () => {
       expect(result.clubUserId).toBe(Number(memberClubUserId));
       expect(result.userId).toBe(Number(memberUserId));
       expect(result.joinedAt).toMatch(/\+09:00$/);
-      expect(joinMeeting).toHaveBeenCalledWith(meetingId, memberClubUserId);
+      expect(joinMeeting).toHaveBeenCalledWith(meetingId, memberClubUserId, 10);
     });
 
     it('soft-deleted row가 있으면 revive (upsert)', async () => {
@@ -467,12 +469,14 @@ describe('MeetingService', () => {
       expect(joinMeeting).not.toHaveBeenCalled();
     });
 
-    it('정원 초과면 MEETING_CAPACITY_EXCEEDED', async () => {
-      countAttendees.mockResolvedValue(10);
+    it('트랜잭션 안에서 정원 초과로 판정되면 MEETING_CAPACITY_EXCEEDED', async () => {
+      joinMeeting.mockResolvedValue({
+        member: null,
+        capacityExceeded: true,
+      });
       await expect(
         service.joinMeeting(memberUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'MEETING_CAPACITY_EXCEEDED' });
-      expect(joinMeeting).not.toHaveBeenCalled();
     });
 
     it('비멤버면 CLUB_FORBIDDEN_NOT_MEMBER', async () => {

@@ -67,9 +67,7 @@ export class ArticleController {
   })
   @ApiOkResponse({ type: ListArticlesResponseDto })
   @Get()
-  // TODO: 인증 추가
-  // Auth 수정이 필요함. 일단 하드코딩하고, dev에 머지 전까지 반드시 수정.
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   findArticles(
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Query() query: ListArticlesQueryDto,
@@ -98,8 +96,7 @@ export class ArticleController {
   })
   @ApiOkResponse({ type: GetArchiveResponseDto })
   @Get('archive')
-  // TODO: 인증 추가
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   findArchive(
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Query() query: ListArticlesQueryDto,
@@ -112,12 +109,9 @@ export class ArticleController {
   @ApiParam({ name: 'articleId', description: '게시글 ID', example: 1 })
   @ApiOkResponse({ type: ArticleDetailDto })
   @Get(':articleId')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   findArticle(
-    // @RequiredUserId() userId: number,
-    userId = 2,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
   ) {
@@ -129,12 +123,9 @@ export class ArticleController {
   @ApiBody({ type: CreateArticleDto })
   @ApiOkResponse({ type: ArticleDto })
   @Post()
-  // TODO: 인증 추가
-  // Auth 수정이 필요함. 일단 하드코딩하고, dev에 머지 전까지 반드시 수정.
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   createArticle(
-    // @RequiredUserId() userId: number,
-    userId = 1,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Body() createArticleDto: CreateArticleDto,
   ) {
@@ -147,12 +138,9 @@ export class ArticleController {
   @ApiBody({ type: UpdateArticleDto })
   @ApiOkResponse({ type: UpdateArticleResponseDto })
   @Patch(':articleId')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   updateArticle(
-    userId = 1,
-    // @RequiredUserId() userId: number,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
     @Body() updateArticleDto: UpdateArticleDto,
@@ -171,12 +159,9 @@ export class ArticleController {
   @ApiBody({ type: PinArticleDto })
   @ApiOkResponse({ type: PinArticleResponseDto })
   @Patch(':articleId/pin')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   pinArticle(
-    userId = 1,
-    // @RequiredUserId() userId: number,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
     @Body() pinArticleDto: PinArticleDto,
@@ -194,12 +179,9 @@ export class ArticleController {
   @ApiParam({ name: 'articleId', description: '게시글 ID', example: 1 })
   @ApiOkResponse({ type: DeleteArticleResponseDto })
   @Delete(':articleId')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   deleteArticle(
-    userId = 1,
-    // @RequiredUserId() userId: number,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
   ) {
@@ -211,12 +193,9 @@ export class ArticleController {
   @ApiParam({ name: 'articleId', description: '게시글 ID', example: 1 })
   @ApiOkResponse({ type: LikeArticleResponseDto })
   @Post(':articleId/like')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   likeArticle(
-    userId = 1,
-    // @RequiredUserId() userId: number,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
   ) {
@@ -228,12 +207,9 @@ export class ArticleController {
   @ApiParam({ name: 'articleId', description: '게시글 ID', example: 1 })
   @ApiOkResponse({ type: LikeArticleResponseDto })
   @Delete(':articleId/like')
-  // TODO: 인증 추가
-  // Auth 수정 필요
-  // @UseGuards(AccessTokenGuard)
+  @UseGuards(AccessTokenGuard)
   unlikeArticle(
-    userId = 1,
-    // @RequiredUserId() userId: number,
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
   ) {

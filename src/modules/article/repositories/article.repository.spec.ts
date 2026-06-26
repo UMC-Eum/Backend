@@ -11,6 +11,9 @@ describe('ArticleRepository', () => {
   const clubUserModel = {
     findFirst: jest.fn(),
   };
+  const clubModel = {
+    findFirst: jest.fn(),
+  };
   const prisma = {
     $transaction: jest.fn((callback) =>
       callback({
@@ -18,6 +21,8 @@ describe('ArticleRepository', () => {
         clubUser: clubUserModel,
       }),
     ),
+    club: clubModel,
+    clubUser: clubUserModel,
   };
 
   beforeEach(() => {
@@ -27,6 +32,87 @@ describe('ArticleRepository', () => {
     articleModel.update.mockResolvedValue({
       id: BigInt(10),
       deletedAt: new Date('2026-01-10T00:00:00.000Z'),
+    });
+  });
+
+  describe('existsActiveClubUser', () => {
+    it('returns true when active club user exists', async () => {
+      clubUserModel.findFirst.mockResolvedValue({ id: BigInt(1) });
+
+      const result = await repository.existsActiveClubUser(1, 20);
+
+      expect(result).toBe(true);
+      expect(clubUserModel.findFirst).toHaveBeenCalledWith({
+        where: {
+          userId: BigInt(1),
+          clubId: BigInt(20),
+          status: 'ACTIVE',
+          leftAt: null,
+        },
+        select: {
+          id: true,
+        },
+      });
+    });
+
+    it('returns false when active club user does not exist', async () => {
+      clubUserModel.findFirst.mockResolvedValue(null);
+
+      await expect(repository.existsActiveClubUser(1, 20)).resolves.toBe(false);
+    });
+  });
+
+  describe('pinArticle', () => {
+    beforeEach(() => {
+      articleModel.update.mockResolvedValue({
+        id: BigInt(10),
+        isPinned: true,
+        updatedAt: new Date('2026-01-10T00:00:00.000Z'),
+      });
+    });
+
+    it('allows active club user with HOST authority to pin the article', async () => {
+      articleModel.findFirst.mockResolvedValue({
+        id: BigInt(10),
+        clubId: BigInt(20),
+      });
+      clubUserModel.findFirst.mockResolvedValue({ id: BigInt(30) });
+
+      const result = await repository.pinArticle(2, 20, 10, true);
+
+      expect(result.status).toBe('success');
+      expect(clubUserModel.findFirst).toHaveBeenCalledWith({
+        where: {
+          clubId: BigInt(20),
+          userId: BigInt(2),
+          authority: ClubAuthority.HOST,
+          status: 'ACTIVE',
+          leftAt: null,
+        },
+        select: { id: true },
+      });
+      expect(articleModel.update).toHaveBeenCalledWith({
+        where: { id: BigInt(10) },
+        data: { isPinned: true },
+        select: {
+          id: true,
+          isPinned: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    it('rejects the article author when they are not a HOST club user', async () => {
+      articleModel.findFirst.mockResolvedValue({
+        id: BigInt(10),
+        clubId: BigInt(20),
+      });
+      clubUserModel.findFirst.mockResolvedValue(null);
+
+      const result = await repository.pinArticle(1, 20, 10, true);
+
+      expect(result).toEqual({ status: 'forbidden' });
+      expect(articleModel.update).not.toHaveBeenCalled();
     });
   });
 

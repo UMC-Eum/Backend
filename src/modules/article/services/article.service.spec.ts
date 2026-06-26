@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArticleService } from './article.service';
 import { ArticleRepository } from '../repositories/article.repository';
+import { AppException } from '../../../common/errors/app.exception';
 
 describe('ArticleService', () => {
   let service: ArticleService;
@@ -10,12 +11,19 @@ describe('ArticleService', () => {
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    createArticle: jest.fn(),
+    findArticleDetail: jest.fn(),
+    likeArticle: jest.fn(),
+    unlikeArticle: jest.fn(),
     pinArticle: jest.fn(),
     findArchivePhotos: jest.fn(),
     existsClub: jest.fn(),
+    existsActiveClubUser: jest.fn(),
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ArticleService,
@@ -31,6 +39,36 @@ describe('ArticleService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('createArticle', () => {
+    it('throws ARTICLE_MEMBER_ONLY when user is not an active club member', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(false);
+
+      await expect(
+        service.createArticle(1, 1, {
+          title: 'title',
+          contents: 'contents',
+          category: 'FREE',
+        }),
+      ).rejects.toMatchObject<AppException>({
+        internalCode: 'ARTICLE_MEMBER_ONLY',
+      });
+      expect(repositoryMock.createArticle).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findArticleDetail', () => {
+    it('checks active club membership before reading detail', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(false);
+
+      await expect(service.findArticleDetail(1, 1, 1)).rejects.toMatchObject({
+        internalCode: 'ARTICLE_MEMBER_ONLY',
+      });
+      expect(repositoryMock.findArticleDetail).not.toHaveBeenCalled();
+    });
   });
 
   describe('pinArticle', () => {
@@ -56,7 +94,35 @@ describe('ArticleService', () => {
     it('throws AppException when forbidden', async () => {
       repositoryMock.pinArticle.mockResolvedValue({ status: 'forbidden' });
 
-      await expect(service.pinArticle(2, 1, 1, { isPinned: true })).rejects.toThrow();
+      await expect(
+        service.pinArticle(2, 1, 1, { isPinned: true }),
+      ).rejects.toMatchObject({
+        internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+      });
+    });
+  });
+
+  describe('likeArticle', () => {
+    it('checks active club membership before liking', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(false);
+
+      await expect(service.likeArticle(1, 1, 1)).rejects.toMatchObject({
+        internalCode: 'ARTICLE_MEMBER_ONLY',
+      });
+      expect(repositoryMock.likeArticle).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unlikeArticle', () => {
+    it('checks active club membership before unliking', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(false);
+
+      await expect(service.unlikeArticle(1, 1, 1)).rejects.toMatchObject({
+        internalCode: 'ARTICLE_MEMBER_ONLY',
+      });
+      expect(repositoryMock.unlikeArticle).not.toHaveBeenCalled();
     });
   });
 

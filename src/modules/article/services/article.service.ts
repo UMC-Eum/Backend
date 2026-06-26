@@ -91,6 +91,7 @@ export class ArticleService {
     createArticleDto: CreateArticleDto,
   ): Promise<ArticleDto> {
     await this.ensureClubExists(clubId);
+    await this.ensureClubMember(userId, clubId);
 
     const result = await this.articleRepository.createArticle(
       userId,
@@ -109,6 +110,9 @@ export class ArticleService {
     clubId: number,
     articleId: number,
   ): Promise<ArticleDetailDto> {
+    await this.ensureClubExists(clubId);
+    await this.ensureClubMember(userId, clubId);
+
     const result = await this.articleRepository.findArticleDetail(
       userId,
       clubId,
@@ -167,7 +171,7 @@ export class ArticleService {
     }
 
     if (result.status === 'forbidden') {
-      throw new AppException('ARTICLE_FORBIDDEN');
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
     }
 
     return {
@@ -207,6 +211,9 @@ export class ArticleService {
     clubId: number,
     articleId: number,
   ): Promise<LikeArticleResponseDto> {
+    await this.ensureClubExists(clubId);
+    await this.ensureClubMember(userId, clubId);
+
     const result = await this.articleRepository.likeArticle(
       userId,
       clubId,
@@ -229,6 +236,9 @@ export class ArticleService {
     clubId: number,
     articleId: number,
   ): Promise<LikeArticleResponseDto> {
+    await this.ensureClubExists(clubId);
+    await this.ensureClubMember(userId, clubId);
+
     const result = await this.articleRepository.unlikeArticle(
       userId,
       clubId,
@@ -251,6 +261,20 @@ export class ArticleService {
 
     if (!exists) {
       throw new AppException('CLUB_NOT_FOUND');
+    }
+  }
+
+  private async ensureClubMember(
+    userId: number,
+    clubId: number,
+  ): Promise<void> {
+    const exists = await this.articleRepository.existsActiveClubUser(
+      userId,
+      clubId,
+    );
+
+    if (!exists) {
+      throw new AppException('ARTICLE_MEMBER_ONLY');
     }
   }
 

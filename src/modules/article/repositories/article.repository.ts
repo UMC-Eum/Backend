@@ -107,6 +107,22 @@ export class ArticleRepository {
     return club !== null;
   }
 
+  async existsActiveClubUser(userId: number, clubId: number): Promise<boolean> {
+    const clubUser = await this.prisma.clubUser.findFirst({
+      where: {
+        userId: BigInt(userId),
+        clubId: BigInt(clubId),
+        status: 'ACTIVE',
+        leftAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return clubUser !== null;
+  }
+
   async findArticlesByClub(
     clubId: number,
     params: {
@@ -256,6 +272,7 @@ export class ArticleRepository {
 
       let articleWithView = article;
 
+      // 작성자 본인이 조회한 것은 조회수 증가에 영향을 미치지 않습니다.
       if (article.userId !== viewerId) {
         const updated = await tx.article.update({
           where: { id: article.id },
@@ -387,62 +404,51 @@ export class ArticleRepository {
     const viewerId = BigInt(userId);
 
     return this.prisma.$transaction(async (tx) => {
-        const article = await tx.article.findFirst({
-          where: {
-            id: BigInt(articleId),
-            clubId: BigInt(clubId),
-            deletedAt: null,
-          },
-          select: {
-            id: true,
-            userId: true,
-            clubId: true,
-            club: {
-              select: {
-                hostId: true,
-              },
-            },
-          },
-        });
+      const article = await tx.article.findFirst({
+        where: {
+          id: BigInt(articleId),
+          clubId: BigInt(clubId),
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          clubId: true,
+        },
+      });
 
-        if (!article) {
-          return { status: 'not_found' };
-        }
+      if (!article) {
+        return { status: 'not_found' };
+      }
 
-        const isAuthor = article.userId === viewerId;
-        const isClubHostByOwner = article.club.hostId === viewerId;
-        const hostMembership =
-          isAuthor || isClubHostByOwner
-            ? null
-            : await tx.clubUser.findFirst({
-                where: {
-                  clubId: article.clubId,
-                  userId: viewerId,
-                  authority: ClubAuthority.HOST,
-                  status: 'ACTIVE',
-                  leftAt: null,
-                },
-                select: { id: true },
-              });
+      const hostMembership = await tx.clubUser.findFirst({
+        where: {
+          clubId: article.clubId,
+          userId: viewerId,
+          authority: ClubAuthority.HOST,
+          status: 'ACTIVE',
+          leftAt: null,
+        },
+        select: { id: true },
+      });
 
-        if (!isAuthor && !isClubHostByOwner && !hostMembership) {
-          return { status: 'forbidden' };
-        }
+      if (!hostMembership) {
+        return { status: 'forbidden' };
+      }
 
-        const updated = await tx.article.update({
-          where: { id: article.id },
-          data: { isPinned },
-          select: {
-            id: true,
-            isPinned: true,
-            updatedAt: true,
-          },
-        });
+      const updated = await tx.article.update({
+        where: { id: article.id },
+        data: { isPinned },
+        select: {
+          id: true,
+          isPinned: true,
+          updatedAt: true,
+        },
+      });
 
-        return {
-          status: 'success',
-          article: updated,
-        };
+      return {
+        status: 'success',
+        article: updated,
+      };
     });
   }
 

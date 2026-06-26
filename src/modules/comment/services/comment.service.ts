@@ -130,7 +130,7 @@ export class CommentService {
     articleId: number,
     commentId: number,
   ): Promise<DeleteCommentResponseDto> {
-    await this.validateReadableArticle(userId, clubId, articleId);
+    await this.validateArticleExists(clubId, articleId);
 
     const comment = await this.commentRepository.findCommentByArticleId(
       BigInt(articleId),
@@ -162,6 +162,22 @@ export class CommentService {
     clubId: number,
     articleId: number,
   ) {
+    await this.validateArticleExists(clubId, articleId);
+
+    const clubUser = await this.commentRepository.findActiveClubUser(
+      BigInt(clubId),
+      BigInt(userId),
+    );
+
+    if (!clubUser) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+    }
+  }
+
+  private async validateArticleExists(
+    clubId: number,
+    articleId: number,
+  ): Promise<void> {
     const club = await this.commentRepository.findClubById(BigInt(clubId));
 
     if (!club || club.deletedAt) {
@@ -175,15 +191,6 @@ export class CommentService {
 
     if (!article) {
       throw new AppException('ARTICLE_NOT_FOUND');
-    }
-
-    const clubUser = await this.commentRepository.findActiveClubUser(
-      BigInt(clubId),
-      BigInt(userId),
-    );
-
-    if (!clubUser) {
-      throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
     }
   }
 

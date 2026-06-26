@@ -227,10 +227,23 @@ describe('CommentService', () => {
     );
   });
 
+  it('클럽 멤버가 아니면 댓글 목록 조회가 거부된다', async () => {
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.findActiveClubUser.mockResolvedValue(null);
+
+    await expect(
+      service.listComments(userId, clubId, articleId, {}),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER',
+    });
+    expect(repository.countComments).not.toHaveBeenCalled();
+    expect(repository.findCommentsWithReplies).not.toHaveBeenCalled();
+  });
+
   it('댓글 작성자가 아니면 삭제가 거부된다', async () => {
     repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
       userId: 2n,
@@ -241,6 +254,7 @@ describe('CommentService', () => {
     ).rejects.toMatchObject({
       internalCode: 'COMMENT_FORBIDDEN_NOT_AUTHOR',
     });
+    expect(repository.findActiveClubUser).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).not.toHaveBeenCalled();
   });
 
@@ -248,7 +262,6 @@ describe('CommentService', () => {
     const deletedAt = new Date('2026-05-01T15:25:00.000Z');
     repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
       userId: 1n,
@@ -264,6 +277,7 @@ describe('CommentService', () => {
       commentId: 555,
       deletedAt: deletedAt.toISOString(),
     });
+    expect(repository.findActiveClubUser).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).toHaveBeenCalledWith(
       555n,
       expect.any(Date),

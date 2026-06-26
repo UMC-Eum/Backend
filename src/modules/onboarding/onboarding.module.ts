@@ -21,5 +21,6 @@ import { ClubRepository } from '../club/repositories/club.repository';
     MatchesService,
     ClubRepository,
   ],
+  exports: [OnboardingAiService],
 })
 export class OnboardingModule {}

@@ -1,12 +1,112 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { ClubAuthority, ClubCategory } from '@prisma/client';
 
 export enum ClubListSort {
   POPULAR = 'POPULAR',
   RECENT = 'RECENT',
   LIKES = 'LIKES',
+}
+
+export class CreateClubRequestDto {
+  @ApiProperty({ description: '클럽 이름', example: '보이스 러버즈' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OTHERS,
+  })
+  @IsEnum(ClubCategory)
+  category: ClubCategory;
+
+  @ApiProperty({
+    description: '클럽 소개',
+    example: '목소리로 친해져요',
+  })
+  @IsString()
+  introText: string;
+
+  @ApiProperty({
+    description: '클럽 소개 음성 URL',
+    example: 'https://cdn.example.com/voice/12.mp3',
+  })
+  @IsString()
+  introVoice: string;
+
+  @ApiProperty({ description: '정원', example: 30, minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacity: number;
+
+  @ApiProperty({
+    description: '키워드 ID 목록',
+    example: [1, 4, 7],
+    type: [Number],
+  })
+  @IsArray()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  keywordIds: number[];
+}
+
+export class CreateClubHostDto {
+  @ApiProperty({ description: '호스트 사용자 ID', example: 7 })
+  userId: number;
+
+  @ApiProperty({ description: '호스트 닉네임', example: '보이스마스터' })
+  nickname: string;
+
+  @ApiProperty({
+    description: '호스트 프로필 이미지 URL',
+    example: 'https://cdn.example.com/profile/7.jpg',
+    nullable: true,
+  })
+  profileImageUrl: string | null;
+}
+
+export class CreateClubResponseDto {
+  @ApiProperty({ description: '클럽 ID', example: 12 })
+  clubId: number;
+
+  @ApiProperty({ description: '클럽 초대/식별 코드', example: 'CLB-AB12CD' })
+  code: string;
+
+  @ApiProperty({ description: '클럽 이름', example: '보이스 러버즈' })
+  name: string;
+
+  @ApiProperty({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OTHERS,
+  })
+  category: ClubCategory;
+
+  @ApiProperty({ description: '정원', example: 30 })
+  capacity: number;
+
+  @ApiProperty({ description: '활성 멤버 수', example: 1 })
+  memberCount: number;
+
+  @ApiProperty({ type: CreateClubHostDto })
+  host: CreateClubHostDto;
+
+  @ApiProperty({
+    description: '생성 시각',
+    example: '2026-05-01T16:35:00.000Z',
+  })
+  createdAt: string;
 }
 
 export class ListClubsQueryDto {

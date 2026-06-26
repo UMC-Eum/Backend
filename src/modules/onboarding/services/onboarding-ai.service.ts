@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AppException } from 'src/common/errors/app.exception';
+import { AppException } from '../../../common/errors/app.exception';
 import { CreateProfileDto } from '../dtos/onboarding.dto';
 
 type FastApiMatchesResponse = unknown;

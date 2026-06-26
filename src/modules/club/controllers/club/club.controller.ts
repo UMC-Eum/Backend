@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -11,7 +12,9 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -23,6 +26,8 @@ import {
 import { ClubCategory } from '@prisma/client';
 import {
   ClubDetailResponseDto,
+  CreateClubRequestDto,
+  CreateClubResponseDto,
   LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
@@ -41,6 +46,51 @@ import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-in
 @Controller('clubs')
 export class ClubController {
   constructor(private readonly clubService: ClubService) {}
+
+  @Post()
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 생성',
+    description: '로그인한 사용자가 새 클럽을 생성하고 호스트가 됩니다.',
+  })
+  @ApiBody({ type: CreateClubRequestDto })
+  @ApiCreatedResponse({
+    description: '클럽 생성 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: 12,
+            code: 'CLB-AB12CD',
+            name: '보이스 러버즈',
+            category: 'OTHERS',
+            capacity: 30,
+            memberCount: 1,
+            host: {
+              userId: 7,
+              nickname: '보이스마스터',
+              profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+            },
+            createdAt: '2026-05-01T16:35:00.000Z',
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T16:35:00.000Z',
+          path: '/api/v1/clubs',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  createClub(
+    @RequiredUserId() userId: number,
+    @Body() dto: CreateClubRequestDto,
+  ): Promise<CreateClubResponseDto> {
+    return this.clubService.createClub(userId, dto);
+  }
 
   @Get()
   @ApiOperation({

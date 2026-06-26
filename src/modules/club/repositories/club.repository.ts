@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { ActiveStatus, ClubUserStatus, Prisma } from '@prisma/client';
+import {
+  ActiveStatus,
+  ClubAuthority,
+  ClubUserStatus,
+  Prisma,
+} from '@prisma/client';
+import { toPgVectorLiteral } from '../../../common/utils/pgvector.util';
+import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { ClubListSort } from '../dtos/club.dto';
 import {
@@ -9,6 +16,8 @@ import {
   type ClubDetailRow,
   type ClubListRow,
   type ClubUserStateRow,
+  type CreatedClubRow,
+  type CreateClubRepositoryParams,
   type CreateClubLikeResult,
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
@@ -20,6 +29,130 @@ import {
 @Injectable()
 export class ClubRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async createClubWithHost(
+    params: CreateClubRepositoryParams,
+  ): Promise<CreatedClubRow> {
+    const uniqueKeywordIds = this.toUniqueBigIntIds(params.keywordIds);
+
+    if (uniqueKeywordIds.length > 0) {
+      const keywordCount = await this.prisma.personality.count({
+        where: { id: { in: uniqueKeywordIds } },
+      });
+
+      if (keywordCount !== uniqueKeywordIds.length) {
+        throw new AppException('KEYWORD_NOT_FOUND');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
+        Prisma.sql`
+          INSERT INTO "Club" (
+            "hostId",
+            "name",
+            "introVoiceUrl",
+            "introText",
+            "category",
+            "capacity",
+            "code",
+            "likes",
+            "vibeVector"
+          )
+          VALUES (
+            ${params.hostId},
+            ${params.name},
+            ${params.introVoice},
+            ${params.introText},
+            ${params.category}::"ClubCategory",
+            ${params.capacity},
+            ${params.addressCode},
+            ${0},
+            '[0]'::vector
+          )
+          RETURNING "id"
+        `,
+      );
+
+      const clubId = insertedRows[0]?.id;
+      if (!clubId) {
+        throw new AppException('SERVER_TEMPORARY_ERROR');
+      }
+
+      await tx.clubUser.create({
+        data: {
+          clubId,
+          userId: params.hostId,
+          authority: ClubAuthority.HOST,
+          status: ClubUserStatus.ACTIVE,
+        },
+      });
+
+      if (uniqueKeywordIds.length > 0) {
+        await tx.clubKeyword.createMany({
+          data: uniqueKeywordIds.map((keywordId) => ({
+            clubId,
+            keywordId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return tx.club.findUniqueOrThrow({
+        where: { id: clubId },
+        select: this.createdClubSelect(),
+      });
+    });
+  }
+
+  async applyClubAnalysis(
+    clubId: bigint,
+    selectedKeywords: string[],
+    vibeVector: number[],
+  ): Promise<void> {
+    const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
+    const uniqueKeywords = Array.from(
+      new Set(
+        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
+      ),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE "Club"
+        SET "vibeVector" = ${vibeVectorLiteral}::vector
+        WHERE "id" = ${clubId}
+      `;
+
+      const personalities = await Promise.all(
+        uniqueKeywords.map((keyword) =>
+          tx.personality.upsert({
+            where: { body: keyword },
+            update: {},
+            create: { body: keyword },
+            select: { id: true },
+          }),
+        ),
+      );
+
+      await tx.clubKeyword.createMany({
+        data: personalities.map(({ id }) => ({
+          clubId,
+          keywordId: id,
+        })),
+        skipDuplicates: true,
+      });
+    });
+  }
+
+  async deleteCreatedClub(clubId: bigint, hostId: bigint): Promise<void> {
+    await this.prisma.club.deleteMany({
+      where: {
+        id: clubId,
+        hostId,
+      },
+    });
+  }
 
   async findById(clubId: bigint): Promise<{
     id: bigint;
@@ -350,5 +483,44 @@ export class ClubRepository {
         },
       ];
     });
+  }
+
+  private createdClubSelect() {
+    return {
+      id: true,
+      code: true,
+      name: true,
+      category: true,
+      capacity: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          nickname: true,
+          profileImageUrl: true,
+        },
+      },
+      _count: {
+        select: {
+          clubUsers: {
+            where: {
+              leftAt: null,
+              status: ClubUserStatus.ACTIVE,
+            },
+          },
+        },
+      },
+    } satisfies Prisma.ClubSelect;
+  }
+
+  private toUniqueBigIntIds(ids: number[]): bigint[] {
+    return Array.from(
+      new Set(
+        ids
+          .filter((id) => Number.isInteger(id) && id > 0)
+          .map((id) => BigInt(id).toString()),
+      ),
+      (id) => BigInt(id),
+    );
   }
 }

@@ -11,9 +11,10 @@ import { MeetingService } from './services/meeting/meeting.service';
 import { ClubRepository } from './repositories/club.repository';
 import { MeetingRepository } from './repositories/meeting.repository';
 import { UserModule } from '../user/user.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, UserModule],
+  imports: [AuthModule, PrismaModule, UserModule, OnboardingModule],
   controllers: [ClubController, UserClubController, MeetingController],
   providers: [ClubService, MeetingService, ClubRepository, MeetingRepository],
 })

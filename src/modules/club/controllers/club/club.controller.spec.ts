@@ -14,6 +14,7 @@ describe('ClubController', () => {
   const getClubDetail = jest.fn();
   const likeClub = jest.fn();
   const unlikeClub = jest.fn();
+  const createClub = jest.fn();
 
   beforeEach(async () => {
     listClubs.mockReset();
@@ -22,6 +23,7 @@ describe('ClubController', () => {
     getClubDetail.mockReset();
     likeClub.mockReset();
     unlikeClub.mockReset();
+    createClub.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClubController, UserClubController],
@@ -35,6 +37,7 @@ describe('ClubController', () => {
             getClubDetail,
             likeClub,
             unlikeClub,
+            createClub,
           },
         },
       ],
@@ -63,6 +66,35 @@ describe('ClubController', () => {
 
     await expect(controller.listClubs(7, query)).resolves.toBe(response);
     expect(listClubs).toHaveBeenCalledWith(7, query);
+  });
+
+  it('클럽 생성을 service에 위임한다', async () => {
+    const dto = {
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      introText: '목소리로 친해져요',
+      introVoice: 'https://cdn.example.com/voice/12.mp3',
+      capacity: 30,
+      keywordIds: [1, 4, 7],
+    };
+    const response = {
+      clubId: 12,
+      code: '1100000000',
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      capacity: 30,
+      memberCount: 1,
+      host: {
+        userId: 7,
+        nickname: '보이스마스터',
+        profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      },
+      createdAt: '2026-05-01T16:35:00.000Z',
+    };
+    createClub.mockResolvedValue(response);
+
+    await expect(controller.createClub(7, dto)).resolves.toBe(response);
+    expect(createClub).toHaveBeenCalledWith(7, dto);
   });
 
   it('내 클럽 목록 조회를 service에 위임한다', async () => {

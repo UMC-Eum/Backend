@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ClubAuthority, ClubUserStatus } from '@prisma/client';
 import {
   ClubDetailResponseDto,
+  CreateClubRequestDto,
+  CreateClubResponseDto,
   LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
@@ -24,13 +26,71 @@ import {
 } from '../../utils/club.mapper';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserRepository } from '../../../user/repositories/user.repository';
+import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.service';
 
 @Injectable()
 export class ClubService {
   constructor(
     private readonly clubRepository: ClubRepository,
     private readonly userRepository: UserRepository,
+    private readonly onboardingAiService: OnboardingAiService,
   ) {}
+
+  async createClub(
+    userId: number,
+    dto: CreateClubRequestDto,
+  ): Promise<CreateClubResponseDto> {
+    const user = await this.userRepository.findProfileById(userId);
+    if (!user) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const created = await this.clubRepository.createClubWithHost({
+      hostId: BigInt(userId),
+      name: dto.name,
+      category: dto.category,
+      introText: dto.introText,
+      introVoice: dto.introVoice,
+      capacity: dto.capacity,
+      addressCode: user.address?.code ?? null,
+      keywordIds: dto.keywordIds,
+    });
+
+    try {
+      const analysis = await this.onboardingAiService.analyzeClubVibe({
+        clubId: Number(created.id),
+        club_id: Number(created.id),
+        transcript: dto.introText,
+        local_audio_path: dto.introVoice,
+        analysis_type: 'profile',
+      });
+
+      await this.clubRepository.applyClubAnalysis(
+        created.id,
+        analysis.selectedKeywords,
+        analysis.vibeVector,
+      );
+    } catch (error) {
+      await this.clubRepository.deleteCreatedClub(created.id, BigInt(userId));
+      throw error;
+    }
+
+    return {
+      clubId: Number(created.id),
+      code: created.code ?? '',
+      name: created.name,
+      category: created.category,
+      capacity: created.capacity,
+      memberCount: created._count.clubUsers,
+      host: {
+        userId: Number(created.user?.id ?? user.id),
+        nickname: created.user?.nickname ?? user.nickname,
+        profileImageUrl:
+          created.user?.profileImageUrl ?? user.profileImageUrl ?? null,
+      },
+      createdAt: created.createdAt.toISOString(),
+    };
+  }
 
   async listClubs(
     userId: number,

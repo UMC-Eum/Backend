@@ -159,6 +159,34 @@ export interface ClubUserStateRow {
   leftAt: Date | null;
 }
 
+export interface CreateClubRepositoryParams {
+  hostId: bigint;
+  name: string;
+  category: ClubCategory;
+  introText: string;
+  introVoice: string;
+  capacity: number;
+  addressCode: string | null;
+  keywordIds: number[];
+}
+
+export interface CreatedClubRow {
+  id: bigint;
+  code: string | null;
+  name: string;
+  category: ClubCategory;
+  capacity: number;
+  createdAt: Date;
+  user: {
+    id: bigint;
+    nickname: string;
+    profileImageUrl: string | null;
+  } | null;
+  _count: {
+    clubUsers: number;
+  };
+}
+
 export interface CreateClubLikeResult {
   clubId: bigint;
   likeCount: number;

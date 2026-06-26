@@ -10,6 +10,7 @@ import { ClubRepository } from '../../repositories/club.repository';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubListSort } from '../../dtos/club.dto';
 import { UserRepository } from '../../../user/repositories/user.repository';
+import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.service';
 
 describe('ClubService', () => {
   let service: ClubService;
@@ -21,7 +22,11 @@ describe('ClubService', () => {
   const hasClubLike = jest.fn();
   const createClubLike = jest.fn();
   const deleteClubLike = jest.fn();
+  const createClubWithHost = jest.fn();
+  const applyClubAnalysis = jest.fn();
+  const deleteCreatedClub = jest.fn();
   const findProfileById = jest.fn();
+  const analyzeClubVibe = jest.fn();
 
   const baseClubRow = {
     id: 12n,
@@ -57,7 +62,11 @@ describe('ClubService', () => {
     hasClubLike.mockReset();
     createClubLike.mockReset();
     deleteClubLike.mockReset();
+    createClubWithHost.mockReset();
+    applyClubAnalysis.mockReset();
+    deleteCreatedClub.mockReset();
     findProfileById.mockReset();
+    analyzeClubVibe.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,12 +82,21 @@ describe('ClubService', () => {
             hasClubLike,
             createClubLike,
             deleteClubLike,
+            createClubWithHost,
+            applyClubAnalysis,
+            deleteCreatedClub,
           },
         },
         {
           provide: UserRepository,
           useValue: {
             findProfileById,
+          },
+        },
+        {
+          provide: OnboardingAiService,
+          useValue: {
+            analyzeClubVibe,
           },
         },
       ],
@@ -142,6 +160,119 @@ describe('ClubService', () => {
       },
     ]);
     expect(result.nextCursor).toEqual(expect.any(String));
+  });
+
+  it('클럽 생성 후 분석 결과를 저장하고 생성 응답을 반환한다', async () => {
+    findProfileById.mockResolvedValue({
+      id: 7n,
+      nickname: '보이스마스터',
+      profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      address: { code: '1100000000' },
+    });
+    createClubWithHost.mockResolvedValue({
+      id: 12n,
+      code: '1100000000',
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      capacity: 30,
+      createdAt: new Date('2026-05-01T16:35:00.000Z'),
+      user: {
+        id: 7n,
+        nickname: '보이스마스터',
+        profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      },
+      _count: { clubUsers: 1 },
+    });
+    analyzeClubVibe.mockResolvedValue({
+      selectedKeywords: ['목소리', '친목'],
+      vibeVector: [0.1, 0.2],
+    });
+    applyClubAnalysis.mockResolvedValue(undefined);
+
+    const dto = {
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      introText: '목소리로 친해져요',
+      introVoice: 'https://cdn.example.com/voice/12.mp3',
+      capacity: 30,
+      keywordIds: [1, 4, 7],
+    };
+
+    await expect(service.createClub(7, dto)).resolves.toEqual({
+      clubId: 12,
+      code: '1100000000',
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      capacity: 30,
+      memberCount: 1,
+      host: {
+        userId: 7,
+        nickname: '보이스마스터',
+        profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      },
+      createdAt: '2026-05-01T16:35:00.000Z',
+    });
+    expect(createClubWithHost).toHaveBeenCalledWith({
+      hostId: 7n,
+      name: dto.name,
+      category: dto.category,
+      introText: dto.introText,
+      introVoice: dto.introVoice,
+      capacity: dto.capacity,
+      addressCode: '1100000000',
+      keywordIds: dto.keywordIds,
+    });
+    expect(analyzeClubVibe).toHaveBeenCalledWith({
+      clubId: 12,
+      club_id: 12,
+      transcript: dto.introText,
+      local_audio_path: dto.introVoice,
+      analysis_type: 'profile',
+    });
+    expect(applyClubAnalysis).toHaveBeenCalledWith(
+      12n,
+      ['목소리', '친목'],
+      [0.1, 0.2],
+    );
+    expect(deleteCreatedClub).not.toHaveBeenCalled();
+  });
+
+  it('클럽 생성 후 분석 실패 시 생성된 클럽을 제거한다', async () => {
+    findProfileById.mockResolvedValue({
+      id: 7n,
+      nickname: '보이스마스터',
+      profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      address: { code: '1100000000' },
+    });
+    createClubWithHost.mockResolvedValue({
+      id: 12n,
+      code: '1100000000',
+      name: '보이스 러버즈',
+      category: ClubCategory.OTHERS,
+      capacity: 30,
+      createdAt: new Date('2026-05-01T16:35:00.000Z'),
+      user: {
+        id: 7n,
+        nickname: '보이스마스터',
+        profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+      },
+      _count: { clubUsers: 1 },
+    });
+    const error = new AppException('SERVER_TEMPORARY_ERROR');
+    analyzeClubVibe.mockRejectedValue(error);
+    deleteCreatedClub.mockResolvedValue(undefined);
+
+    await expect(
+      service.createClub(7, {
+        name: '보이스 러버즈',
+        category: ClubCategory.OTHERS,
+        introText: '목소리로 친해져요',
+        introVoice: 'https://cdn.example.com/voice/12.mp3',
+        capacity: 30,
+        keywordIds: [1, 4, 7],
+      }),
+    ).rejects.toBe(error);
+    expect(deleteCreatedClub).toHaveBeenCalledWith(12n, 7n);
   });
 
   it('클럽 목록 조회 시 유저가 없으면 로그인 필요 에러를 던진다', async () => {

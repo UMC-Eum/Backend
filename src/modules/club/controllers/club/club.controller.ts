@@ -63,7 +63,7 @@ export class ClubController {
         success: {
           data: {
             clubId: 12,
-            code: 'CLB-AB12CD',
+            code: '주소 코드 호스트의 주소코드 반환',
             name: '보이스 러버즈',
             category: 'OTHERS',
             capacity: 30,

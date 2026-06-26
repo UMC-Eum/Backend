@@ -140,11 +140,45 @@ export class MeetingRepository {
       hour?: number;
       minute?: number;
     },
-  ): Promise<MeetingDetailRow> {
-    return this.prisma.meeting.update({
-      where: { id: meetingId },
-      data,
-      select: MEETING_DETAIL_SELECT,
+  ): Promise<{
+    meeting: MeetingDetailRow | null;
+    capacityBelowAttendees: boolean;
+    meetingMissing: boolean;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<
+        Array<{ id: bigint; deletedAt: Date | null }>
+      >`SELECT id, "deletedAt" FROM "Meeting" WHERE id = ${meetingId} FOR UPDATE`;
+      if (rows.length === 0 || rows[0].deletedAt !== null) {
+        return {
+          meeting: null,
+          capacityBelowAttendees: false,
+          meetingMissing: true,
+        };
+      }
+
+      if (data.capacity !== undefined) {
+        const count = await tx.meetingMember.count({
+          where: { meetingId, deletedAt: null },
+        });
+        if (data.capacity < count) {
+          return {
+            meeting: null,
+            capacityBelowAttendees: true,
+            meetingMissing: false,
+          };
+        }
+      }
+      const meeting = await tx.meeting.update({
+        where: { id: meetingId },
+        data,
+        select: MEETING_DETAIL_SELECT,
+      });
+      return {
+        meeting,
+        capacityBelowAttendees: false,
+        meetingMissing: false,
+      };
     });
   }
 
@@ -229,33 +263,90 @@ export class MeetingRepository {
   async joinMeeting(
     meetingId: bigint,
     clubUserId: bigint,
-    capacity: number,
-  ): Promise<{ member: MeetingMemberRow | null; capacityExceeded: boolean }> {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const count = await tx.meetingMember.count({
-          where: { meetingId, deletedAt: null },
-        });
-        if (count >= capacity) {
-          return { member: null, capacityExceeded: true };
-        }
-        const joinedAt = new Date();
-        const member = await tx.meetingMember.upsert({
-          where: { meetingId_clubUserId: { meetingId, clubUserId } },
-          create: { meetingId, clubUserId, joinedAt },
-          update: { deletedAt: null, joinedAt },
-          select: {
-            id: true,
-            meetingId: true,
-            clubUserId: true,
-            joinedAt: true,
-            deletedAt: true,
-          },
-        });
-        return { member, capacityExceeded: false };
-      },
-      { isolationLevel: 'Serializable' },
-    );
+  ): Promise<{
+    member: MeetingMemberRow | null;
+    capacityExceeded: boolean;
+    meetingMissing: boolean;
+    alreadyJoined: boolean;
+    approvalRequired: boolean;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<
+        Array<{
+          id: bigint;
+          capacity: number;
+          joinPolicy: MeetingJoinPolicy;
+          deletedAt: Date | null;
+        }>
+      >`SELECT id, capacity, "joinPolicy", "deletedAt" FROM "Meeting" WHERE id = ${meetingId} FOR UPDATE`;
+
+      if (rows.length === 0 || rows[0].deletedAt !== null) {
+        return {
+          member: null,
+          capacityExceeded: false,
+          meetingMissing: true,
+          alreadyJoined: false,
+          approvalRequired: false,
+        };
+      }
+      if (rows[0].joinPolicy === MeetingJoinPolicy.APPROVAL_REQUIRED) {
+        return {
+          member: null,
+          capacityExceeded: false,
+          meetingMissing: false,
+          alreadyJoined: false,
+          approvalRequired: true,
+        };
+      }
+      const capacity = rows[0].capacity;
+
+      const existing = await tx.meetingMember.findUnique({
+        where: { meetingId_clubUserId: { meetingId, clubUserId } },
+        select: { id: true, deletedAt: true },
+      });
+      if (existing && existing.deletedAt === null) {
+        return {
+          member: null,
+          capacityExceeded: false,
+          meetingMissing: false,
+          alreadyJoined: true,
+          approvalRequired: false,
+        };
+      }
+
+      const count = await tx.meetingMember.count({
+        where: { meetingId, deletedAt: null },
+      });
+      if (count >= capacity) {
+        return {
+          member: null,
+          capacityExceeded: true,
+          meetingMissing: false,
+          alreadyJoined: false,
+          approvalRequired: false,
+        };
+      }
+      const joinedAt = new Date();
+      const member = await tx.meetingMember.upsert({
+        where: { meetingId_clubUserId: { meetingId, clubUserId } },
+        create: { meetingId, clubUserId, joinedAt },
+        update: { deletedAt: null, joinedAt },
+        select: {
+          id: true,
+          meetingId: true,
+          clubUserId: true,
+          joinedAt: true,
+          deletedAt: true,
+        },
+      });
+      return {
+        member,
+        capacityExceeded: false,
+        meetingMissing: false,
+        alreadyJoined: false,
+        approvalRequired: false,
+      };
+    });
   }
 
   async leaveMeeting(

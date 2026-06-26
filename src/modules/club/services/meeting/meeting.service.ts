@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { MeetingJoinPolicy } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { toKstIso } from '../../../../common/utils/datetime.util';
 import { encodeCursor } from '../../../../common/utils/cursor.util';
@@ -132,22 +131,13 @@ export class MeetingService {
       throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
     }
 
-    const existing = await this.meetingRepository.findDetail(clubId, meetingId);
-    if (!existing) {
-      throw new AppException('MEETING_NOT_FOUND');
-    }
-
-    if (dto.capacity !== undefined) {
-      const currentAttendees =
-        await this.meetingRepository.countAttendees(meetingId);
-      if (dto.capacity < currentAttendees) {
-        throw new AppException('MEETING_CAPACITY_BELOW_ATTENDEES');
-      }
-    }
-
     const { recurrence } = dto;
 
-    const updated = await this.meetingRepository.update(meetingId, {
+    const {
+      meeting: updated,
+      capacityBelowAttendees,
+      meetingMissing,
+    } = await this.meetingRepository.update(meetingId, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.introText !== undefined ? { introText: dto.introText } : {}),
       ...(dto.spot !== undefined ? { spot: dto.spot } : {}),
@@ -164,6 +154,15 @@ export class MeetingService {
           }
         : {}),
     });
+    if (meetingMissing) {
+      throw new AppException('MEETING_NOT_FOUND');
+    }
+    if (capacityBelowAttendees) {
+      throw new AppException('MEETING_CAPACITY_BELOW_ATTENDEES');
+    }
+    if (!updated) {
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
 
     const [attendeeCount, attendeesPreview, clubUser] = await Promise.all([
       this.meetingRepository.countAttendees(meetingId),
@@ -230,30 +229,22 @@ export class MeetingService {
       throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
     }
 
-    const meeting = await this.meetingRepository.findDetail(clubId, meetingId);
-    if (!meeting) {
+    const {
+      member,
+      capacityExceeded,
+      meetingMissing,
+      alreadyJoined,
+      approvalRequired,
+    } = await this.meetingRepository.joinMeeting(meetingId, clubUser.id);
+    if (meetingMissing) {
       throw new AppException('MEETING_NOT_FOUND');
     }
-
-    if (meeting.joinPolicy === MeetingJoinPolicy.APPROVAL_REQUIRED) {
+    if (approvalRequired) {
       throw new AppException('MEETING_APPROVAL_NOT_SUPPORTED');
     }
-
-    const existing =
-      await this.meetingRepository.findMemberByMeetingAndClubUser(
-        meetingId,
-        clubUser.id,
-      );
-    if (existing && existing.deletedAt === null) {
+    if (alreadyJoined) {
       throw new AppException('MEETING_ALREADY_JOINED');
     }
-
-    const { member, capacityExceeded } =
-      await this.meetingRepository.joinMeeting(
-        meetingId,
-        clubUser.id,
-        meeting.capacity,
-      );
     if (capacityExceeded) {
       throw new AppException('MEETING_CAPACITY_EXCEEDED');
     }

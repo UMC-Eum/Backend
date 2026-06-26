@@ -1,10 +1,108 @@
 import { Injectable } from '@nestjs/common';
-import { ActiveStatus, Sex } from '@prisma/client';
+import {
+  ActiveStatus,
+  AddressLevel,
+  AuthProvider,
+  Prisma,
+  Sex,
+} from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
 export class UserRepository {
   constructor(private readonly prismaService: PrismaService) {}
+
+  async upsertKakaoUser({
+    providerUserId,
+    email,
+    nickname,
+    defaultBirthdate,
+    defaultAddressCode,
+    defaultIntroVoiceUrl,
+    defaultProfileImageUrl,
+  }: {
+    providerUserId: string;
+    email: string;
+    nickname: string;
+    defaultBirthdate: Date;
+    defaultAddressCode: string;
+    defaultIntroVoiceUrl: string;
+    defaultProfileImageUrl: string;
+  }) {
+    await this.ensureDefaultAddress(defaultAddressCode);
+
+    return this.prismaService.$transaction(async (tx) => {
+      const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
+        Prisma.sql`
+          INSERT INTO "User" (
+            "birthdate",
+            "email",
+            "nickname",
+            "updatedAt",
+            "introVoiceUrl",
+            "introText",
+            "profileImageUrl",
+            "code",
+            "provider",
+            "providerUserId",
+            "vibeVector"
+          )
+          VALUES (
+            ${defaultBirthdate},
+            ${email},
+            ${nickname},
+            NOW(),
+            ${defaultIntroVoiceUrl},
+            ${''},
+            ${defaultProfileImageUrl},
+            ${defaultAddressCode},
+            ${AuthProvider.KAKAO}::"AuthProvider",
+            ${providerUserId},
+            '[0]'::vector
+          )
+          ON CONFLICT ("provider", "providerUserId") DO NOTHING
+          RETURNING "id"
+        `,
+      );
+
+      const insertedId = insertedRows[0]?.id;
+      if (insertedId) {
+        const createdUser = await tx.user.findUniqueOrThrow({
+          where: { id: insertedId },
+        });
+
+        return { user: createdUser, isNewUser: true };
+      }
+
+      const updatedUser = await tx.user.update({
+        where: {
+          provider_providerUserId: {
+            provider: AuthProvider.KAKAO,
+            providerUserId,
+          },
+        },
+        data: { email },
+      });
+
+      return { user: updatedUser, isNewUser: false };
+    });
+  }
+
+  countActiveReportsByUserId(userId: number) {
+    return this.prismaService.userReport.count({
+      where: {
+        reportedUserId: BigInt(userId),
+        report: { deletedAt: null },
+      },
+    });
+  }
+
+  markInactive(userId: number) {
+    return this.prismaService.user.update({
+      where: { id: BigInt(userId) },
+      data: { status: ActiveStatus.INACTIVE },
+    });
+  }
 
   findProfileById(userId: number) {
     return this.prismaService.user.findFirst({
@@ -169,6 +267,27 @@ export class UserRepository {
       data: {
         status: ActiveStatus.INACTIVE,
         deletedAt: new Date(),
+      },
+    });
+  }
+
+  private async ensureDefaultAddress(defaultAddressCode: string) {
+    await this.prismaService.address.upsert({
+      where: { code: defaultAddressCode },
+      update: {},
+      create: {
+        code: defaultAddressCode,
+        sidoCode: '00',
+        sigunguCode: '000',
+        emdCode: '000',
+        riCode: '00',
+        fullName: 'Unknown',
+        sidoName: 'Unknown',
+        sigunguName: null,
+        emdName: null,
+        riName: null,
+        level: AddressLevel.SIGUNGU,
+        parentCode: null,
       },
     });
   }

@@ -172,6 +172,13 @@ export class ClubService {
     userId: number,
     clubId: number,
   ): Promise<DeleteClubResponseDto> {
+    return this.softDeleteClubByHost(userId, clubId);
+  }
+
+  private async softDeleteClubByHost(
+    userId: number,
+    clubId: number,
+  ): Promise<DeleteClubResponseDto> {
     const clubKey = BigInt(clubId);
     const userKey = BigInt(userId);
 

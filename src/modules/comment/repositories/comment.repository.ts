@@ -63,6 +63,8 @@ export class CommentRepository {
       select: {
         id: true,
         userId: true,
+        parentCommentId: true,
+        depth: true,
       },
     });
   }
@@ -98,7 +100,16 @@ export class CommentRepository {
         articleId,
         parentCommentId: null,
         depth: 0,
-        deletedAt: null,
+        OR: [
+          { deletedAt: null },
+          {
+            replies: {
+              some: {
+                deletedAt: null,
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -118,16 +129,33 @@ export class CommentRepository {
         articleId: params.articleId,
         parentCommentId: null,
         depth: 0,
-        deletedAt: null,
-        ...(params.cursor && {
-          OR: [
-            { createdAt: { lt: params.cursor.createdAt } },
-            {
-              createdAt: params.cursor.createdAt,
-              id: { lt: params.cursor.id },
-            },
-          ],
-        }),
+        AND: [
+          {
+            OR: [
+              { deletedAt: null },
+              {
+                replies: {
+                  some: {
+                    deletedAt: null,
+                  },
+                },
+              },
+            ],
+          },
+          ...(params.cursor
+            ? [
+                {
+                  OR: [
+                    { createdAt: { lt: params.cursor.createdAt } },
+                    {
+                      createdAt: params.cursor.createdAt,
+                      id: { lt: params.cursor.id },
+                    },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: params.limit + 1,
@@ -169,10 +197,35 @@ export class CommentRepository {
     });
   }
 
+  existsActiveReply(parentCommentId: bigint) {
+    return this.prisma.comment.findFirst({
+      where: {
+        parentCommentId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+  }
+
   softDeleteComment(commentId: bigint, deletedAt: Date) {
     return this.prisma.comment.update({
       where: { id: commentId },
       data: { deletedAt },
+      select: {
+        id: true,
+        deletedAt: true,
+      },
+    });
+  }
+
+  softDeleteParentCommentWithReplies(commentId: bigint, deletedAt: Date) {
+    return this.prisma.comment.update({
+      where: { id: commentId },
+      data: {
+        contents: '(삭제된 댓글입니다)',
+        userId: null,
+        deletedAt,
+      },
       select: {
         id: true,
         deletedAt: true,

@@ -146,10 +146,17 @@ export class CommentService {
     }
 
     const deletedAt = new Date();
-    const deleted = await this.commentRepository.softDeleteComment(
-      BigInt(commentId),
-      deletedAt,
-    );
+    const isParentComment =
+      comment.parentCommentId === null && comment.depth === 0;
+    const activeReply = isParentComment
+      ? await this.commentRepository.existsActiveReply(comment.id)
+      : null;
+    const deleted = activeReply
+      ? await this.commentRepository.softDeleteParentCommentWithReplies(
+          comment.id,
+          deletedAt,
+        )
+      : await this.commentRepository.softDeleteComment(comment.id, deletedAt);
 
     return {
       commentId: Number(deleted.id),
@@ -250,7 +257,9 @@ export class CommentService {
 
   private decodeCursor(cursor: string): number {
     try {
-      const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+      const decoded = JSON.parse(
+        Buffer.from(cursor, 'base64').toString('utf8'),
+      );
       const id = Number(decoded?.id);
 
       if (!Number.isInteger(id) || id <= 0) {

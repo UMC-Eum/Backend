@@ -16,7 +16,9 @@ describe('CommentService', () => {
     findCommentCursor: jest.fn(),
     findCommentsWithReplies: jest.fn(),
     findCommentByArticleId: jest.fn(),
+    existsActiveReply: jest.fn(),
     softDeleteComment: jest.fn(),
+    softDeleteParentCommentWithReplies: jest.fn(),
   };
 
   const userId = 1;
@@ -247,6 +249,8 @@ describe('CommentService', () => {
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
       userId: 2n,
+      parentCommentId: null,
+      depth: 0,
     });
 
     await expect(
@@ -255,16 +259,22 @@ describe('CommentService', () => {
       internalCode: 'COMMENT_FORBIDDEN_NOT_AUTHOR',
     });
     expect(repository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(repository.existsActiveReply).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).not.toHaveBeenCalled();
+    expect(
+      repository.softDeleteParentCommentWithReplies,
+    ).not.toHaveBeenCalled();
   });
 
-  it('댓글을 삭제한다', async () => {
+  it('자식 댓글은 그대로 soft delete 한다', async () => {
     const deletedAt = new Date('2026-05-01T15:25:00.000Z');
     repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
       userId: 1n,
+      parentCommentId: 100n,
+      depth: 1,
     });
     repository.softDeleteComment.mockResolvedValue({
       id: 555n,
@@ -278,7 +288,73 @@ describe('CommentService', () => {
       deletedAt: deletedAt.toISOString(),
     });
     expect(repository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(repository.existsActiveReply).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).toHaveBeenCalledWith(
+      555n,
+      expect.any(Date),
+    );
+    expect(
+      repository.softDeleteParentCommentWithReplies,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('자식 댓글이 없는 부모 댓글은 그대로 soft delete 한다', async () => {
+    const deletedAt = new Date('2026-05-01T15:25:00.000Z');
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.findCommentByArticleId.mockResolvedValue({
+      id: 555n,
+      userId: 1n,
+      parentCommentId: null,
+      depth: 0,
+    });
+    repository.existsActiveReply.mockResolvedValue(null);
+    repository.softDeleteComment.mockResolvedValue({
+      id: 555n,
+      deletedAt,
+    });
+
+    const result = await service.deleteComment(userId, clubId, articleId, 555);
+
+    expect(result).toEqual({
+      commentId: 555,
+      deletedAt: deletedAt.toISOString(),
+    });
+    expect(repository.existsActiveReply).toHaveBeenCalledWith(555n);
+    expect(repository.softDeleteComment).toHaveBeenCalledWith(
+      555n,
+      expect.any(Date),
+    );
+    expect(
+      repository.softDeleteParentCommentWithReplies,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('자식 댓글이 있는 부모 댓글은 내용과 작성자를 마스킹하고 soft delete 한다', async () => {
+    const deletedAt = new Date('2026-05-01T15:25:00.000Z');
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.findCommentByArticleId.mockResolvedValue({
+      id: 555n,
+      userId: 1n,
+      parentCommentId: null,
+      depth: 0,
+    });
+    repository.existsActiveReply.mockResolvedValue({ id: 556n });
+    repository.softDeleteParentCommentWithReplies.mockResolvedValue({
+      id: 555n,
+      deletedAt,
+    });
+
+    const result = await service.deleteComment(userId, clubId, articleId, 555);
+
+    expect(result).toEqual({
+      commentId: 555,
+      deletedAt: deletedAt.toISOString(),
+    });
+    expect(repository.existsActiveReply).toHaveBeenCalledWith(555n);
+    expect(repository.softDeleteComment).not.toHaveBeenCalled();
+    expect(repository.softDeleteParentCommentWithReplies).toHaveBeenCalledWith(
       555n,
       expect.any(Date),
     );

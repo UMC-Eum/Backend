@@ -77,7 +77,17 @@ export type DeleteArticleResult =
   | { status: 'forbidden' };
 
 export type LikeArticleResult =
-  | { status: 'success'; article: { id: bigint; likes: number } }
+  | {
+      status: 'success';
+      article: {
+        id: bigint;
+        likes: number;
+        userId: bigint | null;
+        user: { nickname: string } | null;
+      };
+      sender: { nickname: string } | null;
+      created: boolean;
+    }
   | { status: 'not_found' };
 
 export type UnlikeArticleResult =
@@ -541,12 +551,27 @@ export class ArticleRepository {
         select: {
           id: true,
           likes: true,
+          userId: true,
+          user: {
+            select: {
+              nickname: true,
+            },
+          },
         },
       });
 
       if (!article) {
         return { status: 'not_found' };
       }
+
+      const sender = await tx.user.findUnique({
+        where: {
+          id: viewerId,
+        },
+        select: {
+          nickname: true,
+        },
+      });
 
       const existingLike = await tx.articleLike.findUnique({
         where: {
@@ -564,6 +589,8 @@ export class ArticleRepository {
         return {
           status: 'success',
           article,
+          sender,
+          created: false,
         };
       }
 
@@ -580,12 +607,20 @@ export class ArticleRepository {
         select: {
           id: true,
           likes: true,
+          userId: true,
+          user: {
+            select: {
+              nickname: true,
+            },
+          },
         },
       });
 
       return {
         status: 'success',
         article: updated,
+        sender,
+        created: true,
       };
     });
   }

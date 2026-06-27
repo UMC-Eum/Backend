@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ClubAuthority } from '@prisma/client';
+import { ClubAuthority, NotificationType } from '@prisma/client';
 import {
   ArticleDetailResult,
   ArticleRepository,
@@ -22,12 +22,16 @@ import {
 import { ListArticlesQueryDto } from '../dtos/list-articles-query.dto';
 import { AppException } from '../../../common/errors/app.exception';
 import { UpdateArticleDto } from '../dtos/update-article.dto';
+import { NotificationService } from '../../notification/services/notification.service';
 
 type ArticleEntity = Awaited<ReturnType<ArticleRepository['createArticle']>>;
 
 @Injectable()
 export class ArticleService {
-  constructor(private readonly articleRepository: ArticleRepository) {}
+  constructor(
+    private readonly articleRepository: ArticleRepository,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async findClubArticles(
     clubId: number,
@@ -224,6 +228,8 @@ export class ArticleService {
       throw new AppException('ARTICLE_NOT_FOUND');
     }
 
+    await this.createArticleLikeNotification(userId, result);
+
     return {
       articleId: Number(result.article.id),
       isLiked: true,
@@ -298,6 +304,31 @@ export class ArticleService {
         return undefined;
       }
     }
+  }
+
+  private async createArticleLikeNotification(
+    senderId: number,
+    result: Extract<
+      Awaited<ReturnType<ArticleRepository['likeArticle']>>,
+      { status: 'success' }
+    >,
+  ): Promise<void> {
+    const authorId = result.article.userId;
+
+    if (!result.created || authorId === null || authorId === BigInt(senderId)) {
+      return;
+    }
+
+    const senderNickname = result.sender?.nickname ?? '알 수 없는 사용자';
+    const receiverNickname = result.article.user?.nickname ?? '알 수 없는 사용자';
+
+    await this.notificationService.createNotification(
+      Number(authorId),
+      NotificationType.ARTICLE,
+      '게시글에 좋아요가 눌렸어요.',
+      `${senderNickname}님이 ${receiverNickname}님의 게시물을 좋아합니다.`,
+      senderId,
+    );
   }
 
   private toArticleDto(article: ArticleEntity): ArticleDto {

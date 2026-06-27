@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArticleService } from './article.service';
 import { ArticleRepository } from '../repositories/article.repository';
-import { AppException } from '../../../common/errors/app.exception';
+import { NotificationService } from '../../notification/services/notification.service';
+import { NotificationType } from '@prisma/client';
 
 describe('ArticleService', () => {
   let service: ArticleService;
@@ -20,6 +21,9 @@ describe('ArticleService', () => {
     existsClub: jest.fn(),
     existsActiveClubUser: jest.fn(),
   };
+  const notificationServiceMock = {
+    createNotification: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -30,6 +34,10 @@ describe('ArticleService', () => {
         {
           provide: ArticleRepository,
           useValue: repositoryMock,
+        },
+        {
+          provide: NotificationService,
+          useValue: notificationServiceMock,
         },
       ],
     }).compile();
@@ -52,7 +60,7 @@ describe('ArticleService', () => {
           contents: 'contents',
           category: 'FREE',
         }),
-      ).rejects.toMatchObject<AppException>({
+      ).rejects.toMatchObject({
         internalCode: 'ARTICLE_MEMBER_ONLY',
       });
       expect(repositoryMock.createArticle).not.toHaveBeenCalled();
@@ -111,6 +119,67 @@ describe('ArticleService', () => {
         internalCode: 'ARTICLE_MEMBER_ONLY',
       });
       expect(repositoryMock.likeArticle).not.toHaveBeenCalled();
+    });
+
+    it('creates notification for article author when a new like is created', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(true);
+      repositoryMock.likeArticle.mockResolvedValue({
+        status: 'success',
+        created: true,
+        article: {
+          id: BigInt(10),
+          likes: 3,
+          userId: BigInt(20),
+          user: { nickname: '받는사람' },
+        },
+        sender: { nickname: '보낸사람' },
+      });
+
+      const res = await service.likeArticle(11, 1, 10);
+
+      expect(res).toEqual({ articleId: 10, isLiked: true, likeCount: 3 });
+      expect(notificationServiceMock.createNotification).toHaveBeenCalledWith(
+        20,
+        NotificationType.ARTICLE,
+        '게시글에 좋아요가 눌렸어요.',
+        '보낸사람님이 받는사람님의 게시물을 좋아합니다.',
+        11,
+      );
+    });
+
+    it('does not create notification for duplicate like or self like', async () => {
+      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.existsActiveClubUser.mockResolvedValue(true);
+      repositoryMock.likeArticle.mockResolvedValueOnce({
+        status: 'success',
+        created: false,
+        article: {
+          id: BigInt(10),
+          likes: 3,
+          userId: BigInt(20),
+          user: { nickname: '받는사람' },
+        },
+        sender: { nickname: '보낸사람' },
+      });
+
+      await service.likeArticle(11, 1, 10);
+
+      repositoryMock.likeArticle.mockResolvedValueOnce({
+        status: 'success',
+        created: true,
+        article: {
+          id: BigInt(10),
+          likes: 4,
+          userId: BigInt(11),
+          user: { nickname: '보낸사람' },
+        },
+        sender: { nickname: '보낸사람' },
+      });
+
+      await service.likeArticle(11, 1, 10);
+
+      expect(notificationServiceMock.createNotification).not.toHaveBeenCalled();
     });
   });
 

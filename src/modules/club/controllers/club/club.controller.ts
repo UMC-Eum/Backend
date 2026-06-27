@@ -32,8 +32,6 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
-  ListMyClubsQueryDto,
-  ListMyClubsResponseDto,
   ListTopHostsQueryDto,
   ListTopHostsResponseDto,
 } from '../../dtos/club.dto';
@@ -358,69 +356,5 @@ export class ClubController {
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
   ): Promise<ClubDetailResponseDto> {
     return this.clubService.getClubDetail(userId, clubId);
-  }
-}
-
-@ApiTags('Club')
-@Controller('users/me/clubs')
-@UseGuards(AccessTokenGuard)
-@ApiBearerAuth('access-token')
-export class UserClubController {
-  constructor(private readonly clubService: ClubService) {}
-
-  @Get()
-  @ApiOperation({
-    summary: '내 클럽 목록 조회',
-    description: '로그인한 사용자가 가입한 클럽 목록을 조회합니다.',
-  })
-  @ApiQuery({
-    name: 'cursor',
-    required: false,
-    description: '페이지네이션 커서',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: '가져올 클럽 수',
-    example: 20,
-  })
-  @ApiOkResponse({
-    description: '조회 성공',
-    schema: {
-      example: {
-        resultType: 'SUCCESS',
-        success: {
-          data: {
-            clubs: [
-              {
-                clubId: 12,
-                name: '보이스 러버즈',
-                category: 'CULTURE',
-                introText: '목소리로 친해져요',
-                thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
-                capacity: 30,
-                memberCount: 18,
-                likes: 142,
-                myAuthority: 'HOST',
-                joinedAt: '2026-04-10T09:00:00.000Z',
-              },
-            ],
-            nextCursor: null,
-          },
-        },
-        error: null,
-        meta: {
-          timestamp: '2026-05-01T15:50:00.000Z',
-          path: '/api/v1/users/me/clubs',
-        },
-      },
-    },
-  })
-  @ApiUnauthorizedResponse({ description: '로그인 필요' })
-  listMyClubs(
-    @RequiredUserId() userId: number,
-    @Query() query: ListMyClubsQueryDto,
-  ): Promise<ListMyClubsResponseDto> {
-    return this.clubService.listMyClubs(userId, query);
   }
 }

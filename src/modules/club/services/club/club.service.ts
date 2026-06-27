@@ -8,22 +8,14 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
-  ListMyClubsQueryDto,
-  ListMyClubsResponseDto,
   ListTopHostsResponseDto,
 } from '../../dtos/club.dto';
 import { ClubRepository } from '../../repositories/club.repository';
 import {
   decodeClubCursor,
-  decodeMyClubCursor,
   encodeClubCursor,
-  encodeMyClubCursor,
 } from '../../utils/club-cursor.util';
-import {
-  toClubDetailDto,
-  toClubListItemDto,
-  toMyClubListItemDto,
-} from '../../utils/club.mapper';
+import { toClubDetailDto, toClubListItemDto } from '../../utils/club.mapper';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserRepository } from '../../../user/repositories/user.repository';
 import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.service';
@@ -125,35 +117,6 @@ export class ClubService {
     return {
       nextCursor,
       items: page.map((row) => toClubListItemDto(row)),
-    };
-  }
-
-  async listMyClubs(
-    userId: number,
-    query: ListMyClubsQueryDto,
-  ): Promise<ListMyClubsResponseDto> {
-    if (!userId) {
-      throw new AppException('AUTH_LOGIN_REQUIRED');
-    }
-
-    const limit = query.limit ?? 20;
-    const cursor = query.cursor ? decodeMyClubCursor(query.cursor) : undefined;
-
-    const rows = await this.clubRepository.findManyMyClubs({
-      userId: BigInt(userId),
-      cursor,
-      limit,
-    });
-
-    const hasNext = rows.length > limit;
-    const page = hasNext ? rows.slice(0, limit) : rows;
-    const nextCursor = hasNext
-      ? encodeMyClubCursor(page[page.length - 1])
-      : null;
-
-    return {
-      clubs: page.map((row) => toMyClubListItemDto(row)),
-      nextCursor,
     };
   }
 

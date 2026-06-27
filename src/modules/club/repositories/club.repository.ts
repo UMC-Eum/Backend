@@ -12,7 +12,6 @@ import { ClubListSort } from '../dtos/club.dto';
 import {
   CLUB_DETAIL_SELECT,
   CLUB_LIST_SELECT,
-  MY_CLUB_LIST_SELECT,
   type ClubDetailRow,
   type ClubListRow,
   type ClubUserStateRow,
@@ -21,8 +20,6 @@ import {
   type CreateClubLikeResult,
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
-  type ListMyClubsRepositoryParams,
-  type MyClubRow,
   type TopHostRow,
 } from './club.repository.types';
 
@@ -172,17 +169,6 @@ export class ClubRepository {
       where: this.buildListWhere(params),
       select: CLUB_LIST_SELECT,
       orderBy: this.buildListOrderBy(params.sort),
-      take: params.limit + 1,
-    });
-  }
-
-  async findManyMyClubs(
-    params: ListMyClubsRepositoryParams,
-  ): Promise<MyClubRow[]> {
-    return this.prisma.clubUser.findMany({
-      where: this.buildMyClubsWhere(params),
-      select: MY_CLUB_LIST_SELECT,
-      orderBy: [{ joinedAt: 'desc' }, { id: 'desc' }],
       take: params.limit + 1,
     });
   }
@@ -375,33 +361,6 @@ export class ClubRepository {
     }
 
     return [{ likes: 'desc' }, { id: 'desc' }];
-  }
-
-  private buildMyClubsWhere(
-    params: ListMyClubsRepositoryParams,
-  ): Prisma.ClubUserWhereInput {
-    const and: Prisma.ClubUserWhereInput[] = [
-      {
-        userId: params.userId,
-        leftAt: null,
-        status: ClubUserStatus.ACTIVE,
-        club: { deletedAt: null },
-      },
-    ];
-
-    if (params.cursor) {
-      and.push({
-        OR: [
-          { joinedAt: { lt: params.cursor.joinedAt } },
-          {
-            joinedAt: params.cursor.joinedAt,
-            id: { lt: params.cursor.clubUserId },
-          },
-        ],
-      });
-    }
-
-    return { AND: and };
   }
 
   async findTopHosts(limit: number): Promise<TopHostRow[]> {

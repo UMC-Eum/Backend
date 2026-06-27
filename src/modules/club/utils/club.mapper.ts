@@ -1,12 +1,7 @@
-import type {
-  ClubDetailResponseDto,
-  ClubListItemDto,
-  MyClubListItemDto,
-} from '../dtos/club.dto';
+import type { ClubDetailResponseDto, ClubListItemDto } from '../dtos/club.dto';
 import type {
   ClubDetailRow,
   ClubListRow,
-  MyClubRow,
 } from '../repositories/club.repository.types';
 import { ActiveStatus, ClubAuthority } from '@prisma/client';
 
@@ -21,21 +16,6 @@ export function toClubListItemDto(row: ClubListRow): ClubListItemDto {
     memberCount: row._count.clubUsers,
     keywords: row.clubKeywords.map((keyword) => keyword.personality.body),
     createdAt: row.createdAt.toISOString(),
-  };
-}
-
-export function toMyClubListItemDto(row: MyClubRow): MyClubListItemDto {
-  return {
-    clubId: Number(row.club.id),
-    name: row.club.name,
-    category: row.club.category,
-    introText: row.club.introText,
-    thumbnailUrl: row.club.thumbnailUrl,
-    capacity: row.club.capacity,
-    memberCount: row.club._count.clubUsers,
-    likes: row.club.likes,
-    myAuthority: row.authority,
-    joinedAt: row.joinedAt.toISOString(),
   };
 }
 

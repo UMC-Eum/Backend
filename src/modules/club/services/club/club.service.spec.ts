@@ -15,7 +15,6 @@ import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.
 describe('ClubService', () => {
   let service: ClubService;
   const findManyForList = jest.fn();
-  const findManyMyClubs = jest.fn();
   const findTopHosts = jest.fn();
   const findDetailById = jest.fn();
   const findClubUserState = jest.fn();
@@ -55,7 +54,6 @@ describe('ClubService', () => {
 
   beforeEach(async () => {
     findManyForList.mockReset();
-    findManyMyClubs.mockReset();
     findTopHosts.mockReset();
     findDetailById.mockReset();
     findClubUserState.mockReset();
@@ -75,7 +73,6 @@ describe('ClubService', () => {
           provide: ClubRepository,
           useValue: {
             findManyForList,
-            findManyMyClubs,
             findTopHosts,
             findDetailById,
             findClubUserState,
@@ -285,71 +282,6 @@ describe('ClubService', () => {
       }),
     ).rejects.toThrow(AppException);
     expect(findManyForList).not.toHaveBeenCalled();
-  });
-
-  it('내 클럽 목록을 DTO로 변환하고 다음 커서를 반환한다', async () => {
-    findManyMyClubs.mockResolvedValue([
-      {
-        id: 21n,
-        joinedAt: new Date('2026-04-10T09:00:00.000Z'),
-        authority: ClubAuthority.HOST,
-        club: {
-          id: 12n,
-          name: '보이스 러버즈',
-          category: ClubCategory.CULTURE,
-          introText: '목소리로 친해져요',
-          thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
-          capacity: 30,
-          likes: 142,
-          _count: { clubUsers: 18 },
-        },
-      },
-      {
-        id: 20n,
-        joinedAt: new Date('2026-04-01T09:00:00.000Z'),
-        authority: ClubAuthority.GENERAL,
-        club: {
-          id: 11n,
-          name: '러닝 클럽',
-          category: ClubCategory.SPORTS,
-          introText: null,
-          thumbnailUrl: null,
-          capacity: 20,
-          likes: 10,
-          _count: { clubUsers: 5 },
-        },
-      },
-    ]);
-
-    const result = await service.listMyClubs(7, { limit: 1 });
-
-    expect(findManyMyClubs).toHaveBeenCalledWith({
-      userId: 7n,
-      cursor: undefined,
-      limit: 1,
-    });
-    expect(result.clubs).toEqual([
-      {
-        clubId: 12,
-        name: '보이스 러버즈',
-        category: ClubCategory.CULTURE,
-        introText: '목소리로 친해져요',
-        thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
-        capacity: 30,
-        memberCount: 18,
-        likes: 142,
-        myAuthority: ClubAuthority.HOST,
-        joinedAt: '2026-04-10T09:00:00.000Z',
-      },
-    ]);
-    expect(result.nextCursor).toEqual(expect.any(String));
-  });
-
-  it('내 클럽 목록 조회 시 userId가 없으면 로그인 필요 에러를 던진다', async () => {
-    await expect(service.listMyClubs(0, { limit: 1 })).rejects.toThrow(
-      AppException,
-    );
-    expect(findManyMyClubs).not.toHaveBeenCalled();
   });
 
   it('top host 목록을 DTO로 변환한다', async () => {

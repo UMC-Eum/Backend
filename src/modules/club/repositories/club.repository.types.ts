@@ -17,12 +17,6 @@ export interface ListClubsRepositoryParams {
   limit: number;
 }
 
-export interface ListMyClubsRepositoryParams {
-  userId: bigint;
-  cursor?: { joinedAt: Date; clubUserId: bigint };
-  limit: number;
-}
-
 export const CLUB_LIST_SELECT = {
   id: true,
   name: true,
@@ -112,37 +106,6 @@ export const CLUB_DETAIL_SELECT = {
 
 export type ClubDetailRow = Prisma.ClubGetPayload<{
   select: typeof CLUB_DETAIL_SELECT;
-}>;
-
-export const MY_CLUB_LIST_SELECT = {
-  id: true,
-  joinedAt: true,
-  authority: true,
-  club: {
-    select: {
-      id: true,
-      name: true,
-      category: true,
-      introText: true,
-      thumbnailUrl: true,
-      capacity: true,
-      likes: true,
-      _count: {
-        select: {
-          clubUsers: {
-            where: {
-              leftAt: null,
-              status: ClubUserStatus.ACTIVE,
-            },
-          },
-        },
-      },
-    },
-  },
-} satisfies Prisma.ClubUserSelect;
-
-export type MyClubRow = Prisma.ClubUserGetPayload<{
-  select: typeof MY_CLUB_LIST_SELECT;
 }>;
 
 export interface TopHostRow {

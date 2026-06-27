@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClubAuthority } from '@prisma/client';
+import { ClubAuthority, NotificationType } from '@prisma/client';
 import { CommentService } from './comment.service';
 import { CommentRepository } from '../repositories/comment.repository';
 import { AppException } from '../../../common/errors/app.exception';
+import { NotificationService } from '../../notification/services/notification.service';
 
 describe('CommentService', () => {
   let service: CommentService;
@@ -20,6 +21,9 @@ describe('CommentService', () => {
     softDeleteComment: jest.fn(),
     softDeleteParentCommentWithReplies: jest.fn(),
   };
+  const notificationService = {
+    createNotification: jest.fn(),
+  };
 
   const userId = 1;
   const clubId = 1;
@@ -27,6 +31,7 @@ describe('CommentService', () => {
 
   beforeEach(async () => {
     Object.values(repository).forEach((mock) => mock.mockReset());
+    Object.values(notificationService).forEach((mock) => mock.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -34,6 +39,10 @@ describe('CommentService', () => {
         {
           provide: CommentRepository,
           useValue: repository,
+        },
+        {
+          provide: NotificationService,
+          useValue: notificationService,
         },
       ],
     }).compile();
@@ -81,6 +90,77 @@ describe('CommentService', () => {
       parentCommentId: null,
       depth: 0,
     });
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
+  });
+
+  it('답글을 작성하면 부모 댓글 작성자에게 알림을 생성한다', async () => {
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    repository.findParentComment.mockResolvedValue({
+      id: 555n,
+      depth: 0,
+      userId: 2n,
+      user: { nickname: '부모작성자' },
+    });
+    repository.createComment.mockResolvedValue({
+      id: 556n,
+      articleId: 1n,
+      parentCommentId: 555n,
+      depth: 1,
+      contents: '답글',
+      createdAt: new Date('2026-05-01T15:20:00.000Z'),
+      user: {
+        id: 1n,
+        nickname: '자식작성자',
+        profileImageUrl: 'https://cdn.example.com/profile/1.jpg',
+      },
+    });
+
+    await service.createComment(userId, clubId, articleId, {
+      contents: '답글',
+      parentCommentId: 555,
+    });
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      2,
+      NotificationType.UPDATE,
+      '내 댓글에 답글이 달렸어요.',
+      '자식작성자님이 부모작성자님의 댓글에 답글을 남겼어요.',
+      1,
+    );
+  });
+
+  it('내 댓글에 내가 답글을 작성하면 알림을 생성하지 않는다', async () => {
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    repository.findParentComment.mockResolvedValue({
+      id: 555n,
+      depth: 0,
+      userId: 1n,
+      user: { nickname: '내댓글' },
+    });
+    repository.createComment.mockResolvedValue({
+      id: 556n,
+      articleId: 1n,
+      parentCommentId: 555n,
+      depth: 1,
+      contents: '답글',
+      createdAt: new Date('2026-05-01T15:20:00.000Z'),
+      user: {
+        id: 1n,
+        nickname: '나',
+        profileImageUrl: 'https://cdn.example.com/profile/1.jpg',
+      },
+    });
+
+    await service.createComment(userId, clubId, articleId, {
+      contents: '답글',
+      parentCommentId: 555,
+    });
+
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
   });
 
   it('클럽 멤버가 아니면 댓글 작성이 거부된다', async () => {

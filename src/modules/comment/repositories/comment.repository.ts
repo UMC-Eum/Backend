@@ -49,6 +49,12 @@ export class CommentRepository {
       select: {
         id: true,
         depth: true,
+        userId: true,
+        user: {
+          select: {
+            nickname: true,
+          },
+        },
       },
     });
   }

@@ -64,8 +64,7 @@ export class CommentController {
   @Get()
   @ApiOperation({
     summary: '댓글 목록 조회',
-    description:
-      '댓글은 날짜 내림차순으로만 정렬합니다.',
+    description: '댓글은 날짜 내림차순으로만 정렬합니다.',
   })
   @ApiParam({ name: 'clubId', example: 1 })
   @ApiParam({ name: 'articleId', example: 1 })
@@ -148,8 +147,7 @@ export class CommentController {
   @Post()
   @ApiOperation({
     summary: '댓글 작성',
-    description:
-      '댓글을 작성합니다. 대댓글까지만 작성 가능합니다.',
+    description: '댓글을 작성합니다. 대댓글까지만 작성 가능합니다.',
   })
   @ApiParam({ name: 'clubId', example: 1 })
   @ApiParam({ name: 'articleId', example: 1 })
@@ -189,7 +187,6 @@ export class CommentController {
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
     @Body() dto: CreateCommentRequestDto,
   ): Promise<CreateCommentResponseDto> {
-
     return this.commentService.createComment(userId, clubId, articleId, dto);
   }
 
@@ -205,13 +202,10 @@ export class CommentController {
   @ApiOkResponse({
     description: '댓글 삭제 성공',
     schema: {
-      example: successExample(
-        '/api/v1/clubs/1/articles/1024/comments/555',
-        {
-          commentId: 555,
-          deletedAt: '2026-05-01T15:25:00.000Z',
-        },
-      ),
+      example: successExample('/api/v1/clubs/1/articles/1024/comments/555', {
+        commentId: 555,
+        deletedAt: '2026-05-01T15:25:00.000Z',
+      }),
     },
   })
   @ApiUnauthorizedResponse({
@@ -230,7 +224,6 @@ export class CommentController {
     @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
     @Param('commentId', new ParsePositiveIntPipe()) commentId: number,
   ): Promise<DeleteCommentResponseDto> {
-
     return this.commentService.deleteComment(
       userId,
       clubId,

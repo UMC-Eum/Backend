@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { NotificationType } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
+import { NotificationService } from '../../notification/services/notification.service';
 import {
   CommentListAuthorDto,
   CommentListItemResponseDto,
@@ -19,7 +21,10 @@ type CommentReplyEntity = CommentListEntity['replies'][number];
 
 @Injectable()
 export class CommentService {
-  constructor(private readonly commentRepository: CommentRepository) {}
+  constructor(
+    private readonly commentRepository: CommentRepository,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async createComment(
     userId: number,
@@ -74,6 +79,20 @@ export class CommentService {
         dto.parentCommentId === null ? null : BigInt(dto.parentCommentId),
       depth: parentComment ? parentComment.depth + 1 : 0,
     });
+
+    if (
+      parentComment?.userId &&
+      Number(parentComment.userId) !== userId &&
+      comment.user
+    ) {
+      await this.notificationService.createNotification(
+        Number(parentComment.userId),
+        NotificationType.UPDATE,
+        '내 댓글에 답글이 달렸어요.',
+        `${comment.user.nickname}님이 ${parentComment.user?.nickname ?? '회원'}님의 댓글에 답글을 남겼어요.`,
+        userId,
+      );
+    }
 
     return CreateCommentResponseDto.from(comment);
   }
@@ -257,9 +276,17 @@ export class CommentService {
 
   private decodeCursor(cursor: string): number {
     try {
-      const decoded = JSON.parse(
+      const decoded: unknown = JSON.parse(
         Buffer.from(cursor, 'base64').toString('utf8'),
       );
+      if (
+        typeof decoded !== 'object' ||
+        decoded === null ||
+        !('id' in decoded)
+      ) {
+        throw new Error('invalid cursor payload');
+      }
+
       const id = Number(decoded?.id);
 
       if (!Number.isInteger(id) || id <= 0) {

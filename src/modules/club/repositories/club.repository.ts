@@ -21,6 +21,7 @@ import {
   type CreateClubLikeResult,
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
+  type SoftDeletedClubRow,
   type TopHostRow,
   type UpdateClubRepositoryParams,
   type UpdatedClubRow,
@@ -222,6 +223,17 @@ export class ClubRepository {
         where: { id: params.clubId },
         select: UPDATE_CLUB_SELECT,
       });
+    });
+  }
+
+  async softDeleteClub(
+    clubId: bigint,
+    deletedAt: Date,
+  ): Promise<SoftDeletedClubRow> {
+    return this.prisma.club.update({
+      where: { id: clubId },
+      data: { deletedAt },
+      select: { id: true, deletedAt: true },
     });
   }
 

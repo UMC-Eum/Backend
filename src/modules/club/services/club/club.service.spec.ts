@@ -26,6 +26,7 @@ describe('ClubService', () => {
   const deleteCreatedClub = jest.fn();
   const findById = jest.fn();
   const updateClub = jest.fn();
+  const softDeleteClub = jest.fn();
   const findProfileById = jest.fn();
   const analyzeClubVibe = jest.fn();
 
@@ -67,6 +68,7 @@ describe('ClubService', () => {
     deleteCreatedClub.mockReset();
     findById.mockReset();
     updateClub.mockReset();
+    softDeleteClub.mockReset();
     findProfileById.mockReset();
     analyzeClubVibe.mockReset();
 
@@ -88,6 +90,7 @@ describe('ClubService', () => {
             deleteCreatedClub,
             findById,
             updateClub,
+            softDeleteClub,
           },
         },
         {
@@ -511,6 +514,60 @@ describe('ClubService', () => {
       internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
     } satisfies Partial<AppException>);
     expect(updateClub).not.toHaveBeenCalled();
+  });
+
+  it('호스트가 클럽을 삭제하면 deletedAt을 반환한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    const deletedAt = new Date('2026-05-01T18:50:00.000Z');
+    softDeleteClub.mockResolvedValue({
+      id: 12n,
+      deletedAt,
+    });
+
+    await expect(service.deleteClub(7, 12)).resolves.toEqual({
+      clubId: '12',
+      deletedAt: '2026-05-01T18:50:00.000Z',
+    });
+    expect(softDeleteClub).toHaveBeenCalledWith(12n, expect.any(Date));
+  });
+
+  it('삭제할 클럽이 없으면 CLUB_NOT_FOUND', async () => {
+    findById.mockResolvedValue(null);
+
+    await expect(service.deleteClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_NOT_FOUND',
+    } satisfies Partial<AppException>);
+    expect(softDeleteClub).not.toHaveBeenCalled();
+  });
+
+  it('이미 삭제된 클럽이면 CLUB_NOT_FOUND', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: new Date('2026-05-01T18:50:00.000Z'),
+    });
+
+    await expect(service.deleteClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_NOT_FOUND',
+    } satisfies Partial<AppException>);
+    expect(softDeleteClub).not.toHaveBeenCalled();
+  });
+
+  it('호스트가 아니면 클럽 삭제 시 CLUB_FORBIDDEN_NOT_HOST', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 9n,
+      deletedAt: null,
+    });
+
+    await expect(service.deleteClub(7, 12)).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+    } satisfies Partial<AppException>);
+    expect(softDeleteClub).not.toHaveBeenCalled();
   });
 
   it('클럽이 없으면 CLUB_NOT_FOUND', async () => {

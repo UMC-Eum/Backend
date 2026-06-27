@@ -210,6 +210,17 @@ export class UpdateClubResponseDto {
   updatedAt: string | null;
 }
 
+export class DeleteClubResponseDto {
+  @ApiProperty({ description: '클럽 ID', example: '12' })
+  clubId: string;
+
+  @ApiProperty({
+    description: '삭제 처리 시각',
+    example: '2026-05-01T18:50:00.000Z',
+  })
+  deletedAt: string;
+}
+
 export class ListClubsQueryDto {
   @ApiPropertyOptional({
     description: '이름/소개/키워드 검색어',

@@ -4,6 +4,7 @@ import {
   ClubDetailResponseDto,
   CreateClubRequestDto,
   CreateClubResponseDto,
+  DeleteClubResponseDto,
   LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
@@ -165,6 +166,33 @@ export class ClubService {
     });
 
     return this.toUpdateClubResponseDto(updated);
+  }
+
+  async deleteClub(
+    userId: number,
+    clubId: number,
+  ): Promise<DeleteClubResponseDto> {
+    const clubKey = BigInt(clubId);
+    const userKey = BigInt(userId);
+
+    const club = await this.clubRepository.findById(clubKey);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== userKey) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const deletedAt = new Date();
+    const deleted = await this.clubRepository.softDeleteClub(
+      clubKey,
+      deletedAt,
+    );
+
+    return {
+      clubId: deleted.id.toString(),
+      deletedAt: (deleted.deletedAt ?? deletedAt).toISOString(),
+    };
   }
 
   async getClubDetail(

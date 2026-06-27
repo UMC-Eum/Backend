@@ -14,6 +14,7 @@ describe('ClubController', () => {
   const unlikeClub = jest.fn();
   const createClub = jest.fn();
   const updateClub = jest.fn();
+  const deleteClub = jest.fn();
 
   beforeEach(async () => {
     listClubs.mockReset();
@@ -23,6 +24,7 @@ describe('ClubController', () => {
     unlikeClub.mockReset();
     createClub.mockReset();
     updateClub.mockReset();
+    deleteClub.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClubController],
@@ -37,6 +39,7 @@ describe('ClubController', () => {
             unlikeClub,
             createClub,
             updateClub,
+            deleteClub,
           },
         },
       ],
@@ -114,6 +117,17 @@ describe('ClubController', () => {
 
     await expect(controller.updateClub(7, 12, dto)).resolves.toBe(response);
     expect(updateClub).toHaveBeenCalledWith(7, 12, dto);
+  });
+
+  it('클럽 삭제를 service에 위임한다', async () => {
+    const response = {
+      clubId: '12',
+      deletedAt: '2026-05-01T18:50:00.000Z',
+    };
+    deleteClub.mockResolvedValue(response);
+
+    await expect(controller.deleteClub(7, 12)).resolves.toBe(response);
+    expect(deleteClub).toHaveBeenCalledWith(7, 12);
   });
 
   it('top host 조회를 service에 위임한다', async () => {

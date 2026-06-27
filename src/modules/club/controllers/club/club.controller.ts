@@ -30,6 +30,7 @@ import {
   ClubDetailResponseDto,
   CreateClubRequestDto,
   CreateClubResponseDto,
+  DeleteClubResponseDto,
   LikeClubResponseDto,
   ClubListSort,
   ListClubsQueryDto,
@@ -369,6 +370,48 @@ export class ClubController {
     @Body() dto: UpdateClubRequestDto,
   ): Promise<UpdateClubResponseDto> {
     return this.clubService.updateClub(userId, clubId, dto);
+  }
+
+  @Delete(':clubId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 삭제',
+    description: '호스트가 클럽을 soft delete 처리합니다.',
+  })
+  @ApiParam({
+    name: 'clubId',
+    description: '삭제할 클럽 ID',
+    example: 12,
+  })
+  @ApiOkResponse({
+    description: '삭제 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: '12',
+            deletedAt: '2026-05-01T18:50:00.000Z',
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T18:50:00.000Z',
+          path: '/api/v1/clubs/12',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  deleteClub(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<DeleteClubResponseDto> {
+    return this.clubService.deleteClub(userId, clubId);
   }
 
   @Get(':clubId')

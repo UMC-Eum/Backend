@@ -190,3 +190,8 @@ export interface DeleteClubLikeResult {
   likeCount: number;
   isMissing: boolean;
 }
+
+export interface SoftDeletedClubRow {
+  id: bigint;
+  deletedAt: Date | null;
+}

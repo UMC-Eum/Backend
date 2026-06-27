@@ -24,6 +24,8 @@ describe('ClubService', () => {
   const createClubWithHost = jest.fn();
   const applyClubAnalysis = jest.fn();
   const deleteCreatedClub = jest.fn();
+  const findById = jest.fn();
+  const updateClub = jest.fn();
   const findProfileById = jest.fn();
   const analyzeClubVibe = jest.fn();
 
@@ -63,6 +65,8 @@ describe('ClubService', () => {
     createClubWithHost.mockReset();
     applyClubAnalysis.mockReset();
     deleteCreatedClub.mockReset();
+    findById.mockReset();
+    updateClub.mockReset();
     findProfileById.mockReset();
     analyzeClubVibe.mockReset();
 
@@ -82,6 +86,8 @@ describe('ClubService', () => {
             createClubWithHost,
             applyClubAnalysis,
             deleteCreatedClub,
+            findById,
+            updateClub,
           },
         },
         {
@@ -307,6 +313,204 @@ describe('ClubService', () => {
       ],
     });
     expect(findTopHosts).toHaveBeenCalledWith(10);
+  });
+
+  it('호스트가 name만 수정하면 업데이트 결과를 반환한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈 시즌3',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: 'https://cdn.example.com/voice/12.mp3',
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      updatedAt: new Date('2026-05-01T20:25:00.000Z'),
+      clubKeywords: [{ personality: { body: '등산' } }],
+    });
+
+    await expect(
+      service.updateClub(7, 12, { name: '등산 러버즈 시즌3' }),
+    ).resolves.toEqual({
+      clubId: '12',
+      name: '등산 러버즈 시즌3',
+      category: ClubCategory.OUTDOOR,
+      introVoice: 'https://cdn.example.com/voice/12.mp3',
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      keywords: ['등산'],
+      updatedAt: '2026-05-01T20:25:00.000Z',
+    });
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: { name: '등산 러버즈 시즌3' },
+      keywordIds: undefined,
+    });
+  });
+
+  it('호스트가 introText와 capacity만 수정하면 해당 필드만 전달한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: null,
+      introText: '더 즐겁게 모여요',
+      capacity: 60,
+      updatedAt: null,
+      clubKeywords: [],
+    });
+
+    await service.updateClub(7, 12, {
+      introText: '더 즐겁게 모여요',
+      capacity: 60,
+    });
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: {
+        introText: '더 즐겁게 모여요',
+        capacity: 60,
+      },
+      keywordIds: undefined,
+    });
+  });
+
+  it('introVoice null은 음성 소개 제거로 전달한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: null,
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      updatedAt: null,
+      clubKeywords: [],
+    });
+
+    await service.updateClub(7, 12, { introVoice: null });
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: { introVoiceUrl: null },
+      keywordIds: undefined,
+    });
+  });
+
+  it('keywordIds 배열은 키워드 관계 교체 대상으로 전달한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: null,
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      updatedAt: null,
+      clubKeywords: [{ personality: { body: '등산' } }],
+    });
+
+    await service.updateClub(7, 12, { keywordIds: [1, 4, 7] });
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: {},
+      keywordIds: [1n, 4n, 7n],
+    });
+  });
+
+  it('keywordIds 빈 배열은 키워드 전체 제거로 전달한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: null,
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      updatedAt: null,
+      clubKeywords: [],
+    });
+
+    await service.updateClub(7, 12, { keywordIds: [] });
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: {},
+      keywordIds: [],
+    });
+  });
+
+  it('빈 body는 변경 없이 현재 클럽 정보를 반환한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.OUTDOOR,
+      introVoiceUrl: null,
+      introText: '등산으로 친해져요',
+      capacity: 30,
+      updatedAt: null,
+      clubKeywords: [],
+    });
+
+    await service.updateClub(7, 12, {});
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: {},
+      keywordIds: undefined,
+    });
+  });
+
+  it('수정할 클럽이 없으면 CLUB_NOT_FOUND', async () => {
+    findById.mockResolvedValue(null);
+
+    await expect(
+      service.updateClub(7, 12, { name: '등산 러버즈 시즌3' }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_NOT_FOUND',
+    } satisfies Partial<AppException>);
+    expect(updateClub).not.toHaveBeenCalled();
+  });
+
+  it('호스트가 아니면 CLUB_FORBIDDEN_NOT_HOST', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 9n,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.updateClub(7, 12, { name: '등산 러버즈 시즌3' }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+    } satisfies Partial<AppException>);
+    expect(updateClub).not.toHaveBeenCalled();
   });
 
   it('클럽이 없으면 CLUB_NOT_FOUND', async () => {

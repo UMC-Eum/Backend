@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -15,6 +16,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -34,6 +36,8 @@ import {
   ListClubsResponseDto,
   ListTopHostsQueryDto,
   ListTopHostsResponseDto,
+  UpdateClubRequestDto,
+  UpdateClubResponseDto,
 } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
@@ -292,6 +296,79 @@ export class ClubController {
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
   ): Promise<LikeClubResponseDto> {
     return this.clubService.unlikeClub(userId, clubId);
+  }
+
+  @Patch(':clubId')
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: '클럽 정보 부분 수정',
+    description:
+      '호스트가 클럽 정보를 부분 수정합니다. 요청 body에 포함된 필드만 변경하며, keywordIds를 생략하면 기존 키워드를 유지하고 빈 배열이면 전체 제거합니다.',
+  })
+  @ApiParam({
+    name: 'clubId',
+    description: '수정할 클럽 ID',
+    example: 12,
+  })
+  @ApiBody({
+    type: UpdateClubRequestDto,
+    examples: {
+      partial: {
+        summary: '일부 필드만 수정',
+        value: {
+          name: '등산 러버즈 시즌3',
+          capacity: 60,
+        },
+      },
+      removeIntroVoice: {
+        summary: '음성 소개 제거',
+        value: {
+          introVoice: null,
+        },
+      },
+      replaceKeywords: {
+        summary: '키워드 교체',
+        value: {
+          keywordIds: [1, 4, 7],
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: '수정 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: '12',
+            name: '등산 러버즈 시즌3',
+            category: 'OUTDOOR',
+            introText: '더 즐겁게 모여요',
+            introVoice: null,
+            capacity: 60,
+            keywords: ['야외', '등산', '친목'],
+            updatedAt: '2026-05-01T20:25:00.000Z',
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-01T20:25:00.000Z',
+          path: '/api/v1/clubs/12',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  updateClub(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Body() dto: UpdateClubRequestDto,
+  ): Promise<UpdateClubResponseDto> {
+    return this.clubService.updateClub(userId, clubId, dto);
   }
 
   @Get(':clubId')

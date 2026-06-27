@@ -109,6 +109,107 @@ export class CreateClubResponseDto {
   createdAt: string;
 }
 
+export class UpdateClubRequestDto {
+  @ApiPropertyOptional({
+    description: '클럽 이름',
+    example: '등산 러버즈 시즌3',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: '클럽 소개',
+    example: '더 즐겁게 모여요',
+  })
+  @IsOptional()
+  @IsString()
+  introText?: string;
+
+  @ApiPropertyOptional({
+    description: '클럽 소개 음성 URL. null이면 음성 소개를 제거합니다.',
+    example: 'https://cdn.example.com/voice/12-v2.mp3',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  introVoice?: string | null;
+
+  @ApiPropertyOptional({ description: '정원', example: 60, minimum: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacity?: number;
+
+  @ApiPropertyOptional({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OUTDOOR,
+  })
+  @IsOptional()
+  @IsEnum(ClubCategory)
+  category?: ClubCategory;
+
+  @ApiPropertyOptional({
+    description:
+      '키워드 ID 목록. 빈 배열이면 전체 제거, 생략하면 기존 키워드를 유지합니다.',
+    example: [1, 4, 7],
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  keywordIds?: number[];
+}
+
+export class UpdateClubResponseDto {
+  @ApiProperty({ description: '클럽 ID', example: '12' })
+  clubId: string;
+
+  @ApiProperty({ description: '클럽 이름', example: '등산 러버즈 시즌3' })
+  name: string;
+
+  @ApiProperty({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OUTDOOR,
+  })
+  category: ClubCategory;
+
+  @ApiProperty({
+    description: '클럽 소개',
+    example: '더 즐겁게 모여요',
+    nullable: true,
+  })
+  introText: string | null;
+
+  @ApiProperty({
+    description: '클럽 소개 음성 URL',
+    example: null,
+    nullable: true,
+  })
+  introVoice: string | null;
+
+  @ApiProperty({ description: '정원', example: 60 })
+  capacity: number;
+
+  @ApiProperty({
+    description: '클럽 키워드',
+    example: ['야외', '등산', '친목'],
+  })
+  keywords: string[];
+
+  @ApiProperty({
+    description: '수정 시각',
+    example: '2026-05-01T20:25:00.000Z',
+    nullable: true,
+  })
+  updatedAt: string | null;
+}
+
 export class ListClubsQueryDto {
   @ApiPropertyOptional({
     description: '이름/소개/키워드 검색어',

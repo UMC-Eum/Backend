@@ -12,6 +12,7 @@ import { ClubListSort } from '../dtos/club.dto';
 import {
   CLUB_DETAIL_SELECT,
   CLUB_LIST_SELECT,
+  UPDATE_CLUB_SELECT,
   type ClubDetailRow,
   type ClubListRow,
   type ClubUserStateRow,
@@ -21,6 +22,8 @@ import {
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
   type TopHostRow,
+  type UpdateClubRepositoryParams,
+  type UpdatedClubRow,
 } from './club.repository.types';
 
 @Injectable()
@@ -170,6 +173,55 @@ export class ClubRepository {
       select: CLUB_LIST_SELECT,
       orderBy: this.buildListOrderBy(params.sort),
       take: params.limit + 1,
+    });
+  }
+
+  async updateClub(
+    params: UpdateClubRepositoryParams,
+  ): Promise<UpdatedClubRow> {
+    const keywordIds = params.keywordIds;
+
+    if (keywordIds !== undefined && keywordIds.length > 0) {
+      const keywordCount = await this.prisma.personality.count({
+        where: { id: { in: keywordIds } },
+      });
+
+      if (keywordCount !== keywordIds.length) {
+        throw new AppException('KEYWORD_NOT_FOUND');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const hasClubData = Object.keys(params.data).length > 0;
+
+      if (keywordIds !== undefined) {
+        await tx.clubKeyword.deleteMany({
+          where: { clubId: params.clubId },
+        });
+
+        if (keywordIds.length > 0) {
+          await tx.clubKeyword.createMany({
+            data: keywordIds.map((keywordId) => ({
+              clubId: params.clubId,
+              keywordId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (hasClubData) {
+        return tx.club.update({
+          where: { id: params.clubId },
+          data: params.data,
+          select: UPDATE_CLUB_SELECT,
+        });
+      }
+
+      return tx.club.findUniqueOrThrow({
+        where: { id: params.clubId },
+        select: UPDATE_CLUB_SELECT,
+      });
     });
   }
 

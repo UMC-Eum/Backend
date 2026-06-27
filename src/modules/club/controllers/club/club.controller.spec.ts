@@ -13,6 +13,7 @@ describe('ClubController', () => {
   const likeClub = jest.fn();
   const unlikeClub = jest.fn();
   const createClub = jest.fn();
+  const updateClub = jest.fn();
 
   beforeEach(async () => {
     listClubs.mockReset();
@@ -21,6 +22,7 @@ describe('ClubController', () => {
     likeClub.mockReset();
     unlikeClub.mockReset();
     createClub.mockReset();
+    updateClub.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClubController],
@@ -34,6 +36,7 @@ describe('ClubController', () => {
             likeClub,
             unlikeClub,
             createClub,
+            updateClub,
           },
         },
       ],
@@ -90,6 +93,27 @@ describe('ClubController', () => {
 
     await expect(controller.createClub(7, dto)).resolves.toBe(response);
     expect(createClub).toHaveBeenCalledWith(7, dto);
+  });
+
+  it('클럽 수정을 service에 위임한다', async () => {
+    const dto = {
+      name: '등산 러버즈 시즌3',
+      capacity: 60,
+    };
+    const response = {
+      clubId: '12',
+      name: '등산 러버즈 시즌3',
+      category: ClubCategory.OUTDOOR,
+      introText: '더 즐겁게 모여요',
+      introVoice: null,
+      capacity: 60,
+      keywords: ['등산'],
+      updatedAt: '2026-05-01T20:25:00.000Z',
+    };
+    updateClub.mockResolvedValue(response);
+
+    await expect(controller.updateClub(7, 12, dto)).resolves.toBe(response);
+    expect(updateClub).toHaveBeenCalledWith(7, 12, dto);
   });
 
   it('top host 조회를 service에 위임한다', async () => {

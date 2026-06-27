@@ -108,6 +108,35 @@ export type ClubDetailRow = Prisma.ClubGetPayload<{
   select: typeof CLUB_DETAIL_SELECT;
 }>;
 
+export const UPDATE_CLUB_SELECT = {
+  id: true,
+  name: true,
+  category: true,
+  introVoiceUrl: true,
+  introText: true,
+  capacity: true,
+  updatedAt: true,
+  clubKeywords: {
+    select: {
+      personality: {
+        select: {
+          body: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.ClubSelect;
+
+export type UpdatedClubRow = Prisma.ClubGetPayload<{
+  select: typeof UPDATE_CLUB_SELECT;
+}>;
+
+export interface UpdateClubRepositoryParams {
+  clubId: bigint;
+  data: Prisma.ClubUpdateInput;
+  keywordIds?: bigint[];
+}
+
 export interface TopHostRow {
   hostId: bigint;
   hostName: string;

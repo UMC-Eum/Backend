@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ClubAuthority, ClubUserStatus } from '@prisma/client';
+import { ClubAuthority, ClubUserStatus, Prisma } from '@prisma/client';
 import {
   ClubDetailResponseDto,
   CreateClubRequestDto,
@@ -9,8 +9,11 @@ import {
   ListClubsQueryDto,
   ListClubsResponseDto,
   ListTopHostsResponseDto,
+  UpdateClubRequestDto,
+  UpdateClubResponseDto,
 } from '../../dtos/club.dto';
 import { ClubRepository } from '../../repositories/club.repository';
+import type { UpdatedClubRow } from '../../repositories/club.repository.types';
 import {
   decodeClubCursor,
   encodeClubCursor,
@@ -133,6 +136,37 @@ export class ClubService {
     };
   }
 
+  async updateClub(
+    userId: number,
+    clubId: number,
+    dto: UpdateClubRequestDto,
+  ): Promise<UpdateClubResponseDto> {
+    const clubKey = BigInt(clubId);
+    const userKey = BigInt(userId);
+
+    const club = await this.clubRepository.findById(clubKey);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== userKey) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const data = this.buildUpdateClubData(dto);
+    const keywordIds =
+      dto.keywordIds === undefined
+        ? undefined
+        : this.toUniqueBigIntIds(dto.keywordIds);
+
+    const updated = await this.clubRepository.updateClub({
+      clubId: clubKey,
+      data,
+      keywordIds,
+    });
+
+    return this.toUpdateClubResponseDto(updated);
+  }
+
   async getClubDetail(
     userId: number,
     clubId: number,
@@ -206,6 +240,41 @@ export class ClubService {
       clubId: result.clubId.toString(),
       isLiked: false,
       likeCount: result.likeCount,
+    };
+  }
+
+  private buildUpdateClubData(
+    dto: UpdateClubRequestDto,
+  ): Prisma.ClubUpdateInput {
+    const data: Prisma.ClubUpdateInput = {};
+
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.introText !== undefined) data.introText = dto.introText;
+    if (dto.introVoice !== undefined) data.introVoiceUrl = dto.introVoice;
+    if (dto.capacity !== undefined) data.capacity = dto.capacity;
+    if (dto.category !== undefined) data.category = dto.category;
+
+    return data;
+  }
+
+  private toUniqueBigIntIds(ids: number[]): bigint[] {
+    return Array.from(new Set(ids.map((id) => BigInt(id).toString())), (id) =>
+      BigInt(id),
+    );
+  }
+
+  private toUpdateClubResponseDto(row: UpdatedClubRow): UpdateClubResponseDto {
+    return {
+      clubId: row.id.toString(),
+      name: row.name,
+      category: row.category,
+      introText: row.introText,
+      introVoice: row.introVoiceUrl,
+      capacity: row.capacity,
+      keywords: row.clubKeywords
+        .map((keyword) => keyword.personality.body)
+        .filter((body): body is string => Boolean(body)),
+      updatedAt: row.updatedAt?.toISOString() ?? null,
     };
   }
 }

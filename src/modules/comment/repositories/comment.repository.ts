@@ -23,7 +23,15 @@ export class CommentRepository {
         clubId,
         deletedAt: null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        userId: true,
+        user: {
+          select: {
+            nickname: true,
+          },
+        },
+      },
     });
   }
 

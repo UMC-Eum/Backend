@@ -93,6 +93,42 @@ describe('CommentService', () => {
     expect(notificationService.createNotification).not.toHaveBeenCalled();
   });
 
+  it('게시글에 댓글을 작성하면 게시글 작성자에게 알림을 생성한다', async () => {
+    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    repository.findArticleByClubId.mockResolvedValue({
+      id: 1n,
+      userId: 2n,
+      user: { nickname: '게시글작성자' },
+    });
+    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    repository.createComment.mockResolvedValue({
+      id: 555n,
+      articleId: 1n,
+      parentCommentId: null,
+      depth: 0,
+      contents: '공감 가는 글이네요 :)',
+      createdAt: new Date('2026-05-01T15:20:00.000Z'),
+      user: {
+        id: 1n,
+        nickname: '댓글작성자',
+        profileImageUrl: 'https://cdn.example.com/profile/1.jpg',
+      },
+    });
+
+    await service.createComment(userId, clubId, articleId, {
+      contents: '공감 가는 글이네요 :)',
+      parentCommentId: null,
+    });
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      2,
+      NotificationType.COMMENT,
+      '내 게시물에 댓글이 달렸어요.',
+      '댓글작성자님이 게시글작성자님의 게시물에 댓글을 남겼어요.',
+      1,
+    );
+  });
+
   it('답글을 작성하면 부모 댓글 작성자에게 알림을 생성한다', async () => {
     repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
@@ -124,7 +160,7 @@ describe('CommentService', () => {
 
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       2,
-      NotificationType.UPDATE,
+      NotificationType.COMMENT,
       '내 댓글에 답글이 달렸어요.',
       '자식작성자님이 부모작성자님의 댓글에 답글을 남겼어요.',
       1,

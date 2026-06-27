@@ -87,9 +87,19 @@ export class CommentService {
     ) {
       await this.notificationService.createNotification(
         Number(parentComment.userId),
-        NotificationType.UPDATE,
+        NotificationType.COMMENT,
         '내 댓글에 답글이 달렸어요.',
         `${comment.user.nickname}님이 ${parentComment.user?.nickname ?? '회원'}님의 댓글에 답글을 남겼어요.`,
+        userId,
+      );
+    }
+
+    if (article.userId && Number(article.userId) !== userId && comment.user) {
+      await this.notificationService.createNotification(
+        Number(article.userId),
+        NotificationType.COMMENT,
+        '내 게시물에 댓글이 달렸어요.',
+        `${comment.user.nickname}님이 ${article.user?.nickname ?? '회원'}님의 게시물에 댓글을 남겼어요.`,
         userId,
       );
     }

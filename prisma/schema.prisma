@@ -59,6 +59,7 @@ enum NotificationType {
   CHAT
   HEART
   ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE

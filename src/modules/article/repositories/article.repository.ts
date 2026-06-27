@@ -95,7 +95,10 @@ export type UnlikeArticleResult =
   | { status: 'not_found' };
 
 export type PinArticleResult =
-  | { status: 'success'; article: { id: bigint; isPinned: boolean; updatedAt: Date } }
+  | {
+      status: 'success';
+      article: { id: bigint; isPinned: boolean; updatedAt: Date };
+    }
   | { status: 'not_found' }
   | { status: 'forbidden' };
 
@@ -151,7 +154,12 @@ export class ArticleRepository {
       take: params.take,
       orderBy:
         params.sort === 'popular'
-          ? [{ isPinned: 'desc' }, { likes: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
+          ? [
+              { isPinned: 'desc' },
+              { likes: 'desc' },
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ]
           : [{ isPinned: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       ...(params.cursor && {
         cursor: { id: params.cursor },
@@ -697,7 +705,9 @@ export class ArticleRepository {
       cursor?: bigint;
       take: number;
     },
-  ): Promise<Array<{ id: bigint; photoUrl: string; articleId: bigint; createdAt: Date }>> {
+  ): Promise<
+    Array<{ id: bigint; photoUrl: string; articleId: bigint; createdAt: Date }>
+  > {
     return this.prisma.articlePhoto.findMany({
       where: {
         article: {
@@ -709,7 +719,11 @@ export class ArticleRepository {
       take: params.take,
       orderBy:
         params.sort === 'popular'
-          ? [{ article: { likes: 'desc' } }, { createdAt: 'desc' }, { id: 'desc' }]
+          ? [
+              { article: { likes: 'desc' } },
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ]
           : [{ createdAt: 'desc' }, { id: 'desc' }],
       ...(params.cursor && {
         cursor: { id: params.cursor },

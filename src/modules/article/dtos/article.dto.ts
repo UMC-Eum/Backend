@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
+import { ApiProperty, OmitType } from '@nestjs/swagger';
 import { ArticleCategory, ClubAuthority } from '@prisma/client';
 import { IsBoolean } from 'class-validator';
 
@@ -77,7 +77,9 @@ export class ArticleListItemDto {
   @ApiProperty({ example: '이번 주 정모 후기 공유합니다!' })
   title!: string;
 
-  @ApiProperty({ example: '어제 정말 즐거운 시간이었어요. 다음에도 꼭 참석하고 싶네요...' })
+  @ApiProperty({
+    example: '어제 정말 즐거운 시간이었어요. 다음에도 꼭 참석하고 싶네요...',
+  })
   preview!: string;
 
   @ApiProperty({ example: ArticleCategory.REVIEW, enum: ArticleCategory })

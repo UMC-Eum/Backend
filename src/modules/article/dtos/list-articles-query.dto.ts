@@ -41,7 +41,9 @@ export class ListArticlesQueryDto {
   })
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Za-z0-9+/]*={0,2}$/, { message: 'cursor must be a valid Base64 string' })
+  @Matches(/^[A-Za-z0-9+/]*={0,2}$/, {
+    message: 'cursor must be a valid Base64 string',
+  })
   cursor?: string;
 
   @ApiPropertyOptional({

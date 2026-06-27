@@ -14,12 +14,17 @@ describe('ArticleRepository', () => {
   const clubModel = {
     findFirst: jest.fn(),
   };
+  type TransactionMock = {
+    article: typeof articleModel;
+    clubUser: typeof clubUserModel;
+  };
   const prisma = {
-    $transaction: jest.fn((callback) =>
-      callback({
-        article: articleModel,
-        clubUser: clubUserModel,
-      }),
+    $transaction: jest.fn(
+      <T>(callback: (tx: TransactionMock) => T): T =>
+        callback({
+          article: articleModel,
+          clubUser: clubUserModel,
+        }),
     ),
     club: clubModel,
     clubUser: clubUserModel,
@@ -130,7 +135,7 @@ describe('ArticleRepository', () => {
       expect(result.status).toBe('success');
       expect(articleModel.update).toHaveBeenCalledWith({
         where: { id: BigInt(10) },
-        data: { deletedAt: expect.any(Date) },
+        data: { deletedAt: expect.any(Date) as Date },
         select: {
           id: true,
           deletedAt: true,

@@ -54,7 +54,10 @@ export class ArticleService {
       const firstPhoto = article.articlePhotos[0];
       const previewMax = 120;
       const rawPreview = article.contents ?? '';
-      const preview = rawPreview.length > previewMax ? rawPreview.slice(0, previewMax).trim() + '...' : rawPreview;
+      const preview =
+        rawPreview.length > previewMax
+          ? rawPreview.slice(0, previewMax).trim() + '...'
+          : rawPreview;
 
       return {
         articleId: Number(article.id),
@@ -78,7 +81,9 @@ export class ArticleService {
     });
 
     const nextCursor = hasMore
-      ? Buffer.from(JSON.stringify({ id: String(items[items.length - 1].id) })).toString('base64')
+      ? Buffer.from(
+          JSON.stringify({ id: String(items[items.length - 1].id) }),
+        ).toString('base64')
       : null;
 
     return {
@@ -292,8 +297,15 @@ export class ArticleService {
     try {
       // Base64 디코딩 시도
       const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
-      const parsed = JSON.parse(decoded);
-      const id = BigInt(parsed.id);
+      const parsed = JSON.parse(decoded) as unknown;
+      if (typeof parsed !== 'object' || parsed === null || !('id' in parsed)) {
+        return undefined;
+      }
+      const rawId = parsed.id;
+      if (typeof rawId !== 'string' && typeof rawId !== 'number') {
+        return undefined;
+      }
+      const id = BigInt(rawId);
       return id > 0n ? id : undefined;
     } catch {
       // 디코딩 실패 시 (호환성) 직접 숫자 파싱 시도
@@ -320,7 +332,8 @@ export class ArticleService {
     }
 
     const senderNickname = result.sender?.nickname ?? '알 수 없는 사용자';
-    const receiverNickname = result.article.user?.nickname ?? '알 수 없는 사용자';
+    const receiverNickname =
+      result.article.user?.nickname ?? '알 수 없는 사용자';
 
     await this.notificationService.createNotification(
       Number(authorId),
@@ -450,7 +463,16 @@ export class ArticleService {
   async findArchivePhotos(
     clubId: number,
     query: ListArticlesQueryDto,
-  ): Promise<{ items: { photoId: number; articleId: number; photoUrl: string; createdAt: string }[]; nextCursor: string | null; hasMore: boolean }> {
+  ): Promise<{
+    items: {
+      photoId: number;
+      articleId: number;
+      photoUrl: string;
+      createdAt: string;
+    }[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
     await this.ensureClubExists(clubId);
 
     const take = query.limit ?? 20;
@@ -471,7 +493,9 @@ export class ArticleService {
     }));
 
     const nextCursor = hasMore
-      ? Buffer.from(JSON.stringify({ id: String(items[items.length - 1].id) })).toString('base64')
+      ? Buffer.from(
+          JSON.stringify({ id: String(items[items.length - 1].id) }),
+        ).toString('base64')
       : null;
 
     return {

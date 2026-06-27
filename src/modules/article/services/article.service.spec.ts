@@ -83,7 +83,11 @@ describe('ArticleService', () => {
     it('returns pin response on success', async () => {
       repositoryMock.pinArticle.mockResolvedValue({
         status: 'success',
-        article: { id: BigInt(1), isPinned: true, updatedAt: new Date('2026-05-01T17:40:00.000Z') },
+        article: {
+          id: BigInt(1),
+          isPinned: true,
+          updatedAt: new Date('2026-05-01T17:40:00.000Z'),
+        },
       });
 
       const res = await service.pinArticle(1, 1, 1, { isPinned: true });
@@ -96,7 +100,9 @@ describe('ArticleService', () => {
     it('throws AppException when not_found', async () => {
       repositoryMock.pinArticle.mockResolvedValue({ status: 'not_found' });
 
-      await expect(service.pinArticle(1, 1, 999, { isPinned: true })).rejects.toThrow();
+      await expect(
+        service.pinArticle(1, 1, 999, { isPinned: true }),
+      ).rejects.toThrow();
     });
 
     it('throws AppException when forbidden', async () => {
@@ -199,7 +205,12 @@ describe('ArticleService', () => {
     it('returns archive response with paginated photos', async () => {
       repositoryMock.existsClub.mockResolvedValue(true);
       repositoryMock.findArchivePhotos.mockResolvedValue([
-        { id: BigInt(101), photoUrl: 'https://example.com/photo1.jpg', articleId: BigInt(1), createdAt: new Date('2026-05-01T17:40:00.000Z') },
+        {
+          id: BigInt(101),
+          photoUrl: 'https://example.com/photo1.jpg',
+          articleId: BigInt(1),
+          createdAt: new Date('2026-05-01T17:40:00.000Z'),
+        },
       ]);
 
       const res = await service.findArchivePhotos(1, { sort: 'recent' });
@@ -213,12 +224,14 @@ describe('ArticleService', () => {
 
     it('sets hasMore true when extra photo exists', async () => {
       repositoryMock.existsClub.mockResolvedValue(true);
-      const mockPhotos = Array(21).fill(0).map((_, i) => ({
-        id: BigInt(100 + i),
-        photoUrl: `https://example.com/photo${i}.jpg`,
-        articleId: BigInt(1),
-        createdAt: new Date('2026-05-01T17:40:00.000Z'),
-      }));
+      const mockPhotos = Array(21)
+        .fill(0)
+        .map((_, i) => ({
+          id: BigInt(100 + i),
+          photoUrl: `https://example.com/photo${i}.jpg`,
+          articleId: BigInt(1),
+          createdAt: new Date('2026-05-01T17:40:00.000Z'),
+        }));
       repositoryMock.findArchivePhotos.mockResolvedValue(mockPhotos);
 
       const res = await service.findArchivePhotos(1, { limit: 20 });
@@ -231,7 +244,9 @@ describe('ArticleService', () => {
     it('throws AppException when club not found', async () => {
       repositoryMock.existsClub.mockResolvedValue(false);
 
-      await expect(service.findArchivePhotos(999, { sort: 'recent' })).rejects.toThrow();
+      await expect(
+        service.findArchivePhotos(999, { sort: 'recent' }),
+      ).rejects.toThrow();
     });
   });
 });

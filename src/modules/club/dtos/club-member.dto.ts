@@ -50,3 +50,24 @@ export class ClubMemberResponseDto {
   @ApiProperty({ example: null, nullable: true })
   joinedAt!: string | null;
 }
+
+export class ClubMemberRequestItemDto extends ClubMemberResponseDto {
+  @ApiProperty({ example: '홍길동' })
+  nickname!: string;
+
+  @ApiProperty({
+    example: 'https://example.com/assets/profile-placeholder.png',
+  })
+  profileImageUrl!: string;
+
+  @ApiProperty({ example: 50 })
+  age!: number;
+
+  @ApiProperty({ example: 'M' })
+  sex!: string;
+}
+
+export class ClubMemberRequestListResponseDto {
+  @ApiProperty({ type: [ClubMemberRequestItemDto] })
+  items!: ClubMemberRequestItemDto[];
+}

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Patch,
   Post,
@@ -23,6 +24,7 @@ import { RequiredUserId } from '../../../auth/decorators';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
 import { ClubMemberService } from '../../services/member/club-member.service';
 import {
+  ClubMemberRequestListResponseDto,
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
   UpdateClubMemberStatusRequestDto,
@@ -35,6 +37,24 @@ import {
 @Controller('clubs/:clubId/members')
 export class ClubMemberController {
   constructor(private readonly clubMemberService: ClubMemberService) {}
+
+  @Get('requests')
+  @ApiOperation({ summary: '동호회 가입 신청 목록 조회 (호스트만)' })
+  @ApiOkResponse({
+    description: '가입 신청 목록 조회 완료',
+    type: ClubMemberRequestListResponseDto,
+  })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  async getJoinRequests(
+    @RequiredUserId() hostUserId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<ClubMemberRequestListResponseDto> {
+    return this.clubMemberService.getJoinRequests(
+      BigInt(hostUserId),
+      BigInt(clubId),
+    );
+  }
 
   @Post()
   @ApiOperation({ summary: '동호회 가입 신청' })

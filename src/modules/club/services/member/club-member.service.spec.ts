@@ -12,6 +12,7 @@ describe('ClubMemberService', () => {
   const createRequest = jest.fn();
   const resubmitRequest = jest.fn();
   const updatePendingStatus = jest.fn();
+  const findPendingRequests = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -37,6 +38,7 @@ describe('ClubMemberService', () => {
     createRequest.mockReset();
     resubmitRequest.mockReset();
     updatePendingStatus.mockReset();
+    findPendingRequests.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +51,7 @@ describe('ClubMemberService', () => {
             createRequest,
             resubmitRequest,
             updatePendingStatus,
+            findPendingRequests,
           },
         },
       ],
@@ -188,5 +191,59 @@ describe('ClubMemberService', () => {
     ).rejects.toMatchObject({
       internalCode: 'CLUB_MEMBER_REQUEST_NOT_FOUND',
     });
+  });
+
+  it('호스트가 가입 신청 목록을 조회한다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findPendingRequests.mockResolvedValue([
+      {
+        ...member,
+        user: {
+          nickname: '홍길동',
+          profileImageUrl: 'https://example.com/profile.png',
+          age: 50,
+          sex: 'M',
+        },
+      },
+    ]);
+
+    const result = await service.getJoinRequests(hostUserId, clubId);
+
+    expect(findPendingRequests).toHaveBeenCalledWith(clubId);
+    expect(result.items).toEqual([
+      {
+        clubUserId: 333,
+        clubId: 12,
+        userId: 42,
+        authority: ClubAuthority.GENERAL,
+        status: ClubUserStatus.PENDING,
+        message: member.joinMessage,
+        requestedAt: requestedAt.toISOString(),
+        joinedAt: null,
+        nickname: '홍길동',
+        profileImageUrl: 'https://example.com/profile.png',
+        age: 50,
+        sex: 'M',
+      },
+    ]);
+  });
+
+  it('호스트가 아니면 가입 신청 목록을 조회할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: 999n,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.getJoinRequests(hostUserId, clubId),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+    });
+    expect(findPendingRequests).not.toHaveBeenCalled();
   });
 });

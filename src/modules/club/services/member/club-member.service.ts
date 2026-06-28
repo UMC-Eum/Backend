@@ -4,6 +4,8 @@ import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
 import {
+  ClubMemberRequestListResponseDto,
+  ClubMemberRequestItemDto,
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
   UpdateClubMemberStatusRequestDto,
@@ -94,6 +96,26 @@ export class ClubMemberService {
     return this.toResponse(updated);
   }
 
+  async getJoinRequests(
+    hostUserId: bigint,
+    clubId: bigint,
+  ): Promise<ClubMemberRequestListResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== hostUserId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const requests =
+      await this.clubMemberRepository.findPendingRequests(clubId);
+
+    return {
+      items: requests.map((request) => this.toRequestItem(request)),
+    };
+  }
+
   private toResponse(member: ClubUser): ClubMemberResponseDto {
     return {
       clubUserId: Number(member.id),
@@ -104,6 +126,25 @@ export class ClubMemberService {
       message: member.joinMessage,
       requestedAt: member.requestedAt.toISOString(),
       joinedAt: member.joinedAt?.toISOString() ?? null,
+    };
+  }
+
+  private toRequestItem(
+    member: ClubUser & {
+      user: {
+        nickname: string;
+        profileImageUrl: string;
+        age: number;
+        sex: string;
+      };
+    },
+  ): ClubMemberRequestItemDto {
+    return {
+      ...this.toResponse(member),
+      nickname: member.user.nickname,
+      profileImageUrl: member.user.profileImageUrl,
+      age: member.user.age,
+      sex: member.user.sex,
     };
   }
 }

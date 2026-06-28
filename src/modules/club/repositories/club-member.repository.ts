@@ -17,6 +17,26 @@ export class ClubMemberRepository {
     });
   }
 
+  findPendingRequests(clubId: bigint) {
+    return this.prisma.clubUser.findMany({
+      where: {
+        clubId,
+        status: ClubUserStatus.PENDING,
+      },
+      include: {
+        user: {
+          select: {
+            nickname: true,
+            profileImageUrl: true,
+            age: true,
+            sex: true,
+          },
+        },
+      },
+      orderBy: { requestedAt: 'asc' },
+    });
+  }
+
   createRequest({
     clubId,
     userId,

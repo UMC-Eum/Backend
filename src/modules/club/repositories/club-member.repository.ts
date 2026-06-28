@@ -57,15 +57,6 @@ export class ClubMemberRepository {
     });
   }
 
-  countActiveMembers(clubId: bigint) {
-    return this.prisma.clubUser.count({
-      where: {
-        clubId,
-        status: ClubUserStatus.ACTIVE,
-      },
-    });
-  }
-
   createRequest({
     clubId,
     userId,
@@ -116,25 +107,57 @@ export class ClubMemberRepository {
     });
   }
 
-  updatePendingStatus({
+  processPendingStatusWithCapacity({
     clubId,
     userId,
     status,
+    capacity,
   }: {
     clubId: bigint;
     userId: bigint;
     status: ClubUserStatus;
+    capacity: number;
   }) {
-    return this.prisma.clubUser.updateMany({
-      where: {
-        clubId,
-        userId,
-        status: ClubUserStatus.PENDING,
-      },
-      data: {
-        status,
-        joinedAt: status === ClubUserStatus.ACTIVE ? new Date() : null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "Club"
+        WHERE "id" = ${clubId}
+        FOR UPDATE
+      `;
+
+      const pending = await tx.clubUser.findFirst({
+        where: {
+          clubId,
+          userId,
+          status: ClubUserStatus.PENDING,
+        },
+      });
+      if (!pending) {
+        return { result: 'not_found' as const };
+      }
+
+      if (status === ClubUserStatus.ACTIVE) {
+        const activeMemberCount = await tx.clubUser.count({
+          where: {
+            clubId,
+            status: ClubUserStatus.ACTIVE,
+          },
+        });
+        if (activeMemberCount >= capacity) {
+          return { result: 'capacity_exceeded' as const };
+        }
+      }
+
+      const updated = await tx.clubUser.update({
+        where: { id: pending.id },
+        data: {
+          status,
+          joinedAt: status === ClubUserStatus.ACTIVE ? new Date() : null,
+        },
+      });
+
+      return { result: 'updated' as const, member: updated };
     });
   }
 

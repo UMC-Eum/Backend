@@ -83,40 +83,21 @@ export class ClubMemberService {
       throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
     }
 
-    const pending = await this.clubMemberRepository.findByClubAndUser(
-      clubId,
-      targetUserId,
-    );
-    if (!pending || pending.status !== ClubUserStatus.PENDING) {
+    const result =
+      await this.clubMemberRepository.processPendingStatusWithCapacity({
+        clubId,
+        userId: targetUserId,
+        status: dto.status,
+        capacity: club.capacity,
+      });
+    if (result.result === 'not_found') {
       throw new AppException('CLUB_MEMBER_REQUEST_NOT_FOUND');
     }
-
-    if (dto.status === ClubUserStatus.ACTIVE) {
-      const activeMemberCount =
-        await this.clubMemberRepository.countActiveMembers(clubId);
-      if (activeMemberCount >= club.capacity) {
-        throw new AppException('CLUB_CAPACITY_EXCEEDED');
-      }
+    if (result.result === 'capacity_exceeded') {
+      throw new AppException('CLUB_CAPACITY_EXCEEDED');
     }
 
-    const result = await this.clubMemberRepository.updatePendingStatus({
-      clubId,
-      userId: targetUserId,
-      status: dto.status,
-    });
-    if (result.count === 0) {
-      throw new AppException('CLUB_MEMBER_REQUEST_NOT_FOUND');
-    }
-
-    const updated = await this.clubMemberRepository.findByClubAndUser(
-      clubId,
-      targetUserId,
-    );
-    if (!updated) {
-      throw new AppException('CLUB_MEMBER_REQUEST_NOT_FOUND');
-    }
-
-    return this.toResponse(updated);
+    return this.toResponse(result.member);
   }
 
   async getJoinRequests(

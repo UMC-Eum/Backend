@@ -187,6 +187,26 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
+  CLUB_MEMBER_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-003',
+    message: '이미 가입한 동호회입니다.',
+  },
+  CLUB_MEMBER_REQUEST_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-004',
+    message: '이미 가입 신청이 접수되었습니다.',
+  },
+  CLUB_MEMBER_JOIN_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-005',
+    message: '이 동호회에 가입 신청할 수 없습니다.',
+  },
+  CLUB_MEMBER_REQUEST_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-006',
+    message: '가입 신청을 찾을 수 없습니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

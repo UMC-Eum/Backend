@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ClubUserStatus } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -24,7 +25,7 @@ export class ClubRepository {
       where: {
         userId,
         clubId,
-        status: 'ACTIVE',
+        status: ClubUserStatus.ACTIVE,
         leftAt: null,
       },
       select: { id: true },

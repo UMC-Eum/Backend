@@ -317,6 +317,7 @@ describe('MeetingService', () => {
       expect(result.meetingId).toBe(Number(meetingId));
       expect(result.clubId).toBe(Number(clubId));
       expect(typeof result.deletedAt).toBe('string');
+      expect(softDeleteWithMembers).toHaveBeenCalledTimes(1);
       expect(softDeleteWithMembers).toHaveBeenCalledWith(
         clubId,
         meetingId,
@@ -335,6 +336,11 @@ describe('MeetingService', () => {
       await expect(
         service.deleteMeeting(hostUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'MEETING_NOT_FOUND' });
+      expect(softDeleteWithMembers).toHaveBeenCalledWith(
+        clubId,
+        meetingId,
+        expect.any(Date),
+      );
     });
 
     it('호스트가 아니면 CLUB_FORBIDDEN_NOT_HOST', async () => {
@@ -343,6 +349,7 @@ describe('MeetingService', () => {
         hostId: 999n,
         deletedAt: null,
       });
+
       await expect(
         service.deleteMeeting(hostUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'CLUB_FORBIDDEN_NOT_HOST' });
@@ -351,9 +358,11 @@ describe('MeetingService', () => {
 
     it('클럽이 없으면 CLUB_NOT_FOUND', async () => {
       findById.mockResolvedValue(null);
+
       await expect(
         service.deleteMeeting(hostUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'CLUB_NOT_FOUND' });
+      expect(softDeleteWithMembers).not.toHaveBeenCalled();
     });
 
     it('soft-deleted 클럽이면 CLUB_NOT_FOUND', async () => {
@@ -362,6 +371,7 @@ describe('MeetingService', () => {
         hostId: hostUserId,
         deletedAt: new Date(),
       });
+
       await expect(
         service.deleteMeeting(hostUserId, clubId, meetingId),
       ).rejects.toMatchObject({ internalCode: 'CLUB_NOT_FOUND' });

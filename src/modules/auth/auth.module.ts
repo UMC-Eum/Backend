@@ -6,7 +6,9 @@ import { AccessTokenGuard } from './guards/access-token.guard';
 import { AuthTokenService } from './services/auth-token.service';
 import { JwtTokenService } from './services/jwt-token.service';
 import { KakaoAuthService } from './services/kakao-auth.service';
+import { AuthRepository } from './repositories/auth.repository';
 import { PrismaModule } from '../../infra/prisma/prisma.module';
+import { UserRepository } from '../user/repositories/user.repository';
 
 @Module({
   imports: [PrismaModule],
@@ -16,6 +18,8 @@ import { PrismaModule } from '../../infra/prisma/prisma.module';
     AuthTokenService,
     JwtTokenService,
     AccessTokenGuard,
+    AuthRepository,
+    UserRepository,
   ],
   exports: [JwtTokenService, AccessTokenGuard],
 })

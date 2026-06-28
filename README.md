@@ -70,6 +70,37 @@ npm run start:dev
 
 ---
 
+### 🏃 빠른 실행 (외부 RDS 사용 시)
+
+로컬에 Postgres 컨테이너를 띄우지 않고 외부 RDS만 가리켜도 서버는 뜹니다.
+
+1. `.env`의 `DATABASE_URL`을 RDS로 지정:
+
+   ```env
+   DATABASE_URL=postgresql://<user>:<pw>@<rds-endpoint>:5432/<db>?sslmode=no-verify
+   ```
+2. 연결 확인 (선택):
+
+   ```bash
+   npx prisma db pull --print >/dev/null
+   ```
+3. 마이그레이션 적용 — **공용 RDS면 반드시 `deploy`** 사용 (`dev`는 drift 시 reset 제안, `reset`은 데이터 삭제):
+
+   ```bash
+   npm run prisma:migrate:deploy
+   ```
+4. 서버 기동:
+
+   ```bash
+   npm run start:dev
+   ```
+
+> **Redis는 현재 코드에서 사용하지 않으므로** 로컬에 띄울 필요 없습니다. 추후 캐시/세션/pub-sub 도입 시 README에 재안내합니다.
+
+> `prisma db pull` 실행 시 `vector` 타입과 일부 check constraint(`chat_room_club_id_check` 등)에 대한 미지원 경고가 나오는 것은 Prisma의 한계이며 동작에는 영향 없습니다. 벡터 필드는 `$queryRaw` / `$executeRaw`로 처리합니다.
+
+---
+
 ## 🐳 로컬 인프라 (PostgreSQL / Redis)
 
 `docker-compose.yml`은 backend 이미지 단독 실행용입니다. DB/Redis는 외부(RDS/ElastiCache)에 두는 게 기본이며, 로컬 개발 시에는 다음과 같이 단일 컨테이너로 띄우는 것을 권장합니다.
@@ -165,15 +196,17 @@ GET /api/v1/health/fatapi
 * Unit tests
 * Build
 
-**CD** — `dev` 브랜치에 머지되면 staging ECS로 자동 배포 (`.github/workflows/cd.yml`):
+**CD** — `dev` 브랜치에 머지되면 staging ECS로 자동 배포 (`.github/workflows/cd.yml`, 현재 **활성**):
 
-* OIDC로 AWS 인증
-* ECR로 이미지 push (`linux/amd64`, `:<sha>` + `:latest`)
-* ECS one-off task로 `prisma migrate deploy` 실행
-* `eum-backend-service` 업데이트 + 안정화 대기
-* ALB 헬스(`https://staging.eum-dating.com/api/v1/health`) 스모크
+* IAM Access Key로 AWS 인증 (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets, 추후 GitHub OIDC role로 교체 예정)
+* ECR로 이미지 build & push (`linux/amd64`, `:<sha>` + `:latest`, GHA cache 활용)
+* 현재 task definition 기반으로 새 이미지 태그를 적용해 새 revision 등록
+* ECS one-off task(EC2 launch type)로 `npx prisma migrate deploy` 실행 — exit code 0이 아니면 배포 중단
+* 동일 revision으로 `eum-backend-service` `update-service`
+* `aws ecs wait services-stable` 대신 **PRIMARY deployment의 `rolloutState=COMPLETED` 폴링** (15초 × 60회 = 최대 15분, `FAILED` 시 즉시 실패)
+* ALB 헬스(`https://staging.eum-dating.com/api/v1/health`) 스모크 (5초 간격 × 최대 12회)
 
-> CD job은 staging RDS PG 교체 / OIDC role 등록 / Secrets Manager 갱신이 끝날 때까지 `if: ${{ false }}`로 비활성 상태입니다. 활성화 절차는 `cd.yml`의 TODO 코멘트 참고.
+> 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
 
 ---
 
@@ -218,14 +251,6 @@ docker-compose.yml           # 로컬 backend 이미지 단독 실행용
 * CI 환경에서는 PostgreSQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `5432/6379`입니다.
 
 ---
-
-```
-
-> `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.
-
-````
-
-=======
 
 ## 📌 Scripts
 

@@ -18,4 +18,39 @@ export class MeetingRepository {
   }) {
     return this.prisma.meeting.create({ data });
   }
+
+  async findById(meetingId: bigint): Promise<{
+    id: bigint;
+    clubId: bigint;
+    deletedAt: Date | null;
+  } | null> {
+    return this.prisma.meeting.findUnique({
+      where: { id: meetingId },
+      select: { id: true, clubId: true, deletedAt: true },
+    });
+  }
+
+  async softDeleteWithMembers(
+    clubId: bigint,
+    meetingId: bigint,
+    deletedAt: Date,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.meeting.updateMany({
+        where: { id: meetingId, clubId, deletedAt: null },
+        data: { deletedAt },
+      });
+
+      if (result.count === 0) {
+        return false;
+      }
+
+      await tx.meetingMember.updateMany({
+        where: { meetingId, deletedAt: null },
+        data: { deletedAt },
+      });
+
+      return true;
+    });
+  }
 }

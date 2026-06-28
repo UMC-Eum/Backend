@@ -14,6 +14,7 @@ describe('ClubMemberService', () => {
   const updatePendingStatus = jest.fn();
   const findPendingRequests = jest.fn();
   const findActiveMembers = jest.fn();
+  const countActiveMembers = jest.fn();
   const leave = jest.fn();
   const kick = jest.fn();
   const delegateHost = jest.fn();
@@ -44,6 +45,7 @@ describe('ClubMemberService', () => {
     updatePendingStatus.mockReset();
     findPendingRequests.mockReset();
     findActiveMembers.mockReset();
+    countActiveMembers.mockReset();
     leave.mockReset();
     kick.mockReset();
     delegateHost.mockReset();
@@ -61,6 +63,7 @@ describe('ClubMemberService', () => {
             updatePendingStatus,
             findPendingRequests,
             findActiveMembers,
+            countActiveMembers,
             leave,
             kick,
             delegateHost,
@@ -76,6 +79,7 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      capacity: 10,
       deletedAt: null,
     });
     findByClubAndUser.mockResolvedValue(null);
@@ -146,10 +150,12 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      capacity: 10,
       deletedAt: null,
     });
     updatePendingStatus.mockResolvedValue({ count: 1 });
-    findByClubAndUser.mockResolvedValue({
+    countActiveMembers.mockResolvedValue(9);
+    findByClubAndUser.mockResolvedValueOnce(member).mockResolvedValueOnce({
       ...member,
       status: ClubUserStatus.ACTIVE,
       joinedAt,
@@ -167,8 +173,29 @@ describe('ClubMemberService', () => {
       userId,
       status: ClubUserStatus.ACTIVE,
     });
+    expect(countActiveMembers).toHaveBeenCalledWith(clubId);
     expect(result.status).toBe(ClubUserStatus.ACTIVE);
     expect(result.joinedAt).toBe(joinedAt.toISOString());
+  });
+
+  it('정원이 가득 찬 클럽이면 가입 신청을 승인할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      capacity: 10,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue(member);
+    countActiveMembers.mockResolvedValue(10);
+
+    await expect(
+      service.updateJoinRequestStatus(hostUserId, clubId, userId, {
+        status: ClubUserStatus.ACTIVE,
+      }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_CAPACITY_EXCEEDED',
+    });
+    expect(updatePendingStatus).not.toHaveBeenCalled();
   });
 
   it('호스트가 아니면 승인/거절할 수 없다', async () => {
@@ -194,7 +221,7 @@ describe('ClubMemberService', () => {
       hostId: hostUserId,
       deletedAt: null,
     });
-    updatePendingStatus.mockResolvedValue({ count: 0 });
+    findByClubAndUser.mockResolvedValue(null);
 
     await expect(
       service.updateJoinRequestStatus(hostUserId, clubId, userId, {
@@ -203,6 +230,7 @@ describe('ClubMemberService', () => {
     ).rejects.toMatchObject({
       internalCode: 'CLUB_MEMBER_REQUEST_NOT_FOUND',
     });
+    expect(updatePendingStatus).not.toHaveBeenCalled();
   });
 
   it('호스트가 가입 신청 목록을 조회한다', async () => {

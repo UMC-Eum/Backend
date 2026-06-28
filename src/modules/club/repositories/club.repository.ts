@@ -8,11 +8,12 @@ export class ClubRepository {
   async findById(clubId: bigint): Promise<{
     id: bigint;
     hostId: bigint | null;
+    capacity: number;
     deletedAt: Date | null;
   } | null> {
     return this.prisma.club.findUnique({
       where: { id: clubId },
-      select: { id: true, hostId: true, deletedAt: true },
+      select: { id: true, hostId: true, capacity: true, deletedAt: true },
     });
   }
 }

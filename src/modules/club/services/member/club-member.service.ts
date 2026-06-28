@@ -83,6 +83,22 @@ export class ClubMemberService {
       throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
     }
 
+    const pending = await this.clubMemberRepository.findByClubAndUser(
+      clubId,
+      targetUserId,
+    );
+    if (!pending || pending.status !== ClubUserStatus.PENDING) {
+      throw new AppException('CLUB_MEMBER_REQUEST_NOT_FOUND');
+    }
+
+    if (dto.status === ClubUserStatus.ACTIVE) {
+      const activeMemberCount =
+        await this.clubMemberRepository.countActiveMembers(clubId);
+      if (activeMemberCount >= club.capacity) {
+        throw new AppException('CLUB_CAPACITY_EXCEEDED');
+      }
+    }
+
     const result = await this.clubMemberRepository.updatePendingStatus({
       clubId,
       userId: targetUserId,

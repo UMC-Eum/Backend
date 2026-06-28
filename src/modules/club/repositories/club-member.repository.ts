@@ -57,6 +57,15 @@ export class ClubMemberRepository {
     });
   }
 
+  countActiveMembers(clubId: bigint) {
+    return this.prisma.clubUser.count({
+      where: {
+        clubId,
+        status: ClubUserStatus.ACTIVE,
+      },
+    });
+  }
+
   createRequest({
     clubId,
     userId,

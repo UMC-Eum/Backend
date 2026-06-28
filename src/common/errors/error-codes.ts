@@ -232,6 +232,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-011',
     message: '호스트 권한은 다른 멤버에게 위임해야 합니다.',
   },
+  CLUB_CAPACITY_EXCEEDED: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-012',
+    message: '동호회 정원이 가득 찼습니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

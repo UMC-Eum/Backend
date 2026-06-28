@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
 import { NotificationService } from '../../notification/services/notification.service';
@@ -21,6 +21,8 @@ type CommentReplyEntity = CommentListEntity['replies'][number];
 
 @Injectable()
 export class CommentService {
+  private readonly logger = new Logger(CommentService.name);
+
   constructor(
     private readonly commentRepository: CommentRepository,
     private readonly notificationService: NotificationService,
@@ -85,26 +87,48 @@ export class CommentService {
       Number(parentComment.userId) !== userId &&
       comment.user
     ) {
-      await this.notificationService.createNotification(
-        Number(parentComment.userId),
-        NotificationType.COMMENT,
-        '내 댓글에 답글이 달렸어요.',
-        `${comment.user.nickname}님이 ${parentComment.user?.nickname ?? '회원'}님의 댓글에 답글을 남겼어요.`,
-        userId,
-      );
+      await this.createCommentNotification({
+        receiverId: Number(parentComment.userId),
+        title: '내 댓글에 답글이 달렸어요.',
+        body: `${comment.user.nickname}님이 ${parentComment.user?.nickname ?? '회원'}님의 댓글에 답글을 남겼어요.`,
+        senderId: userId,
+        context: 'reply',
+      });
     }
 
     if (article.userId && Number(article.userId) !== userId && comment.user) {
-      await this.notificationService.createNotification(
-        Number(article.userId),
-        NotificationType.COMMENT,
-        '내 게시물에 댓글이 달렸어요.',
-        `${comment.user.nickname}님이 ${article.user?.nickname ?? '회원'}님의 게시물에 댓글을 남겼어요.`,
-        userId,
-      );
+      await this.createCommentNotification({
+        receiverId: Number(article.userId),
+        title: '내 게시물에 댓글이 달렸어요.',
+        body: `${comment.user.nickname}님이 ${article.user?.nickname ?? '회원'}님의 게시물에 댓글을 남겼어요.`,
+        senderId: userId,
+        context: 'article',
+      });
     }
 
     return CreateCommentResponseDto.from(comment);
+  }
+
+  private async createCommentNotification(params: {
+    receiverId: number;
+    title: string;
+    body: string;
+    senderId: number;
+    context: 'article' | 'reply';
+  }): Promise<void> {
+    try {
+      await this.notificationService.createNotification(
+        params.receiverId,
+        NotificationType.COMMENT,
+        params.title,
+        params.body,
+        params.senderId,
+      );
+    } catch (e) {
+      this.logger.warn(
+        `createComment notification failed context=${params.context} receiverId=${params.receiverId}: ${String(e)}`,
+      );
+    }
   }
 
   async listComments(

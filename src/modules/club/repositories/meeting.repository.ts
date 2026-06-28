@@ -126,6 +126,7 @@ export class MeetingRepository {
   }
 
   async update(
+    clubId: bigint,
     meetingId: bigint,
     data: {
       name?: string;
@@ -148,7 +149,7 @@ export class MeetingRepository {
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<
         Array<{ id: bigint; deletedAt: Date | null }>
-      >`SELECT id, "deletedAt" FROM "Meeting" WHERE id = ${meetingId} FOR UPDATE`;
+      >`SELECT id, "deletedAt" FROM "Meeting" WHERE id = ${meetingId} AND "clubId" = ${clubId} FOR UPDATE`;
       if (rows.length === 0 || rows[0].deletedAt !== null) {
         return {
           meeting: null,
@@ -261,6 +262,7 @@ export class MeetingRepository {
   }
 
   async joinMeeting(
+    clubId: bigint,
     meetingId: bigint,
     clubUserId: bigint,
   ): Promise<{
@@ -278,7 +280,7 @@ export class MeetingRepository {
           joinPolicy: MeetingJoinPolicy;
           deletedAt: Date | null;
         }>
-      >`SELECT id, capacity, "joinPolicy", "deletedAt" FROM "Meeting" WHERE id = ${meetingId} FOR UPDATE`;
+      >`SELECT id, capacity, "joinPolicy", "deletedAt" FROM "Meeting" WHERE id = ${meetingId} AND "clubId" = ${clubId} FOR UPDATE`;
 
       if (rows.length === 0 || rows[0].deletedAt !== null) {
         return {
@@ -350,18 +352,25 @@ export class MeetingRepository {
   }
 
   async leaveMeeting(
+    clubId: bigint,
     meetingId: bigint,
     clubUserId: bigint,
     deletedAt: Date,
   ): Promise<number> {
     const result = await this.prisma.meetingMember.updateMany({
-      where: { meetingId, clubUserId, deletedAt: null },
+      where: {
+        meetingId,
+        clubUserId,
+        deletedAt: null,
+        meeting: { clubId },
+      },
       data: { deletedAt },
     });
     return result.count;
   }
 
   async listActiveMembers(
+    clubId: bigint,
     meetingId: bigint,
     cursor: { joinedAt: Date; id: bigint } | null,
     take: number,
@@ -370,6 +379,7 @@ export class MeetingRepository {
       where: {
         meetingId,
         deletedAt: null,
+        meeting: { clubId },
         ...(cursor
           ? {
               OR: [

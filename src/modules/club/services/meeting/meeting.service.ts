@@ -137,7 +137,7 @@ export class MeetingService {
       meeting: updated,
       capacityBelowAttendees,
       meetingMissing,
-    } = await this.meetingRepository.update(meetingId, {
+    } = await this.meetingRepository.update(clubId, meetingId, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.introText !== undefined ? { introText: dto.introText } : {}),
       ...(dto.spot !== undefined ? { spot: dto.spot } : {}),
@@ -235,7 +235,11 @@ export class MeetingService {
       meetingMissing,
       alreadyJoined,
       approvalRequired,
-    } = await this.meetingRepository.joinMeeting(meetingId, clubUser.id);
+    } = await this.meetingRepository.joinMeeting(
+      clubId,
+      meetingId,
+      clubUser.id,
+    );
     if (meetingMissing) {
       throw new AppException('MEETING_NOT_FOUND');
     }
@@ -290,6 +294,7 @@ export class MeetingService {
 
     const deletedAt = new Date();
     const affected = await this.meetingRepository.leaveMeeting(
+      clubId,
       meetingId,
       clubUser.id,
       deletedAt,
@@ -334,7 +339,12 @@ export class MeetingService {
 
     const [attendeeCount, rows] = await Promise.all([
       this.meetingRepository.countAttendees(meetingId),
-      this.meetingRepository.listActiveMembers(meetingId, cursor, size + 1),
+      this.meetingRepository.listActiveMembers(
+        clubId,
+        meetingId,
+        cursor,
+        size + 1,
+      ),
     ]);
 
     const hasMore = rows.length > size;

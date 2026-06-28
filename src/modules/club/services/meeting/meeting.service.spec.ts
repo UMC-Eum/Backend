@@ -306,6 +306,7 @@ describe('MeetingService', () => {
       );
 
       expect(update).toHaveBeenCalledWith(
+        clubId,
         meetingId,
         expect.objectContaining({
           recurrenceType: RecurrenceType.DAILY,
@@ -454,7 +455,11 @@ describe('MeetingService', () => {
       expect(result.clubUserId).toBe(Number(memberClubUserId));
       expect(result.userId).toBe(Number(memberUserId));
       expect(result.joinedAt).toMatch(/\+09:00$/);
-      expect(joinMeeting).toHaveBeenCalledWith(meetingId, memberClubUserId);
+      expect(joinMeeting).toHaveBeenCalledWith(
+        clubId,
+        meetingId,
+        memberClubUserId,
+      );
     });
 
     it('정원 초과면 MEETING_CAPACITY_EXCEEDED', async () => {
@@ -621,7 +626,12 @@ describe('MeetingService', () => {
       expect(result.attendees).toHaveLength(2);
       expect(result.hasMore).toBe(true);
       expect(result.nextCursor).not.toBeNull();
-      expect(listActiveMembers).toHaveBeenCalledWith(meetingId, null, 3);
+      expect(listActiveMembers).toHaveBeenCalledWith(
+        clubId,
+        meetingId,
+        null,
+        3,
+      );
     });
 
     it('마지막 페이지면 hasMore=false, nextCursor=null', async () => {

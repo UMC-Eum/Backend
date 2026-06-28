@@ -180,6 +180,44 @@ export class ClubMemberService {
     };
   }
 
+  async kick(
+    hostUserId: bigint,
+    clubId: bigint,
+    targetUserId: bigint,
+  ): Promise<LeaveClubMemberResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== hostUserId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+    if (hostUserId === targetUserId) {
+      throw new AppException('CLUB_HOST_KICK_FORBIDDEN');
+    }
+
+    const member = await this.clubMemberRepository.findByClubAndUser(
+      clubId,
+      targetUserId,
+    );
+    if (!member || member.status !== ClubUserStatus.ACTIVE) {
+      throw new AppException('CLUB_MEMBER_NOT_FOUND');
+    }
+
+    const kicked = await this.clubMemberRepository.kick(clubId, targetUserId);
+    if (!kicked.leftAt) {
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
+
+    return {
+      clubUserId: Number(kicked.id),
+      clubId: Number(kicked.clubId),
+      userId: Number(kicked.userId),
+      status: kicked.status,
+      leftAt: kicked.leftAt.toISOString(),
+    };
+  }
+
   private toResponse(member: ClubUser): ClubMemberResponseDto {
     return {
       clubUserId: Number(member.id),

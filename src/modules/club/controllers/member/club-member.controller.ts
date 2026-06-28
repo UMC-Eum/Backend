@@ -112,6 +112,28 @@ export class ClubMemberController {
     return this.clubMemberService.leave(BigInt(userId), BigInt(clubId));
   }
 
+  @Delete(':userId')
+  @ApiOperation({ summary: '동호회 멤버 강퇴 (호스트만)' })
+  @ApiOkResponse({
+    description: '동호회 멤버 강퇴 완료',
+    type: LeaveClubMemberResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: '호스트가 아니거나 자기 자신 강퇴 불가',
+  })
+  @ApiNotFoundResponse({ description: '클럽 또는 멤버를 찾을 수 없음' })
+  async kick(
+    @RequiredUserId() hostUserId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('userId', new ParsePositiveIntPipe()) userId: number,
+  ): Promise<LeaveClubMemberResponseDto> {
+    return this.clubMemberService.kick(
+      BigInt(hostUserId),
+      BigInt(clubId),
+      BigInt(userId),
+    );
+  }
+
   @Patch(':userId')
   @ApiOperation({ summary: '동호회 가입 신청 승인/거절 (호스트만)' })
   @ApiBody({ type: UpdateClubMemberStatusRequestDto })

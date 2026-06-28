@@ -217,6 +217,16 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-008',
     message: '호스트는 권한을 위임한 후 탈퇴할 수 있습니다.',
   },
+  CLUB_HOST_KICK_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-009',
+    message: '호스트는 자기 자신을 강퇴할 수 없습니다.',
+  },
+  CLUB_MEMBER_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-010',
+    message: '동호회 멤버를 찾을 수 없습니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

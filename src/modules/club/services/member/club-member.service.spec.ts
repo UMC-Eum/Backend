@@ -15,6 +15,7 @@ describe('ClubMemberService', () => {
   const findPendingRequests = jest.fn();
   const findActiveMembers = jest.fn();
   const leave = jest.fn();
+  const kick = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -43,6 +44,7 @@ describe('ClubMemberService', () => {
     findPendingRequests.mockReset();
     findActiveMembers.mockReset();
     leave.mockReset();
+    kick.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +60,7 @@ describe('ClubMemberService', () => {
             findPendingRequests,
             findActiveMembers,
             leave,
+            kick,
           },
         },
       ],
@@ -373,5 +376,85 @@ describe('ClubMemberService', () => {
       internalCode: 'CLUB_MEMBER_ONLY',
     });
     expect(leave).not.toHaveBeenCalled();
+  });
+
+  it('호스트가 ACTIVE 멤버를 강퇴한다', async () => {
+    const leftAt = new Date('2026-05-04T15:40:00.000Z');
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.ACTIVE,
+      joinedAt,
+    });
+    kick.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.KICKED,
+      joinedAt,
+      leftAt,
+    });
+
+    const result = await service.kick(hostUserId, clubId, userId);
+
+    expect(kick).toHaveBeenCalledWith(clubId, userId);
+    expect(result).toEqual({
+      clubUserId: 333,
+      clubId: 12,
+      userId: 42,
+      status: ClubUserStatus.KICKED,
+      leftAt: leftAt.toISOString(),
+    });
+  });
+
+  it('호스트가 아니면 강퇴할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: 999n,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.kick(hostUserId, clubId, userId),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+    });
+    expect(kick).not.toHaveBeenCalled();
+  });
+
+  it('호스트는 자기 자신을 강퇴할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.kick(hostUserId, clubId, hostUserId),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_HOST_KICK_FORBIDDEN',
+    });
+    expect(kick).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 멤버가 아니면 강퇴 대상이 아니다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.PENDING,
+    });
+
+    await expect(
+      service.kick(hostUserId, clubId, userId),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_MEMBER_NOT_FOUND',
+    });
+    expect(kick).not.toHaveBeenCalled();
   });
 });

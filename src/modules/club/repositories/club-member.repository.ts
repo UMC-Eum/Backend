@@ -144,4 +144,20 @@ export class ClubMemberRepository {
       },
     });
   }
+
+  kick(clubId: bigint, userId: bigint) {
+    return this.prisma.clubUser.update({
+      where: {
+        userId_clubId: {
+          userId,
+          clubId,
+        },
+      },
+      data: {
+        status: ClubUserStatus.KICKED,
+        authority: ClubAuthority.GENERAL,
+        leftAt: new Date(),
+      },
+    });
+  }
 }

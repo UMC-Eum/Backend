@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ClubUser, ClubUserStatus } from '@prisma/client';
+import { ClubAuthority, ClubUser, ClubUserStatus } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
@@ -11,6 +11,7 @@ import {
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
   LeaveClubMemberResponseDto,
+  UpdateClubMemberAuthorityRequestDto,
   UpdateClubMemberStatusRequestDto,
 } from '../../dtos/club-member.dto';
 
@@ -216,6 +217,45 @@ export class ClubMemberService {
       status: kicked.status,
       leftAt: kicked.leftAt.toISOString(),
     };
+  }
+
+  async updateAuthority(
+    hostUserId: bigint,
+    clubId: bigint,
+    targetUserId: bigint,
+    dto: UpdateClubMemberAuthorityRequestDto,
+  ): Promise<ClubMemberResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== hostUserId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    if (dto.authority === ClubAuthority.GENERAL) {
+      throw new AppException('CLUB_HOST_AUTHORITY_REQUIRED');
+    }
+
+    const member = await this.clubMemberRepository.findByClubAndUser(
+      clubId,
+      targetUserId,
+    );
+    if (!member || member.status !== ClubUserStatus.ACTIVE) {
+      throw new AppException('CLUB_MEMBER_NOT_FOUND');
+    }
+
+    if (member.authority === ClubAuthority.HOST) {
+      return this.toResponse(member);
+    }
+
+    const updated = await this.clubMemberRepository.delegateHost({
+      clubId,
+      currentHostUserId: hostUserId,
+      nextHostUserId: targetUserId,
+    });
+
+    return this.toResponse(updated);
   }
 
   private toResponse(member: ClubUser): ClubMemberResponseDto {

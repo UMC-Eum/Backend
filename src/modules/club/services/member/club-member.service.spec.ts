@@ -16,6 +16,7 @@ describe('ClubMemberService', () => {
   const findActiveMembers = jest.fn();
   const leave = jest.fn();
   const kick = jest.fn();
+  const delegateHost = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -45,6 +46,7 @@ describe('ClubMemberService', () => {
     findActiveMembers.mockReset();
     leave.mockReset();
     kick.mockReset();
+    delegateHost.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -61,6 +63,7 @@ describe('ClubMemberService', () => {
             findActiveMembers,
             leave,
             kick,
+            delegateHost,
           },
         },
       ],
@@ -456,5 +459,91 @@ describe('ClubMemberService', () => {
       internalCode: 'CLUB_MEMBER_NOT_FOUND',
     });
     expect(kick).not.toHaveBeenCalled();
+  });
+
+  it('호스트가 ACTIVE 멤버에게 호스트 권한을 위임한다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.ACTIVE,
+      joinedAt,
+    });
+    delegateHost.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.ACTIVE,
+      authority: ClubAuthority.HOST,
+      joinedAt,
+    });
+
+    const result = await service.updateAuthority(hostUserId, clubId, userId, {
+      authority: ClubAuthority.HOST,
+    });
+
+    expect(delegateHost).toHaveBeenCalledWith({
+      clubId,
+      currentHostUserId: hostUserId,
+      nextHostUserId: userId,
+    });
+    expect(result.authority).toBe(ClubAuthority.HOST);
+    expect(result.status).toBe(ClubUserStatus.ACTIVE);
+  });
+
+  it('호스트가 아니면 권한을 변경할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: 999n,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.updateAuthority(hostUserId, clubId, userId, {
+        authority: ClubAuthority.HOST,
+      }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
+    });
+    expect(delegateHost).not.toHaveBeenCalled();
+  });
+
+  it('단일 호스트 모델에서는 GENERAL 권한 변경을 허용하지 않는다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.updateAuthority(hostUserId, clubId, userId, {
+        authority: ClubAuthority.GENERAL,
+      }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_HOST_AUTHORITY_REQUIRED',
+    });
+    expect(delegateHost).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 멤버가 아니면 권한 변경 대상이 아니다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.PENDING,
+    });
+
+    await expect(
+      service.updateAuthority(hostUserId, clubId, userId, {
+        authority: ClubAuthority.HOST,
+      }),
+    ).rejects.toMatchObject({
+      internalCode: 'CLUB_MEMBER_NOT_FOUND',
+    });
+    expect(delegateHost).not.toHaveBeenCalled();
   });
 });

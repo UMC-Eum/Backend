@@ -30,6 +30,7 @@ import {
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
   LeaveClubMemberResponseDto,
+  UpdateClubMemberAuthorityRequestDto,
   UpdateClubMemberStatusRequestDto,
 } from '../../dtos/club-member.dto';
 
@@ -131,6 +132,29 @@ export class ClubMemberController {
       BigInt(hostUserId),
       BigInt(clubId),
       BigInt(userId),
+    );
+  }
+
+  @Patch(':userId/authority')
+  @ApiOperation({ summary: '동호회 호스트 권한 위임 (호스트만)' })
+  @ApiBody({ type: UpdateClubMemberAuthorityRequestDto })
+  @ApiOkResponse({
+    description: '동호회 권한 변경 완료',
+    type: ClubMemberResponseDto,
+  })
+  @ApiForbiddenResponse({ description: '호스트가 아니거나 권한 변경 불가' })
+  @ApiNotFoundResponse({ description: '클럽 또는 멤버를 찾을 수 없음' })
+  async updateAuthority(
+    @RequiredUserId() hostUserId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('userId', new ParsePositiveIntPipe()) userId: number,
+    @Body() dto: UpdateClubMemberAuthorityRequestDto,
+  ): Promise<ClubMemberResponseDto> {
+    return this.clubMemberService.updateAuthority(
+      BigInt(hostUserId),
+      BigInt(clubId),
+      BigInt(userId),
+      dto,
     );
   }
 

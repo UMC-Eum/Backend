@@ -227,6 +227,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-010',
     message: '동호회 멤버를 찾을 수 없습니다.',
   },
+  CLUB_HOST_AUTHORITY_REQUIRED: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-011',
+    message: '호스트 권한은 다른 멤버에게 위임해야 합니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

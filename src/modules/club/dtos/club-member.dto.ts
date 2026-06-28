@@ -25,6 +25,15 @@ export class UpdateClubMemberStatusRequestDto {
   status!: ClubUserStatus;
 }
 
+export class UpdateClubMemberAuthorityRequestDto {
+  @ApiProperty({
+    enum: [ClubAuthority.HOST, ClubAuthority.GENERAL],
+    example: ClubAuthority.HOST,
+  })
+  @IsIn([ClubAuthority.HOST, ClubAuthority.GENERAL])
+  authority!: ClubAuthority;
+}
+
 export class ClubMemberResponseDto {
   @ApiProperty({ example: 333 })
   clubUserId!: number;

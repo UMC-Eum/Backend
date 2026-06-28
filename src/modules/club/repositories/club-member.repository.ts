@@ -160,4 +160,43 @@ export class ClubMemberRepository {
       },
     });
   }
+
+  delegateHost({
+    clubId,
+    currentHostUserId,
+    nextHostUserId,
+  }: {
+    clubId: bigint;
+    currentHostUserId: bigint;
+    nextHostUserId: bigint;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.clubUser.update({
+        where: {
+          userId_clubId: {
+            userId: currentHostUserId,
+            clubId,
+          },
+        },
+        data: { authority: ClubAuthority.GENERAL },
+      });
+
+      const nextHost = await tx.clubUser.update({
+        where: {
+          userId_clubId: {
+            userId: nextHostUserId,
+            clubId,
+          },
+        },
+        data: { authority: ClubAuthority.HOST },
+      });
+
+      await tx.club.update({
+        where: { id: clubId },
+        data: { hostId: nextHostUserId },
+      });
+
+      return nextHost;
+    });
+  }
 }

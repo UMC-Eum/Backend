@@ -212,6 +212,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-007',
     message: '동호회 멤버만 이용할 수 있습니다.',
   },
+  CLUB_HOST_LEAVE_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-008',
+    message: '호스트는 권한을 위임한 후 탈퇴할 수 있습니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

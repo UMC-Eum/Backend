@@ -128,4 +128,20 @@ export class ClubMemberRepository {
       },
     });
   }
+
+  leave(clubId: bigint, userId: bigint) {
+    return this.prisma.clubUser.update({
+      where: {
+        userId_clubId: {
+          userId,
+          clubId,
+        },
+      },
+      data: {
+        status: ClubUserStatus.LEFT,
+        authority: ClubAuthority.GENERAL,
+        leftAt: new Date(),
+      },
+    });
+  }
 }

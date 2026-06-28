@@ -547,6 +547,7 @@ Enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 Enum MeetingJoinPolicy {

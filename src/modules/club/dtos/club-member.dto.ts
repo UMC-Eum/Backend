@@ -110,3 +110,20 @@ export class ClubMemberListResponseDto {
   @ApiProperty({ type: [ClubMemberListItemDto] })
   items!: ClubMemberListItemDto[];
 }
+
+export class LeaveClubMemberResponseDto {
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ example: 12 })
+  clubId!: number;
+
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({ enum: ClubUserStatus, example: ClubUserStatus.LEFT })
+  status!: ClubUserStatus;
+
+  @ApiProperty({ example: '2026-05-03T15:40:00.000Z' })
+  leftAt!: string;
+}

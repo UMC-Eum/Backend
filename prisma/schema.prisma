@@ -80,6 +80,7 @@ enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 enum MeetingJoinPolicy {

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -28,6 +29,7 @@ import {
   ClubMemberRequestListResponseDto,
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
+  LeaveClubMemberResponseDto,
   UpdateClubMemberStatusRequestDto,
 } from '../../dtos/club-member.dto';
 
@@ -91,6 +93,23 @@ export class ClubMemberController {
       BigInt(clubId),
       dto,
     );
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: '동호회 탈퇴' })
+  @ApiOkResponse({
+    description: '동호회 탈퇴 완료',
+    type: LeaveClubMemberResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: '동호회 멤버가 아니거나 호스트 탈퇴 불가',
+  })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  async leave(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<LeaveClubMemberResponseDto> {
+    return this.clubMemberService.leave(BigInt(userId), BigInt(clubId));
   }
 
   @Patch(':userId')

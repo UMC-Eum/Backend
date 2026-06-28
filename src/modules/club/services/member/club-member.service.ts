@@ -10,6 +10,7 @@ import {
   ClubMemberRequestItemDto,
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
+  LeaveClubMemberResponseDto,
   UpdateClubMemberStatusRequestDto,
 } from '../../dtos/club-member.dto';
 
@@ -44,7 +45,10 @@ export class ClubMemberService {
       return this.toResponse(created);
     }
 
-    if (existing.status === ClubUserStatus.REJECTED) {
+    if (
+      existing.status === ClubUserStatus.REJECTED ||
+      existing.status === ClubUserStatus.LEFT
+    ) {
       const updated = await this.clubMemberRepository.resubmitRequest({
         clubId,
         userId,
@@ -139,6 +143,40 @@ export class ClubMemberService {
 
     return {
       items: members.map((member) => this.toMemberListItem(member)),
+    };
+  }
+
+  async leave(
+    userId: bigint,
+    clubId: bigint,
+  ): Promise<LeaveClubMemberResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId === userId) {
+      throw new AppException('CLUB_HOST_LEAVE_FORBIDDEN');
+    }
+
+    const member = await this.clubMemberRepository.findByClubAndUser(
+      clubId,
+      userId,
+    );
+    if (!member || member.status !== ClubUserStatus.ACTIVE) {
+      throw new AppException('CLUB_MEMBER_ONLY');
+    }
+
+    const left = await this.clubMemberRepository.leave(clubId, userId);
+    if (!left.leftAt) {
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
+
+    return {
+      clubUserId: Number(left.id),
+      clubId: Number(left.clubId),
+      userId: Number(left.userId),
+      status: left.status,
+      leftAt: left.leftAt.toISOString(),
     };
   }
 

@@ -14,6 +14,7 @@ describe('ClubMemberService', () => {
   const updatePendingStatus = jest.fn();
   const findPendingRequests = jest.fn();
   const findActiveMembers = jest.fn();
+  const leave = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -41,6 +42,7 @@ describe('ClubMemberService', () => {
     updatePendingStatus.mockReset();
     findPendingRequests.mockReset();
     findActiveMembers.mockReset();
+    leave.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,6 +57,7 @@ describe('ClubMemberService', () => {
             updatePendingStatus,
             findPendingRequests,
             findActiveMembers,
+            leave,
           },
         },
       ],
@@ -309,5 +312,66 @@ describe('ClubMemberService', () => {
       internalCode: 'CLUB_MEMBER_ONLY',
     });
     expect(findActiveMembers).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 멤버가 탈퇴한다', async () => {
+    const leftAt = new Date('2026-05-03T15:40:00.000Z');
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.ACTIVE,
+      joinedAt,
+    });
+    leave.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.LEFT,
+      joinedAt,
+      leftAt,
+    });
+
+    const result = await service.leave(userId, clubId);
+
+    expect(leave).toHaveBeenCalledWith(clubId, userId);
+    expect(result).toEqual({
+      clubUserId: 333,
+      clubId: 12,
+      userId: 42,
+      status: ClubUserStatus.LEFT,
+      leftAt: leftAt.toISOString(),
+    });
+  });
+
+  it('호스트는 권한 위임 전 탈퇴할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: userId,
+      deletedAt: null,
+    });
+
+    await expect(service.leave(userId, clubId)).rejects.toMatchObject({
+      internalCode: 'CLUB_HOST_LEAVE_FORBIDDEN',
+    });
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 멤버가 아니면 탈퇴할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.PENDING,
+    });
+
+    await expect(service.leave(userId, clubId)).rejects.toMatchObject({
+      internalCode: 'CLUB_MEMBER_ONLY',
+    });
+    expect(leave).not.toHaveBeenCalled();
   });
 });

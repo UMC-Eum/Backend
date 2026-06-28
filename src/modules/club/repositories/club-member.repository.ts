@@ -37,6 +37,26 @@ export class ClubMemberRepository {
     });
   }
 
+  findActiveMembers(clubId: bigint) {
+    return this.prisma.clubUser.findMany({
+      where: {
+        clubId,
+        status: ClubUserStatus.ACTIVE,
+      },
+      include: {
+        user: {
+          select: {
+            nickname: true,
+            profileImageUrl: true,
+            age: true,
+            sex: true,
+          },
+        },
+      },
+      orderBy: [{ authority: 'desc' }, { joinedAt: 'asc' }],
+    });
+  }
+
   createRequest({
     clubId,
     userId,

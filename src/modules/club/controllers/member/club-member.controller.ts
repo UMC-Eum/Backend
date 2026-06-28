@@ -24,6 +24,7 @@ import { RequiredUserId } from '../../../auth/decorators';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
 import { ClubMemberService } from '../../services/member/club-member.service';
 import {
+  ClubMemberListResponseDto,
   ClubMemberRequestListResponseDto,
   ClubMemberResponseDto,
   CreateClubMemberRequestDto,
@@ -54,6 +55,21 @@ export class ClubMemberController {
       BigInt(hostUserId),
       BigInt(clubId),
     );
+  }
+
+  @Get()
+  @ApiOperation({ summary: '동호회 가입자 목록 조회 (멤버만)' })
+  @ApiOkResponse({
+    description: '가입자 목록 조회 완료',
+    type: ClubMemberListResponseDto,
+  })
+  @ApiForbiddenResponse({ description: '동호회 멤버가 아님' })
+  @ApiNotFoundResponse({ description: '클럽을 찾을 수 없음' })
+  async getMembers(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+  ): Promise<ClubMemberListResponseDto> {
+    return this.clubMemberService.getMembers(BigInt(userId), BigInt(clubId));
   }
 
   @Post()

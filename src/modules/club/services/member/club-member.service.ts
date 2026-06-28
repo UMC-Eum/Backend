@@ -4,6 +4,8 @@ import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
 import {
+  ClubMemberListItemDto,
+  ClubMemberListResponseDto,
   ClubMemberRequestListResponseDto,
   ClubMemberRequestItemDto,
   ClubMemberResponseDto,
@@ -116,6 +118,30 @@ export class ClubMemberService {
     };
   }
 
+  async getMembers(
+    userId: bigint,
+    clubId: bigint,
+  ): Promise<ClubMemberListResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    const requester = await this.clubMemberRepository.findByClubAndUser(
+      clubId,
+      userId,
+    );
+    if (!requester || requester.status !== ClubUserStatus.ACTIVE) {
+      throw new AppException('CLUB_MEMBER_ONLY');
+    }
+
+    const members = await this.clubMemberRepository.findActiveMembers(clubId);
+
+    return {
+      items: members.map((member) => this.toMemberListItem(member)),
+    };
+  }
+
   private toResponse(member: ClubUser): ClubMemberResponseDto {
     return {
       clubUserId: Number(member.id),
@@ -145,6 +171,30 @@ export class ClubMemberService {
       profileImageUrl: member.user.profileImageUrl,
       age: member.user.age,
       sex: member.user.sex,
+    };
+  }
+
+  private toMemberListItem(
+    member: ClubUser & {
+      user: {
+        nickname: string;
+        profileImageUrl: string;
+        age: number;
+        sex: string;
+      };
+    },
+  ): ClubMemberListItemDto {
+    return {
+      clubUserId: Number(member.id),
+      clubId: Number(member.clubId),
+      userId: Number(member.userId),
+      authority: member.authority,
+      status: member.status,
+      nickname: member.user.nickname,
+      profileImageUrl: member.user.profileImageUrl,
+      age: member.user.age,
+      sex: member.user.sex,
+      joinedAt: member.joinedAt?.toISOString() ?? null,
     };
   }
 }

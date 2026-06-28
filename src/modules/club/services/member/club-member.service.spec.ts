@@ -13,6 +13,7 @@ describe('ClubMemberService', () => {
   const resubmitRequest = jest.fn();
   const updatePendingStatus = jest.fn();
   const findPendingRequests = jest.fn();
+  const findActiveMembers = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -39,6 +40,7 @@ describe('ClubMemberService', () => {
     resubmitRequest.mockReset();
     updatePendingStatus.mockReset();
     findPendingRequests.mockReset();
+    findActiveMembers.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -52,6 +54,7 @@ describe('ClubMemberService', () => {
             resubmitRequest,
             updatePendingStatus,
             findPendingRequests,
+            findActiveMembers,
           },
         },
       ],
@@ -245,5 +248,66 @@ describe('ClubMemberService', () => {
       internalCode: 'CLUB_FORBIDDEN_NOT_HOST',
     });
     expect(findPendingRequests).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 멤버가 가입자 목록을 조회한다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.ACTIVE,
+      joinedAt,
+    });
+    findActiveMembers.mockResolvedValue([
+      {
+        ...member,
+        status: ClubUserStatus.ACTIVE,
+        joinedAt,
+        user: {
+          nickname: '홍길동',
+          profileImageUrl: 'https://example.com/profile.png',
+          age: 50,
+          sex: 'M',
+        },
+      },
+    ]);
+
+    const result = await service.getMembers(userId, clubId);
+
+    expect(findActiveMembers).toHaveBeenCalledWith(clubId);
+    expect(result.items).toEqual([
+      {
+        clubUserId: 333,
+        clubId: 12,
+        userId: 42,
+        authority: ClubAuthority.GENERAL,
+        status: ClubUserStatus.ACTIVE,
+        nickname: '홍길동',
+        profileImageUrl: 'https://example.com/profile.png',
+        age: 50,
+        sex: 'M',
+        joinedAt: joinedAt.toISOString(),
+      },
+    ]);
+  });
+
+  it('ACTIVE 멤버가 아니면 가입자 목록을 조회할 수 없다', async () => {
+    findClubById.mockResolvedValue({
+      id: clubId,
+      hostId: hostUserId,
+      deletedAt: null,
+    });
+    findByClubAndUser.mockResolvedValue({
+      ...member,
+      status: ClubUserStatus.PENDING,
+    });
+
+    await expect(service.getMembers(userId, clubId)).rejects.toMatchObject({
+      internalCode: 'CLUB_MEMBER_ONLY',
+    });
+    expect(findActiveMembers).not.toHaveBeenCalled();
   });
 });

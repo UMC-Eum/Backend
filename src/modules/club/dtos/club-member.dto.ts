@@ -71,3 +71,42 @@ export class ClubMemberRequestListResponseDto {
   @ApiProperty({ type: [ClubMemberRequestItemDto] })
   items!: ClubMemberRequestItemDto[];
 }
+
+export class ClubMemberListItemDto {
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ example: 12 })
+  clubId!: number;
+
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({ enum: ClubAuthority, example: ClubAuthority.GENERAL })
+  authority!: ClubAuthority;
+
+  @ApiProperty({ enum: ClubUserStatus, example: ClubUserStatus.ACTIVE })
+  status!: ClubUserStatus;
+
+  @ApiProperty({ example: '홍길동' })
+  nickname!: string;
+
+  @ApiProperty({
+    example: 'https://example.com/assets/profile-placeholder.png',
+  })
+  profileImageUrl!: string;
+
+  @ApiProperty({ example: 50 })
+  age!: number;
+
+  @ApiProperty({ example: 'M' })
+  sex!: string;
+
+  @ApiProperty({ example: '2026-05-02T15:40:00.000Z' })
+  joinedAt!: string | null;
+}
+
+export class ClubMemberListResponseDto {
+  @ApiProperty({ type: [ClubMemberListItemDto] })
+  items!: ClubMemberListItemDto[];
+}

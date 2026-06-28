@@ -207,6 +207,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-006',
     message: '가입 신청을 찾을 수 없습니다.',
   },
+  CLUB_MEMBER_ONLY: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-007',
+    message: '동호회 멤버만 이용할 수 있습니다.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

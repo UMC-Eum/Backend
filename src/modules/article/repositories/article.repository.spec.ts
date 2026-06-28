@@ -1,11 +1,11 @@
-import { ClubAuthority } from '@prisma/client';
+import { ClubAuthority, type Prisma } from '@prisma/client';
 import { ArticleRepository } from './article.repository';
 
 describe('ArticleRepository', () => {
   let repository: ArticleRepository;
 
   const articleModel = {
-    findMany: jest.fn(),
+    findMany: jest.fn<Promise<unknown[]>, [Prisma.ArticleFindManyArgs]>(),
     findFirst: jest.fn(),
     update: jest.fn(),
   };
@@ -78,13 +78,11 @@ describe('ArticleRepository', () => {
         take: 20,
       });
 
-      expect(articleModel.findMany).toHaveBeenCalledWith(
+      const findManyArgs = articleModel.findMany.mock.calls[0][0];
+
+      expect(findManyArgs.include?.articlePhotos).toEqual(
         expect.objectContaining({
-          include: expect.objectContaining({
-            articlePhotos: expect.objectContaining({
-              where: { deletedAt: null },
-            }),
-          }),
+          where: { deletedAt: null },
         }),
       );
     });

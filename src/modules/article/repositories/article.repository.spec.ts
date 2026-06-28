@@ -5,6 +5,7 @@ describe('ArticleRepository', () => {
   let repository: ArticleRepository;
 
   const articleModel = {
+    findMany: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
   };
@@ -26,6 +27,7 @@ describe('ArticleRepository', () => {
           clubUser: clubUserModel,
         }),
     ),
+    article: articleModel,
     club: clubModel,
     clubUser: clubUserModel,
   };
@@ -64,6 +66,27 @@ describe('ArticleRepository', () => {
       clubUserModel.findFirst.mockResolvedValue(null);
 
       await expect(repository.existsActiveClubUser(1, 20)).resolves.toBe(false);
+    });
+  });
+
+  describe('findArticlesByClub', () => {
+    it('filters out soft-deleted article photos', async () => {
+      articleModel.findMany.mockResolvedValue([]);
+
+      await repository.findArticlesByClub(20, {
+        sort: 'recent',
+        take: 20,
+      });
+
+      expect(articleModel.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            articlePhotos: expect.objectContaining({
+              where: { deletedAt: null },
+            }),
+          }),
+        }),
+      );
     });
   });
 

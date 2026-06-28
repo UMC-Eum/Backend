@@ -174,6 +174,7 @@ export class ArticleRepository {
           },
         },
         articlePhotos: {
+          where: { deletedAt: null },
           select: {
             id: true,
             photoUrl: true,

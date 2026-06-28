@@ -2,13 +2,16 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -25,12 +28,15 @@ import {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
   DeleteMeetingResponseDto,
+  GetMeetingDetailResponseDto,
+  UpdateMeetingRequestDto,
+  UpdateMeetingResponseDto,
 } from '../../dtos/meeting.dto';
 
 @ApiTags('Meeting')
 @ApiBearerAuth('access-token')
 @ApiUnauthorizedResponse({ description: '로그인 필요' })
-@ApiForbiddenResponse({ description: '호스트가 아님' })
+@ApiForbiddenResponse({ description: '권한 없음' })
 @UseGuards(AccessTokenGuard)
 @Controller('clubs/:clubId/meetings')
 export class MeetingController {
@@ -52,6 +58,50 @@ export class MeetingController {
     return this.meetingService.createMeeting(
       BigInt(userId),
       BigInt(clubId),
+      dto,
+    );
+  }
+
+  @Get(':meetingId')
+  @ApiOperation({ summary: '정모 상세 조회 (클럽 가입자만)' })
+  @ApiOkResponse({
+    description: '정모 상세 조회 성공',
+    type: GetMeetingDetailResponseDto,
+  })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  async getMeetingDetail(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+  ): Promise<GetMeetingDetailResponseDto> {
+    return this.meetingService.getMeetingDetail(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
+    );
+  }
+
+  @Patch(':meetingId')
+  @ApiOperation({ summary: '정모 수정 (호스트만)' })
+  @ApiBody({ type: UpdateMeetingRequestDto })
+  @ApiOkResponse({
+    description: '정모 수정 완료',
+    type: UpdateMeetingResponseDto,
+  })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  @ApiConflictResponse({
+    description: '현재 참석자 수보다 수용 인원을 낮출 수 없음',
+  })
+  async updateMeeting(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+    @Body() dto: UpdateMeetingRequestDto,
+  ): Promise<UpdateMeetingResponseDto> {
+    return this.meetingService.updateMeeting(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
       dto,
     );
   }

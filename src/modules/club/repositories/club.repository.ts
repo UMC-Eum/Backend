@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ClubUserStatus } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -13,6 +14,21 @@ export class ClubRepository {
     return this.prisma.club.findUnique({
       where: { id: clubId },
       select: { id: true, hostId: true, deletedAt: true },
+    });
+  }
+
+  async findActiveClubUser(
+    userId: bigint,
+    clubId: bigint,
+  ): Promise<{ id: bigint } | null> {
+    return this.prisma.clubUser.findFirst({
+      where: {
+        userId,
+        clubId,
+        status: ClubUserStatus.ACTIVE,
+        leftAt: null,
+      },
+      select: { id: true },
     });
   }
 }

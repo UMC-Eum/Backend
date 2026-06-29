@@ -39,6 +39,10 @@ export class OnboardingController {
 
       return result;
     } catch (err) {
+      if (err instanceof AppException) {
+        throw err;
+      }
+
       throw new AppException('PROFILE_NOT_REGISTERED', {
         details: err,
       });

@@ -73,6 +73,8 @@ export class OnboardingAiService {
       user_id: userId,
     });
 
+    this.assertFastApiSuccess(result, this.profileAnalysisPath);
+
     const payloadData = this.extractPayloadData(result);
 
     const selectedKeywordsFromList = this.extractKeywordsFromMatchedKeywords(
@@ -87,6 +89,11 @@ export class OnboardingAiService {
     const vibeVector = this.pickNumberArray(
       payloadData.vibeVector,
       payloadData.vibe_vector,
+    );
+    this.assertNonEmptyArray(
+      vibeVector,
+      this.profileAnalysisPath,
+      'vibeVector',
     );
 
     return {
@@ -156,6 +163,8 @@ export class OnboardingAiService {
       analysis_type: dto.analysis_type,
     });
 
+    this.assertFastApiSuccess(result, this.clubVibeAnalysisPath);
+
     const payloadData = this.extractPayloadData(result);
     const matchedKeywords = this.extractMatchedKeywordObjects(
       payloadData.matchedKeywords,
@@ -165,6 +174,11 @@ export class OnboardingAiService {
     const vibeVector = this.pickNumberArray(
       payloadData.vibeVector,
       payloadData.vibe_vector,
+    );
+    this.assertNonEmptyArray(
+      vibeVector,
+      this.clubVibeAnalysisPath,
+      'vibeVector',
     );
 
     return {
@@ -362,6 +376,47 @@ export class OnboardingAiService {
       : result.data && typeof result.data === 'object' && result.data !== null
         ? (result.data as Record<string, unknown>)
         : (result as Record<string, unknown>);
+  }
+
+  private assertFastApiSuccess(result: unknown, path: string): void {
+    if (typeof result !== 'object' || result === null) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: {
+          path,
+          message: 'Invalid response shape from FastAPI',
+          result,
+        },
+      });
+    }
+
+    const record = result as Record<string, unknown>;
+    if (record.resultType === 'FAIL' || record.success === null) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: {
+          path,
+          message: 'FastAPI returned failure response',
+          result,
+        },
+      });
+    }
+  }
+
+  private assertNonEmptyArray<T>(
+    value: T[],
+    path: string,
+    field: string,
+  ): void {
+    if (value.length > 0) {
+      return;
+    }
+
+    throw new AppException('SERVER_TEMPORARY_ERROR', {
+      details: {
+        path,
+        field,
+        message: 'Required analysis field is missing or empty',
+      },
+    });
   }
 
   private extractKeywordsFromMatchedKeywords(

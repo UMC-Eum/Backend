@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppException } from '../../../common/errors/app.exception';
 import {
   PushTokenResponseDto,
   RegisterPushTokenDto,
@@ -15,12 +16,20 @@ export class PushDeviceTokenService {
     userId: number,
     dto: RegisterPushTokenDto,
   ): Promise<PushTokenResponseDto> {
+    const normalizedToken = dto.token.trim();
+
+    if (!normalizedToken) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        details: { field: 'token' },
+      });
+    }
+
     const token = await this.pushDeviceTokenRepository.upsertToken({
       userId,
-      token: dto.token,
+      token: normalizedToken,
       platform: dto.platform,
-      deviceId: dto.deviceId,
-      appVersion: dto.appVersion,
+      deviceId: dto.deviceId?.trim() || undefined,
+      appVersion: dto.appVersion?.trim() || undefined,
     });
 
     return {
@@ -31,6 +40,14 @@ export class PushDeviceTokenService {
   }
 
   async revokeToken(userId: number, token: string): Promise<void> {
-    await this.pushDeviceTokenRepository.revokeToken(userId, token);
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        details: { field: 'token' },
+      });
+    }
+
+    await this.pushDeviceTokenRepository.revokeToken(userId, normalizedToken);
   }
 }

@@ -1,6 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PushPlatform } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class RegisterPushTokenDto {
   @ApiProperty({
@@ -8,6 +14,7 @@ export class RegisterPushTokenDto {
     example: 'fcm-registration-token',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(512)
   token!: string;
 
@@ -37,6 +44,7 @@ export class RevokePushTokenDto {
     example: 'fcm-registration-token',
   })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(512)
   token!: string;
 }

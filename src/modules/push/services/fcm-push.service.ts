@@ -13,6 +13,7 @@ const INVALID_TOKEN_ERROR_CODES = new Set([
   'messaging/invalid-registration-token',
   'messaging/registration-token-not-registered',
 ]);
+const FCM_MULTICAST_TOKEN_LIMIT = 500;
 
 @Injectable()
 export class FcmPushService {
@@ -36,55 +37,75 @@ export class FcmPushService {
 
     const tokenRecords =
       await this.pushDeviceTokenRepository.findActiveTokensByUserId(userId);
-    const tokens = tokenRecords.map((record) => record.token);
+    const tokens = tokenRecords
+      .map((record) => record.token.trim())
+      .filter((token) => token.length > 0);
 
     if (tokens.length === 0) {
       return;
     }
 
-    const message: MulticastMessage = {
-      tokens,
-      notification: {
-        title: notification.title,
-        body: notification.body,
-      },
-      data: {
-        notificationId: notification.id.toString(),
-        type: notification.type,
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
+    const invalidTokens: string[] = [];
+    let failureCount = 0;
+
+    for (
+      let index = 0;
+      index < tokens.length;
+      index += FCM_MULTICAST_TOKEN_LIMIT
+    ) {
+      const tokenChunk = tokens.slice(index, index + FCM_MULTICAST_TOKEN_LIMIT);
+      const chunkNumber = Math.floor(index / FCM_MULTICAST_TOKEN_LIMIT) + 1;
+      const message: MulticastMessage = {
+        tokens: tokenChunk,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+        },
+        data: {
+          notificationId: notification.id.toString(),
+          type: String(notification.type),
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+            },
           },
         },
-      },
-      android: {
-        notification: {
-          sound: 'default',
-          channelId: 'default',
+        android: {
+          notification: {
+            sound: 'default',
+            channelId: 'default',
+          },
         },
-      },
-    };
+      };
 
-    const response = await this.messaging.sendEachForMulticast(message);
-    const invalidTokens: string[] = [];
+      try {
+        const response = await this.messaging.sendEachForMulticast(message);
+        failureCount += response.failureCount;
 
-    response.responses.forEach((sendResponse, index) => {
-      const errorCode = sendResponse.error?.code;
+        response.responses.forEach((sendResponse, responseIndex) => {
+          const errorCode = sendResponse.error?.code;
 
-      if (errorCode && INVALID_TOKEN_ERROR_CODES.has(errorCode)) {
-        invalidTokens.push(tokens[index]);
+          if (errorCode && INVALID_TOKEN_ERROR_CODES.has(errorCode)) {
+            invalidTokens.push(tokenChunk[responseIndex]);
+          }
+        });
+      } catch (e) {
+        failureCount += tokenChunk.length;
+        this.logger.warn(
+          `FCM chunk send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenCount=${tokenChunk.length}: ${String(e)}`,
+        );
       }
-    });
+    }
 
     if (invalidTokens.length > 0) {
       await this.pushDeviceTokenRepository.revokeTokens(invalidTokens);
     }
 
-    if (response.failureCount > invalidTokens.length) {
+    if (failureCount > invalidTokens.length) {
       this.logger.warn(
-        `FCM send completed with ${response.failureCount} failures notificationId=${notification.id.toString()}`,
+        `FCM send completed with ${failureCount} failures notificationId=${notification.id.toString()}`,
       );
     }
   }

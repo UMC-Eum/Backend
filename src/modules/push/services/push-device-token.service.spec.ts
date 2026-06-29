@@ -24,10 +24,10 @@ describe('PushDeviceTokenService', () => {
     });
 
     const result = await service.registerToken(10, {
-      token: 'fcm-token',
+      token: ' fcm-token ',
       platform: PushPlatform.IOS,
-      deviceId: 'device-id',
-      appVersion: '1.0.0',
+      deviceId: ' device-id ',
+      appVersion: ' 1.0.0 ',
     });
 
     expect(repository.upsertToken).toHaveBeenCalledWith({
@@ -44,10 +44,22 @@ describe('PushDeviceTokenService', () => {
     });
   });
 
+  it('rejects a blank push token', async () => {
+    await expect(
+      service.registerToken(10, {
+        token: '   ',
+        platform: PushPlatform.IOS,
+      }),
+    ).rejects.toMatchObject({
+      internalCode: 'VALIDATION_INVALID_FORMAT',
+    });
+    expect(repository.upsertToken).not.toHaveBeenCalled();
+  });
+
   it('revokes a push token', async () => {
     repository.revokeToken.mockResolvedValue({ count: 1 });
 
-    await service.revokeToken(10, 'fcm-token');
+    await service.revokeToken(10, ' fcm-token ');
 
     expect(repository.revokeToken).toHaveBeenCalledWith(10, 'fcm-token');
   });

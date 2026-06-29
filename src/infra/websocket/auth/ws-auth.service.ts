@@ -141,7 +141,7 @@ export class WsAuthService {
       const userId = Number(userRecord.id);
 
       client.data.userId = userId;
-      client.join(toUserRoom(userId));
+      await client.join(toUserRoom(userId));
 
       return userId;
     } catch (e) {

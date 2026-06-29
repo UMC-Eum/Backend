@@ -176,6 +176,23 @@ export const ERROR_DEFINITIONS = {
     message: '차단 상태에서는 채팅 기능을 이용할 수 없어요.',
   },
 
+  // ARTICLE
+  ARTICLE_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'ARTICLE-001',
+    message: '게시글을 찾을 수 없습니다.',
+  },
+  ARTICLE_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'ARTICLE-002',
+    message: '게시글을 수정할 권한이 없습니다.',
+  },
+  ARTICLE_MEMBER_ONLY: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'ARTICLE-003',
+    message: '클럽 회원만 이용할 수 있는 기능이에요',
+  },
+
   // CLUB
   CLUB_NOT_FOUND: {
     status: HttpStatus.NOT_FOUND,

@@ -169,7 +169,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const chatRoomId = await this.chatSocketService.joinRoom(userId, body);
 
     const room = toChatRoom(chatRoomId);
-    client.join(room);
+    await client.join(room);
 
     return { ok: true, joined: room };
   }

@@ -527,6 +527,7 @@ Enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
   PROFILE
   REMIND
   UPDATE

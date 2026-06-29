@@ -10,5 +10,6 @@ import { MeetingRepository } from './repositories/meeting.repository';
   imports: [AuthModule, PrismaModule],
   controllers: [MeetingController],
   providers: [MeetingService, ClubRepository, MeetingRepository],
+  exports: [ClubRepository],
 })
 export class ClubModule {}

@@ -237,6 +237,32 @@ export class UserRepository {
     });
   }
 
+  findMyLikedClubs(userId: number) {
+    return this.prismaService.clubLike.findMany({
+      where: {
+        userId: BigInt(userId),
+        club: { deletedAt: null },
+      },
+      select: {
+        createdAt: true,
+        club: {
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+            clubUsers: {
+              where: { status: ClubUserStatus.ACTIVE },
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   findAddressByCode(code: string) {
     return this.prismaService.address.findUnique({
       where: { code },

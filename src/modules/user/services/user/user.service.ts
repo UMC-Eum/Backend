@@ -5,7 +5,10 @@ import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-requ
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
-import { UserClubsResponseDto } from '../../dtos/user-clubs-response.dto';
+import {
+  UserClubsResponseDto,
+  UserLikedClubsResponseDto,
+} from '../../dtos/user-clubs-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
 @Injectable()
@@ -110,6 +113,26 @@ export class UserService {
         memberCount: membership.club.clubUsers.length,
         authority: membership.authority,
         joinedAt: membership.joinedAt?.toISOString() ?? '',
+      })),
+    };
+  }
+
+  async getMyLikedClubs(userId: number): Promise<UserLikedClubsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const likes = await this.userRepository.findMyLikedClubs(userId);
+
+    return {
+      items: likes.map((like) => ({
+        clubId: Number(like.club.id),
+        name: like.club.name,
+        thumbnailUrl: like.club.thumbnailUrl,
+        category: like.club.category,
+        introText: like.club.introText,
+        memberCount: like.club.clubUsers.length,
+        likedAt: like.createdAt.toISOString(),
       })),
     };
   }

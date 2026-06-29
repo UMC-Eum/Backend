@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
+import { ClubRepository } from '../../club/repositories/club.repository';
 import { NotificationService } from '../../notification/services/notification.service';
 import {
   CommentListAuthorDto,
@@ -25,6 +26,7 @@ export class CommentService {
 
   constructor(
     private readonly commentRepository: CommentRepository,
+    private readonly clubRepository: ClubRepository,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -34,7 +36,7 @@ export class CommentService {
     articleId: number,
     dto: CreateCommentRequestDto,
   ): Promise<CreateCommentResponseDto> {
-    const club = await this.commentRepository.findClubById(BigInt(clubId));
+    const club = await this.clubRepository.findById(BigInt(clubId));
 
     if (!club || club.deletedAt) {
       throw new AppException('CLUB_NOT_FOUND');
@@ -49,9 +51,9 @@ export class CommentService {
       throw new AppException('ARTICLE_NOT_FOUND');
     }
 
-    const clubUser = await this.commentRepository.findActiveClubUser(
-      BigInt(clubId),
+    const clubUser = await this.clubRepository.findActiveClubUser(
       BigInt(userId),
+      BigInt(clubId),
     );
 
     if (!clubUser) {
@@ -224,9 +226,9 @@ export class CommentService {
   ) {
     await this.validateArticleExists(clubId, articleId);
 
-    const clubUser = await this.commentRepository.findActiveClubUser(
-      BigInt(clubId),
+    const clubUser = await this.clubRepository.findActiveClubUser(
       BigInt(userId),
+      BigInt(clubId),
     );
 
     if (!clubUser) {
@@ -238,7 +240,7 @@ export class CommentService {
     clubId: number,
     articleId: number,
   ): Promise<void> {
-    const club = await this.commentRepository.findClubById(BigInt(clubId));
+    const club = await this.clubRepository.findById(BigInt(clubId));
 
     if (!club || club.deletedAt) {
       throw new AppException('CLUB_NOT_FOUND');

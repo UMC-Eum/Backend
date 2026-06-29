@@ -4,14 +4,13 @@ import { ClubAuthority, NotificationType } from '@prisma/client';
 import { CommentService } from './comment.service';
 import { CommentRepository } from '../repositories/comment.repository';
 import { AppException } from '../../../common/errors/app.exception';
+import { ClubRepository } from '../../club/repositories/club.repository';
 import { NotificationService } from '../../notification/services/notification.service';
 
 describe('CommentService', () => {
   let service: CommentService;
   const repository = {
-    findClubById: jest.fn(),
     findArticleByClubId: jest.fn(),
-    findActiveClubUser: jest.fn(),
     findParentComment: jest.fn(),
     createComment: jest.fn(),
     countComments: jest.fn(),
@@ -21,6 +20,10 @@ describe('CommentService', () => {
     existsActiveReply: jest.fn(),
     softDeleteComment: jest.fn(),
     softDeleteParentCommentWithReplies: jest.fn(),
+  };
+  const clubRepository = {
+    findById: jest.fn(),
+    findActiveClubUser: jest.fn(),
   };
   const notificationService = {
     createNotification: jest.fn(),
@@ -32,6 +35,7 @@ describe('CommentService', () => {
 
   beforeEach(async () => {
     Object.values(repository).forEach((mock) => mock.mockReset());
+    Object.values(clubRepository).forEach((mock) => mock.mockReset());
     Object.values(notificationService).forEach((mock) => mock.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
@@ -40,6 +44,10 @@ describe('CommentService', () => {
         {
           provide: CommentRepository,
           useValue: repository,
+        },
+        {
+          provide: ClubRepository,
+          useValue: clubRepository,
         },
         {
           provide: NotificationService,
@@ -56,9 +64,9 @@ describe('CommentService', () => {
   });
 
   it('댓글을 작성한다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.createComment.mockResolvedValue({
       id: 555n,
       articleId: 1n,
@@ -95,13 +103,13 @@ describe('CommentService', () => {
   });
 
   it('게시글에 댓글을 작성하면 게시글 작성자에게 알림을 생성한다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({
       id: 1n,
       userId: 2n,
       user: { nickname: '게시글작성자' },
     });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.createComment.mockResolvedValue({
       id: 555n,
       articleId: 1n,
@@ -133,13 +141,13 @@ describe('CommentService', () => {
   it('알림 생성에 실패해도 댓글 작성 응답은 성공한다', async () => {
     const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
 
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({
       id: 1n,
       userId: 2n,
       user: { nickname: '게시글작성자' },
     });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.createComment.mockResolvedValue({
       id: 555n,
       articleId: 1n,
@@ -175,9 +183,9 @@ describe('CommentService', () => {
   });
 
   it('답글을 작성하면 부모 댓글 작성자에게 알림을 생성한다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findParentComment.mockResolvedValue({
       id: 555n,
       depth: 0,
@@ -213,9 +221,9 @@ describe('CommentService', () => {
   });
 
   it('내 댓글에 내가 답글을 작성하면 알림을 생성하지 않는다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findParentComment.mockResolvedValue({
       id: 555n,
       depth: 0,
@@ -245,9 +253,9 @@ describe('CommentService', () => {
   });
 
   it('클럽 멤버가 아니면 댓글 작성이 거부된다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue(null);
+    clubRepository.findActiveClubUser.mockResolvedValue(null);
 
     await expect(
       service.createComment(userId, clubId, articleId, {
@@ -261,9 +269,9 @@ describe('CommentService', () => {
   });
 
   it('부모 댓글이 대댓글이면 COMMENT_DEPTH_EXCEEDED', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findParentComment.mockResolvedValue({ id: 2n, depth: 1 });
 
     await expect(
@@ -278,9 +286,9 @@ describe('CommentService', () => {
   });
 
   it('댓글 목록을 조회한다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
     repository.findCommentsWithReplies.mockResolvedValue([
       {
@@ -342,9 +350,9 @@ describe('CommentService', () => {
   });
 
   it('limit보다 결과가 많으면 nextCursor와 hasMore를 내려준다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue({ id: 10n });
+    clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
     repository.findCommentsWithReplies.mockResolvedValue([
       {
@@ -391,9 +399,9 @@ describe('CommentService', () => {
   });
 
   it('클럽 멤버가 아니면 댓글 목록 조회가 거부된다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
-    repository.findActiveClubUser.mockResolvedValue(null);
+    clubRepository.findActiveClubUser.mockResolvedValue(null);
 
     await expect(
       service.listComments(userId, clubId, articleId, {}),
@@ -405,7 +413,7 @@ describe('CommentService', () => {
   });
 
   it('댓글 작성자가 아니면 삭제가 거부된다', async () => {
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
@@ -419,7 +427,7 @@ describe('CommentService', () => {
     ).rejects.toMatchObject({
       internalCode: 'COMMENT_FORBIDDEN_NOT_AUTHOR',
     });
-    expect(repository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(clubRepository.findActiveClubUser).not.toHaveBeenCalled();
     expect(repository.existsActiveReply).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).not.toHaveBeenCalled();
     expect(
@@ -429,7 +437,7 @@ describe('CommentService', () => {
 
   it('자식 댓글은 그대로 soft delete 한다', async () => {
     const deletedAt = new Date('2026-05-01T15:25:00.000Z');
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
@@ -448,7 +456,7 @@ describe('CommentService', () => {
       commentId: 555,
       deletedAt: deletedAt.toISOString(),
     });
-    expect(repository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(clubRepository.findActiveClubUser).not.toHaveBeenCalled();
     expect(repository.existsActiveReply).not.toHaveBeenCalled();
     expect(repository.softDeleteComment).toHaveBeenCalledWith(
       555n,
@@ -461,7 +469,7 @@ describe('CommentService', () => {
 
   it('자식 댓글이 없는 부모 댓글은 그대로 soft delete 한다', async () => {
     const deletedAt = new Date('2026-05-01T15:25:00.000Z');
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,
@@ -493,7 +501,7 @@ describe('CommentService', () => {
 
   it('자식 댓글이 있는 부모 댓글은 내용과 작성자를 마스킹하고 soft delete 한다', async () => {
     const deletedAt = new Date('2026-05-01T15:25:00.000Z');
-    repository.findClubById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     repository.findCommentByArticleId.mockResolvedValue({
       id: 555n,

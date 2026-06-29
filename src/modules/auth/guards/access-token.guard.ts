@@ -24,6 +24,9 @@ function normalizeProvider(provider: string): AuthProvider {
   if (provider.toLowerCase() === 'kakao') {
     return AuthProvider.KAKAO;
   }
+  if (provider.toLowerCase() === 'local') {
+    return AuthProvider.LOCAL;
+  }
   return AuthProvider.KAKAO;
 }
 

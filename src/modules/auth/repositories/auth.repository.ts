@@ -12,6 +12,25 @@ export class AuthRepository {
     });
   }
 
+  findLocalAuthAccountByUsername(username: string) {
+    return this.prismaService.localAuthAccount.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        passwordHash: true,
+        isActive: true,
+        user: {
+          select: {
+            id: true,
+            nickname: true,
+            status: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+  }
+
   async rotateRefreshToken({
     userId,
     tokenHash,

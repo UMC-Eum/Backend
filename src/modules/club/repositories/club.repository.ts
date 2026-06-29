@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import {
   ActiveStatus,
   ClubAuthority,
-  ClubUserStatus,
   Prisma,
 } from '@prisma/client';
 import { toPgVectorLiteral } from '../../../common/utils/pgvector.util';
 import { AppException } from '../../../common/errors/app.exception';
+import { ClubUserStatus } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { ClubListSort } from '../dtos/club.dto';
 import {
@@ -557,5 +557,18 @@ export class ClubRepository {
       ),
       (id) => BigInt(id),
     );
+  async findActiveClubUser(
+    userId: bigint,
+    clubId: bigint,
+  ): Promise<{ id: bigint } | null> {
+    return this.prisma.clubUser.findFirst({
+      where: {
+        userId,
+        clubId,
+        status: ClubUserStatus.ACTIVE,
+        leftAt: null,
+      },
+      select: { id: true },
+    });
   }
 }

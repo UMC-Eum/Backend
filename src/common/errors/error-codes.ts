@@ -176,6 +176,45 @@ export const ERROR_DEFINITIONS = {
     message: '차단 상태에서는 채팅 기능을 이용할 수 없어요.',
   },
 
+  // ARTICLE
+  ARTICLE_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'ARTICLE-001',
+    message: '게시글을 찾을 수 없습니다.',
+  },
+  ARTICLE_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'ARTICLE-002',
+    message: '게시글을 수정할 권한이 없습니다.',
+  },
+  ARTICLE_MEMBER_ONLY: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'ARTICLE-003',
+    message: '클럽 회원만 이용할 수 있는 기능이에요',
+  },
+
+  // COMMENT
+  COMMENT_PARENT_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'COMMENT-001',
+    message: '부모 댓글을 찾을 수 없습니다.',
+  },
+  COMMENT_DEPTH_EXCEEDED: {
+    status: HttpStatus.BAD_REQUEST,
+    code: 'COMMENT-002',
+    message: '대댓글까지만 작성할 수 있습니다.',
+  },
+  COMMENT_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'COMMENT-003',
+    message: '댓글을 찾을 수 없습니다.',
+  },
+  COMMENT_FORBIDDEN_NOT_AUTHOR: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'COMMENT-004',
+    message: '댓글 작성자만 삭제할 수 있습니다.',
+  },
+
   // CLUB
   CLUB_NOT_FOUND: {
     status: HttpStatus.NOT_FOUND,
@@ -196,6 +235,10 @@ export const ERROR_DEFINITIONS = {
     status: HttpStatus.NOT_FOUND,
     code: 'CLUB-004',
     message: '좋아요한 클럽이 아닙니다.',
+  CLUB_FORBIDDEN_NOT_MEMBER: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-003',
+    message: '클럽 멤버만 참여할 수 있어요.',
   },
 
   // MEETING
@@ -203,6 +246,16 @@ export const ERROR_DEFINITIONS = {
     status: HttpStatus.BAD_REQUEST,
     code: 'MEETING-001',
     message: '입력값을 확인해 주세요.',
+  },
+  MEETING_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'MEETING-002',
+    message: '해당 정모를 찾을 수 없어요.',
+  },
+  MEETING_CAPACITY_BELOW_ATTENDEES: {
+    status: HttpStatus.CONFLICT,
+    code: 'MEETING-003',
+    message: '현재 참석자 수보다 수용 인원을 낮출 수 없어요.',
   },
 
   // SYSTEM

@@ -425,12 +425,16 @@ Table Meeting {
   id BigInt [pk, increment]
   name String [not null]
   introText String [not null]
-  date String [not null]
   spot String [not null]
   capacity Int [not null]
   cost String
   joinPolicy MeetingJoinPolicy [not null, default: 'AUTO']
   isRegular Boolean [not null, default: true]
+  recurrenceType RecurrenceType [not null]
+  daysOfWeek DayOfWeek[] [not null]
+  dayOfMonth Int
+  hour Int [not null]
+  minute Int [not null]
   createdAt DateTime [default: `now()`, not null]
   deletedAt DateTime
   updatedAt DateTime
@@ -523,6 +527,8 @@ Enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
@@ -550,6 +556,22 @@ Enum ClubUserStatus {
 Enum MeetingJoinPolicy {
   AUTO
   APPROVAL_REQUIRED
+}
+
+Enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+Enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
 }
 
 Enum ReportCategory {

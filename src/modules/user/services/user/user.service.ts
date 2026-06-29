@@ -14,7 +14,7 @@ import { UserRepository } from '../../repositories/user.repository';
 
 type ProfileVisitorsCursor = {
   visitedAt: string;
-  userId: string;
+  logId: string;
 };
 
 @Injectable()
@@ -168,8 +168,8 @@ export class UserService {
     const nextCursor =
       hasNext && page.length > 0
         ? this.encodeProfileVisitorsCursor({
-            visitedAt: page[page.length - 1].visitedAt.toISOString(),
-            userId: page[page.length - 1].user.id.toString(),
+            visitedAt: page[page.length - 1].visitedAtCursor,
+            logId: page[page.length - 1].logId.toString(),
           })
         : null;
 
@@ -501,16 +501,18 @@ export class UserService {
 
       if (
         typeof parsed.visitedAt !== 'string' ||
-        Number.isNaN(new Date(parsed.visitedAt).getTime()) ||
-        typeof parsed.userId !== 'string' ||
-        !/^\d+$/.test(parsed.userId)
+        !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(
+          parsed.visitedAt,
+        ) ||
+        typeof parsed.logId !== 'string' ||
+        !/^\d+$/.test(parsed.logId)
       ) {
         throw new Error('invalid profile visitors cursor');
       }
 
       return {
         visitedAt: parsed.visitedAt,
-        userId: parsed.userId,
+        logId: parsed.logId,
       };
     } catch {
       throw new AppException('VALIDATION_INVALID_FORMAT', {

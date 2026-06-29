@@ -295,16 +295,16 @@ export class UserRepository {
     take,
   }: {
     userId: number;
-    cursor: { visitedAt: string; userId: string } | null;
+    cursor: { visitedAt: string; logId: string } | null;
     take: number;
   }) {
     const cursorCondition = cursor
       ? Prisma.sql`
           WHERE (
-            latest."visitedAt" < ${new Date(cursor.visitedAt)}
+            latest."visitedAt" < ${cursor.visitedAt}::timestamp
             OR (
-              latest."visitedAt" = ${new Date(cursor.visitedAt)}
-              AND latest."visitedBy" < ${BigInt(cursor.userId)}
+              latest."visitedAt" = ${cursor.visitedAt}::timestamp
+              AND latest."logId" < ${BigInt(cursor.logId)}
             )
           )
         `
@@ -320,11 +320,14 @@ export class UserRepository {
         profileImageUrl: string;
         addressFullName: string | null;
         addressSigunguName: string | null;
+        logId: bigint;
         visitedAt: Date;
+        visitedAtCursor: string;
       }>
     >(Prisma.sql`
       WITH latest AS (
         SELECT DISTINCT ON (uwl."visitedBy")
+          uwl."id" AS "logId",
           uwl."visitedBy",
           uwl."visitedAt"
         FROM "UserWatchLog" uwl
@@ -332,7 +335,7 @@ export class UserRepository {
         WHERE uwl."visitedTo" = ${BigInt(userId)}
           AND visitor."deletedAt" IS NULL
           AND visitor."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
-        ORDER BY uwl."visitedBy", uwl."visitedAt" DESC
+        ORDER BY uwl."visitedBy", uwl."visitedAt" DESC, uwl."id" DESC
       )
       SELECT
         visitor."id",
@@ -343,17 +346,21 @@ export class UserRepository {
         visitor."profileImageUrl",
         address."fullName" AS "addressFullName",
         address."sigunguName" AS "addressSigunguName",
-        latest."visitedAt"
+        latest."logId",
+        latest."visitedAt",
+        to_char(latest."visitedAt", 'YYYY-MM-DD HH24:MI:SS.US') AS "visitedAtCursor"
       FROM latest
       INNER JOIN "User" visitor ON visitor."id" = latest."visitedBy"
       LEFT JOIN "Address" address ON address."code" = visitor."code"
       ${cursorCondition}
-      ORDER BY latest."visitedAt" DESC, latest."visitedBy" DESC
+      ORDER BY latest."visitedAt" DESC, latest."logId" DESC
       LIMIT ${take}
     `);
 
     return rows.map((row) => ({
+      logId: row.logId,
       visitedAt: row.visitedAt,
+      visitedAtCursor: row.visitedAtCursor,
       user: {
         id: row.id,
         nickname: row.nickname,

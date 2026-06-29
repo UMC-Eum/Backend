@@ -38,7 +38,7 @@ export class UserVisitorItemDto {
 export class UserVisitorsResponseDto {
   @ApiPropertyOptional({
     example:
-      'eyJ2aXNpdGVkQXQiOiIyMDI2LTA1LTAyVDE1OjQwOjAwLjAwMFoiLCJ1c2VySWQiOiI0MiJ9',
+      'eyJ2aXNpdGVkQXQiOiIyMDI2LTA1LTAyIDE1OjQwOjAwLjEyMzQ1NiIsImxvZ0lkIjoiMTAifQ',
     nullable: true,
   })
   nextCursor!: string | null;

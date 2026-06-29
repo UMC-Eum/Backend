@@ -131,7 +131,9 @@ describe('UserService', () => {
     const visitedAt = new Date('2026-05-04T15:40:00.000Z');
     repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([
       {
+        logId: 10n,
         visitedAt,
+        visitedAtCursor: '2026-05-04 15:40:00.000000',
         user: {
           id: 8n,
           nickname: '방문자',
@@ -191,7 +193,9 @@ describe('UserService', () => {
     const secondVisitedAt = new Date('2026-05-03T15:40:00.000Z');
     repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([
       {
+        logId: 10n,
         visitedAt: firstVisitedAt,
+        visitedAtCursor: '2026-05-04 15:40:00.000000',
         user: {
           id: 8n,
           nickname: '첫번째 방문자',
@@ -203,7 +207,9 @@ describe('UserService', () => {
         },
       },
       {
+        logId: 9n,
         visitedAt: secondVisitedAt,
+        visitedAtCursor: '2026-05-03 15:40:00.000000',
         user: {
           id: 9n,
           nickname: '두번째 방문자',
@@ -226,6 +232,32 @@ describe('UserService', () => {
     expect(result.nextCursor).toEqual(expect.any(String));
     expect(result.items).toHaveLength(1);
     expect(result.items[0].userId).toBe(8);
+  });
+
+  it('내 프로필 방문자 목록 cursor를 해석해 다음 페이지를 조회한다', async () => {
+    const cursor = Buffer.from(
+      JSON.stringify({
+        visitedAt: '2026-05-04 15:40:00.123456',
+        logId: '10',
+      }),
+      'utf8',
+    )
+      .toString('base64')
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
+    repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([]);
+
+    await service.getMyVisitors(7, { cursor, size: '5' });
+
+    expect(repositoryMock.findMyLatestProfileVisitors).toHaveBeenCalledWith({
+      userId: 7,
+      cursor: {
+        visitedAt: '2026-05-04 15:40:00.123456',
+        logId: '10',
+      },
+      take: 6,
+    });
   });
 
   it('내 프로필 방문자 목록 cursor가 올바르지 않으면 조회할 수 없다', async () => {

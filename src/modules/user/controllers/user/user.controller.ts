@@ -28,6 +28,7 @@ import {
   UserClubsResponseDto,
   UserLikedClubsResponseDto,
 } from '../../dtos/user-clubs-response.dto';
+import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserService } from '../../services/user/user.service';
 
 @ApiTags('User')
@@ -63,6 +64,14 @@ export class UserController {
   @ApiOkResponse({ type: UserClubsResponseDto })
   getMyClubs(@CurrentUser('userId') userId: number | null) {
     return this.userService.getMyClubs(userId ?? 0);
+  }
+
+  @Get('me/visitors')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Get my profile visitors' })
+  @ApiOkResponse({ type: UserVisitorsResponseDto })
+  getMyVisitors(@CurrentUser('userId') userId: number | null) {
+    return this.userService.getMyVisitors(userId ?? 0);
   }
 
   @Post(':userId/visits')

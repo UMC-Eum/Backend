@@ -9,6 +9,7 @@ import {
   UserClubsResponseDto,
   UserLikedClubsResponseDto,
 } from '../../dtos/user-clubs-response.dto';
+import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
 @Injectable()
@@ -133,6 +134,28 @@ export class UserService {
         introText: like.club.introText,
         memberCount: like.club.clubUsers.length,
         likedAt: like.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async getMyVisitors(userId: number): Promise<UserVisitorsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const visitors =
+      await this.userRepository.findMyLatestProfileVisitors(userId);
+
+    return {
+      items: visitors.map(({ user, visitedAt }) => ({
+        userId: Number(user.id),
+        nickname: user.nickname,
+        gender: user.sex,
+        age: user.age,
+        areaName: user.address?.sigunguName ?? user.address?.fullName ?? null,
+        introText: user.introText,
+        profileImageUrl: user.profileImageUrl,
+        visitedAt: visitedAt.toISOString(),
       })),
     };
   }

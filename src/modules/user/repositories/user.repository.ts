@@ -289,6 +289,66 @@ export class UserRepository {
     });
   }
 
+  async findMyLatestProfileVisitors(userId: number) {
+    const latestVisits = await this.prismaService.userWatchLog.groupBy({
+      by: ['visitedBy'],
+      where: {
+        visitedTo: BigInt(userId),
+        userVisitedBy: {
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+      },
+      _max: {
+        visitedAt: true,
+      },
+      orderBy: {
+        _max: {
+          visitedAt: 'desc',
+        },
+      },
+    });
+
+    const visitorIds = latestVisits.map((visit) => visit.visitedBy);
+    if (visitorIds.length === 0) {
+      return [];
+    }
+
+    const users = await this.prismaService.user.findMany({
+      where: {
+        id: { in: visitorIds },
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        sex: true,
+        age: true,
+        introText: true,
+        profileImageUrl: true,
+        address: {
+          select: {
+            fullName: true,
+            sigunguName: true,
+          },
+        },
+      },
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+
+    return latestVisits.flatMap((visit) => {
+      const visitedAt = visit._max.visitedAt;
+      const user = usersById.get(visit.visitedBy);
+
+      if (!visitedAt || !user) {
+        return [];
+      }
+
+      return [{ user, visitedAt }];
+    });
+  }
+
   findAddressByCode(code: string) {
     return this.prismaService.address.findUnique({
       where: { code },

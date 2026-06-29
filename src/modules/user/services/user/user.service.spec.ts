@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClubAuthority, ClubCategory } from '@prisma/client';
+import { ClubAuthority, ClubCategory, Sex } from '@prisma/client';
 import { UserService } from './user.service';
 import { UserRepository } from '../../repositories/user.repository';
 
@@ -13,6 +13,7 @@ describe('UserService', () => {
     findAllPersonalities: jest.fn(),
     findMyActiveClubs: jest.fn(),
     findMyLikedClubs: jest.fn(),
+    findMyLatestProfileVisitors: jest.fn(),
     findActiveUserId: jest.fn(),
     createProfileVisitLog: jest.fn(),
     updateProfile: jest.fn(),
@@ -124,6 +125,60 @@ describe('UserService', () => {
       internalCode: 'AUTH_LOGIN_REQUIRED',
     });
     expect(repositoryMock.findMyLikedClubs).not.toHaveBeenCalled();
+  });
+
+  it('내 프로필을 본 방문자 목록을 반환한다', async () => {
+    const visitedAt = new Date('2026-05-04T15:40:00.000Z');
+    repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([
+      {
+        visitedAt,
+        user: {
+          id: 8n,
+          nickname: '방문자',
+          sex: Sex.F,
+          age: 31,
+          introText: '반갑습니다.',
+          profileImageUrl: 'https://example.com/profile.png',
+          address: {
+            fullName: '서울특별시 강남구 역삼동',
+            sigunguName: '서울특별시 강남구',
+          },
+        },
+      },
+    ]);
+
+    const result = await service.getMyVisitors(7);
+
+    expect(repositoryMock.findMyLatestProfileVisitors).toHaveBeenCalledWith(7);
+    expect(result).toEqual({
+      items: [
+        {
+          userId: 8,
+          nickname: '방문자',
+          gender: Sex.F,
+          age: 31,
+          areaName: '서울특별시 강남구',
+          introText: '반갑습니다.',
+          profileImageUrl: 'https://example.com/profile.png',
+          visitedAt: visitedAt.toISOString(),
+        },
+      ],
+    });
+  });
+
+  it('내 프로필을 본 방문자가 없으면 빈 목록을 반환한다', async () => {
+    repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([]);
+
+    const result = await service.getMyVisitors(7);
+
+    expect(result).toEqual({ items: [] });
+  });
+
+  it('로그인하지 않았으면 내 프로필 방문자 목록을 조회할 수 없다', async () => {
+    await expect(service.getMyVisitors(0)).rejects.toMatchObject({
+      internalCode: 'AUTH_LOGIN_REQUIRED',
+    });
+    expect(repositoryMock.findMyLatestProfileVisitors).not.toHaveBeenCalled();
   });
 
   it('프로필 조회 기록을 생성한다', async () => {

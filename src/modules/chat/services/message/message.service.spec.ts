@@ -24,6 +24,7 @@ describe('MessageService', () => {
     getMyRoomIds: jest.fn(),
     findPeerUserId: jest.fn(),
     isBlockedBetweenUsers: jest.fn(),
+    getMyActiveParticipation: jest.fn(),
   };
 
   const roomRepoMock: Partial<RoomRepository> = {
@@ -151,6 +152,90 @@ describe('MessageService', () => {
         internalCode: 'CHAT_MESSAGE_BLOCKED',
       });
       expect(messageRepoMock.deleteMessage).not.toHaveBeenCalled();
+    });
+
+    it('should throw CHAT_ROOM_ACCESS_FAILED when caller is the receiver', async () => {
+      // me=1, sender=2 → 수신자가 전송취소 호출
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        sentById: BigInt(2),
+        sentToId: BigInt(1),
+        deletedAt: null,
+      });
+
+      await expect(service.deleteMessage(1, 100)).rejects.toMatchObject({
+        internalCode: 'CHAT_ROOM_ACCESS_FAILED',
+      });
+      expect(messageRepoMock.deleteMessage).not.toHaveBeenCalled();
+    });
+
+    it('should throw CHAT_MESSAGE_UNSEND_NOT_ALLOWED when message already read (0 rows)', async () => {
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        sentById: BigInt(1),
+        sentToId: BigInt(2),
+        deletedAt: null,
+      });
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(false);
+      (messageRepoMock.deleteMessage as jest.Mock).mockResolvedValue(false);
+
+      await expect(service.deleteMessage(1, 100)).rejects.toMatchObject({
+        internalCode: 'CHAT_MESSAGE_UNSEND_NOT_ALLOWED',
+      });
+      expect(chatGatewayMock.emitMessageDeleted).not.toHaveBeenCalled();
+    });
+
+    it('should unsend and emit when sender deletes an unread message', async () => {
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        sentById: BigInt(1),
+        sentToId: BigInt(2),
+        deletedAt: null,
+      });
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(false);
+      (messageRepoMock.deleteMessage as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.deleteMessage(1, 100)).resolves.toBeUndefined();
+      expect(messageRepoMock.deleteMessage).toHaveBeenCalledTimes(1);
+      expect(chatGatewayMock.emitMessageDeleted).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('listMessages', () => {
+    it('should normalize peer to withdrawn placeholder when peer is INACTIVE', async () => {
+      (
+        participantRepoMock.getMyActiveParticipation as jest.Mock
+      ).mockResolvedValue({ joinedAt: new Date('2026-01-01T00:00:00.000Z') });
+      (participantRepoMock.findPeerUserId as jest.Mock).mockResolvedValue(
+        BigInt(2),
+      );
+      (roomRepoMock.getPeerDetail as jest.Mock).mockResolvedValue({
+        id: BigInt(2),
+        nickname: '원래닉네임',
+        profileImageUrl: 'https://img/2.png',
+        birthdate: new Date('2000-01-01T00:00:00.000Z'),
+        age: 26,
+        address: null,
+        status: 'INACTIVE',
+      });
+      (messageRepoMock.findMessagesByRoomId as jest.Mock).mockResolvedValue([]);
+
+      const res = await service.listMessages(1, 10, {});
+
+      expect(res.peer).toMatchObject({
+        userId: 2,
+        nickname: '탈퇴한 사용자',
+        isWithdrawn: true,
+      });
     });
   });
 });

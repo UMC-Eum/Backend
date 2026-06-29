@@ -149,7 +149,6 @@ export class ChatSocketService {
     const message = await this.messageRepo.createMessage(
       roomId,
       me,
-      peerUserId,
       type,
       type === 'TEXT' ? (body.text ?? null) : null,
       type !== 'TEXT' ? storedMediaRef : null,

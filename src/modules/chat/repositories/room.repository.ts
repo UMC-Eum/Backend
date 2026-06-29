@@ -12,6 +12,7 @@ const USER_BASIC_SELECT = {
   id: true,
   nickname: true,
   profileImageUrl: true,
+  status: true,
 } as const;
 
 const USER_DETAIL_SELECT = {
@@ -110,8 +111,8 @@ export class RoomRepository {
         },
       });
 
-      // TODO(business): joinRoom 시 "방 안의 내가 받은 안 읽은 메시지를 join 시점까지 모두 읽음 처리".
-      // 새 구조에서 sentToId 직접 필터 불가 → participant.userId !== me로 풀어냄 (1:1 채팅 가정).
+      // join 시점까지 "내가 받은 안 읽은 메시지"를 모두 읽음 처리 = participant.userId !== me (1:1 가정).
+      // TODO(EUM-29 그룹 채팅): 참여자별 읽음 모델로 재설계 필요.
       await tx.chatMessage.updateMany({
         where: {
           participant: { roomId, userId: { not: userId } },

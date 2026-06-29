@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
+import { normalizeIdentity } from '../../utils/withdrawn.util';
 import { ChatGateway } from '../../gateways/chat.gateway';
 import { ChatMediaService } from '../chat-media/chat-media.service';
 
@@ -55,22 +56,24 @@ export class MessageService {
     }
 
     const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
-    if (!peerUserId) {
-      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
-    }
+    // peerUserId가 null이면 상대가 hard delete된 경우 → 탈퇴 placeholder peer로 렌더
+    const peerDetail = peerUserId
+      ? await this.roomRepo.getPeerDetail(peerUserId)
+      : null;
 
-    const peerDetail = await this.roomRepo.getPeerDetail(peerUserId);
-    if (!peerDetail) {
-      throw new AppException('CHAT_ROOM_ACCESS_FAILED');
-    }
-
-    // TODO(schema-nullable): User.address가 nullable. peerDetail.address가 null일 수 있음.
+    // User.address는 nullable이라 단계적으로 fallback
     const areaName =
-      peerDetail.address?.emdName ??
-      peerDetail.address?.sigunguName ??
-      peerDetail.address?.sidoName ??
-      peerDetail.address?.fullName ??
+      peerDetail?.address?.emdName ??
+      peerDetail?.address?.sigunguName ??
+      peerDetail?.address?.sidoName ??
+      peerDetail?.address?.fullName ??
       null;
+
+    const peerIdentity = normalizeIdentity(
+      peerDetail?.status ?? null,
+      peerDetail?.nickname ?? null,
+      peerDetail?.profileImageUrl ?? null,
+    );
 
     const size = query.size ?? 30;
     const cursor = query.cursor ? decodeCursor(query.cursor) : null;
@@ -124,10 +127,11 @@ export class MessageService {
     return {
       chatRoomId,
       peer: {
-        userId: Number(peerDetail.id),
-        nickname: peerDetail.nickname,
-        age: calcAge(peerDetail.birthdate),
+        userId: peerDetail ? Number(peerDetail.id) : 0,
+        nickname: peerIdentity.nickname,
+        age: peerDetail ? calcAge(peerDetail.birthdate) : 0,
         areaName,
+        isWithdrawn: peerIdentity.isWithdrawn,
       },
       items,
       nextCursor,
@@ -186,7 +190,6 @@ export class MessageService {
     const message = await this.messageRepo.createMessage(
       roomId,
       me,
-      peerUserId,
       dto.type,
       dto.type === 'TEXT' ? (dto.text ?? null) : null,
       dto.type !== 'TEXT' ? storedMediaRef : null,
@@ -258,12 +261,12 @@ export class MessageService {
       });
     }
 
-    if (message.sentById !== me && message.sentToId !== me) {
+    // 전송취소는 발신자만 가능
+    if (message.sentById !== me) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    const peerUserId =
-      message.sentById === me ? message.sentToId : message.sentById;
+    const peerUserId = message.sentToId;
     const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
       me,
       peerUserId,
@@ -282,7 +285,10 @@ export class MessageService {
 
     const deletedAt = new Date();
     const updated = await this.messageRepo.deleteMessage(msgId, me, deletedAt);
-    if (!updated) return;
+    // 발신자인데 0행 = 수신자가 이미 읽음 → 전송취소 불가
+    if (!updated) {
+      throw new AppException('CHAT_MESSAGE_UNSEND_NOT_ALLOWED');
+    }
 
     const notifyUserIds = Array.from(
       new Set([Number(message.sentById), Number(message.sentToId)]),

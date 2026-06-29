@@ -98,6 +98,7 @@ export type PeerInfo = {
   nickname: string;
   age: number;
   areaName: string | null;
+  isWithdrawn: boolean;
 };
 
 export type ListMessagesRes = {

@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,6 +15,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
@@ -69,9 +71,24 @@ export class UserController {
   @Get('me/visitors')
   @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Get my profile visitors' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: '페이지네이션 커서. 이전 응답의 nextCursor를 전달합니다.',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    description: '한 페이지당 방문자 수',
+    example: 20,
+  })
   @ApiOkResponse({ type: UserVisitorsResponseDto })
-  getMyVisitors(@CurrentUser('userId') userId: number | null) {
-    return this.userService.getMyVisitors(userId ?? 0);
+  getMyVisitors(
+    @CurrentUser('userId') userId: number | null,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.userService.getMyVisitors(userId ?? 0, { cursor, size });
   }
 
   @Post(':userId/visits')

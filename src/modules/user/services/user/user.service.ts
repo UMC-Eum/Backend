@@ -12,8 +12,16 @@ import {
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
+type ProfileVisitorsCursor = {
+  visitedAt: string;
+  userId: string;
+};
+
 @Injectable()
 export class UserService {
+  private static readonly DEFAULT_VISITORS_PAGE_SIZE = 20;
+  private static readonly MAX_VISITORS_PAGE_SIZE = 50;
+
   constructor(private readonly userRepository: UserRepository) {}
 
   async getMe(userId: number): Promise<UserMeResponseDto> {
@@ -138,16 +146,36 @@ export class UserService {
     };
   }
 
-  async getMyVisitors(userId: number): Promise<UserVisitorsResponseDto> {
+  async getMyVisitors(
+    userId: number,
+    query: { cursor?: string; size?: string } = {},
+  ): Promise<UserVisitorsResponseDto> {
     if (!userId) {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const visitors =
-      await this.userRepository.findMyLatestProfileVisitors(userId);
+    const size = this.parseVisitorsPageSize(query.size);
+    const cursor = query.cursor
+      ? this.decodeProfileVisitorsCursor(query.cursor)
+      : null;
+    const visitors = await this.userRepository.findMyLatestProfileVisitors({
+      userId,
+      cursor,
+      take: size + 1,
+    });
+    const hasNext = visitors.length > size;
+    const page = hasNext ? visitors.slice(0, size) : visitors;
+    const nextCursor =
+      hasNext && page.length > 0
+        ? this.encodeProfileVisitorsCursor({
+            visitedAt: page[page.length - 1].visitedAt.toISOString(),
+            userId: page[page.length - 1].user.id.toString(),
+          })
+        : null;
 
     return {
-      items: visitors.map(({ user, visitedAt }) => ({
+      nextCursor,
+      items: page.map(({ user, visitedAt }) => ({
         userId: Number(user.id),
         nickname: user.nickname,
         gender: user.sex,
@@ -438,5 +466,56 @@ export class UserService {
       return Number(entry!.id);
     });
     await this.userRepository.updateIdealPersonalities(userId, ids);
+  }
+
+  private parseVisitorsPageSize(size?: string): number {
+    if (!size) {
+      return UserService.DEFAULT_VISITORS_PAGE_SIZE;
+    }
+
+    const parsed = Number(size);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return UserService.DEFAULT_VISITORS_PAGE_SIZE;
+    }
+
+    return Math.min(parsed, UserService.MAX_VISITORS_PAGE_SIZE);
+  }
+
+  private encodeProfileVisitorsCursor(payload: ProfileVisitorsCursor): string {
+    return Buffer.from(JSON.stringify(payload), 'utf8')
+      .toString('base64')
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
+  }
+
+  private decodeProfileVisitorsCursor(cursor: string): ProfileVisitorsCursor {
+    try {
+      const padLen = (4 - (cursor.length % 4)) % 4;
+      const padded = cursor + '='.repeat(padLen);
+      const json = Buffer.from(
+        padded.replaceAll('-', '+').replaceAll('_', '/'),
+        'base64',
+      ).toString('utf8');
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+
+      if (
+        typeof parsed.visitedAt !== 'string' ||
+        Number.isNaN(new Date(parsed.visitedAt).getTime()) ||
+        typeof parsed.userId !== 'string' ||
+        !/^\d+$/.test(parsed.userId)
+      ) {
+        throw new Error('invalid profile visitors cursor');
+      }
+
+      return {
+        visitedAt: parsed.visitedAt,
+        userId: parsed.userId,
+      };
+    } catch {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: 'cursor 형식이 올바르지 않습니다.',
+      });
+    }
   }
 }

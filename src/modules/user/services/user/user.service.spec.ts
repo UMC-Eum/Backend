@@ -149,8 +149,13 @@ describe('UserService', () => {
 
     const result = await service.getMyVisitors(7);
 
-    expect(repositoryMock.findMyLatestProfileVisitors).toHaveBeenCalledWith(7);
+    expect(repositoryMock.findMyLatestProfileVisitors).toHaveBeenCalledWith({
+      userId: 7,
+      cursor: null,
+      take: 21,
+    });
     expect(result).toEqual({
+      nextCursor: null,
       items: [
         {
           userId: 8,
@@ -171,12 +176,63 @@ describe('UserService', () => {
 
     const result = await service.getMyVisitors(7);
 
-    expect(result).toEqual({ items: [] });
+    expect(result).toEqual({ nextCursor: null, items: [] });
   });
 
   it('로그인하지 않았으면 내 프로필 방문자 목록을 조회할 수 없다', async () => {
     await expect(service.getMyVisitors(0)).rejects.toMatchObject({
       internalCode: 'AUTH_LOGIN_REQUIRED',
+    });
+    expect(repositoryMock.findMyLatestProfileVisitors).not.toHaveBeenCalled();
+  });
+
+  it('내 프로필 방문자 목록에 다음 페이지가 있으면 nextCursor를 반환한다', async () => {
+    const firstVisitedAt = new Date('2026-05-04T15:40:00.000Z');
+    const secondVisitedAt = new Date('2026-05-03T15:40:00.000Z');
+    repositoryMock.findMyLatestProfileVisitors.mockResolvedValue([
+      {
+        visitedAt: firstVisitedAt,
+        user: {
+          id: 8n,
+          nickname: '첫번째 방문자',
+          sex: Sex.F,
+          age: 31,
+          introText: '반갑습니다.',
+          profileImageUrl: 'https://example.com/profile-1.png',
+          address: null,
+        },
+      },
+      {
+        visitedAt: secondVisitedAt,
+        user: {
+          id: 9n,
+          nickname: '두번째 방문자',
+          sex: Sex.M,
+          age: 33,
+          introText: '안녕하세요.',
+          profileImageUrl: 'https://example.com/profile-2.png',
+          address: null,
+        },
+      },
+    ]);
+
+    const result = await service.getMyVisitors(7, { size: '1' });
+
+    expect(repositoryMock.findMyLatestProfileVisitors).toHaveBeenCalledWith({
+      userId: 7,
+      cursor: null,
+      take: 2,
+    });
+    expect(result.nextCursor).toEqual(expect.any(String));
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].userId).toBe(8);
+  });
+
+  it('내 프로필 방문자 목록 cursor가 올바르지 않으면 조회할 수 없다', async () => {
+    await expect(
+      service.getMyVisitors(7, { cursor: 'invalid-cursor' }),
+    ).rejects.toMatchObject({
+      internalCode: 'VALIDATION_INVALID_FORMAT',
     });
     expect(repositoryMock.findMyLatestProfileVisitors).not.toHaveBeenCalled();
   });

@@ -289,64 +289,87 @@ export class UserRepository {
     });
   }
 
-  async findMyLatestProfileVisitors(userId: number) {
-    const latestVisits = await this.prismaService.userWatchLog.groupBy({
-      by: ['visitedBy'],
-      where: {
-        visitedTo: BigInt(userId),
-        userVisitedBy: {
-          deletedAt: null,
-          status: ActiveStatus.ACTIVE,
-        },
-      },
-      _max: {
-        visitedAt: true,
-      },
-      orderBy: {
-        _max: {
-          visitedAt: 'desc',
-        },
-      },
-    });
+  async findMyLatestProfileVisitors({
+    userId,
+    cursor,
+    take,
+  }: {
+    userId: number;
+    cursor: { visitedAt: string; userId: string } | null;
+    take: number;
+  }) {
+    const cursorCondition = cursor
+      ? Prisma.sql`
+          WHERE (
+            latest."visitedAt" < ${new Date(cursor.visitedAt)}
+            OR (
+              latest."visitedAt" = ${new Date(cursor.visitedAt)}
+              AND latest."visitedBy" < ${BigInt(cursor.userId)}
+            )
+          )
+        `
+      : Prisma.empty;
 
-    const visitorIds = latestVisits.map((visit) => visit.visitedBy);
-    if (visitorIds.length === 0) {
-      return [];
-    }
+    const rows = await this.prismaService.$queryRaw<
+      Array<{
+        id: bigint;
+        nickname: string;
+        sex: Sex;
+        age: number;
+        introText: string;
+        profileImageUrl: string;
+        addressFullName: string | null;
+        addressSigunguName: string | null;
+        visitedAt: Date;
+      }>
+    >(Prisma.sql`
+      WITH latest AS (
+        SELECT DISTINCT ON (uwl."visitedBy")
+          uwl."visitedBy",
+          uwl."visitedAt"
+        FROM "UserWatchLog" uwl
+        INNER JOIN "User" visitor ON visitor."id" = uwl."visitedBy"
+        WHERE uwl."visitedTo" = ${BigInt(userId)}
+          AND visitor."deletedAt" IS NULL
+          AND visitor."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
+        ORDER BY uwl."visitedBy", uwl."visitedAt" DESC
+      )
+      SELECT
+        visitor."id",
+        visitor."nickname",
+        visitor."sex",
+        visitor."age",
+        visitor."introText",
+        visitor."profileImageUrl",
+        address."fullName" AS "addressFullName",
+        address."sigunguName" AS "addressSigunguName",
+        latest."visitedAt"
+      FROM latest
+      INNER JOIN "User" visitor ON visitor."id" = latest."visitedBy"
+      LEFT JOIN "Address" address ON address."code" = visitor."code"
+      ${cursorCondition}
+      ORDER BY latest."visitedAt" DESC, latest."visitedBy" DESC
+      LIMIT ${take}
+    `);
 
-    const users = await this.prismaService.user.findMany({
-      where: {
-        id: { in: visitorIds },
-        deletedAt: null,
-        status: ActiveStatus.ACTIVE,
+    return rows.map((row) => ({
+      visitedAt: row.visitedAt,
+      user: {
+        id: row.id,
+        nickname: row.nickname,
+        sex: row.sex,
+        age: row.age,
+        introText: row.introText,
+        profileImageUrl: row.profileImageUrl,
+        address:
+          row.addressFullName || row.addressSigunguName
+            ? {
+                fullName: row.addressFullName,
+                sigunguName: row.addressSigunguName,
+              }
+            : null,
       },
-      select: {
-        id: true,
-        nickname: true,
-        sex: true,
-        age: true,
-        introText: true,
-        profileImageUrl: true,
-        address: {
-          select: {
-            fullName: true,
-            sigunguName: true,
-          },
-        },
-      },
-    });
-    const usersById = new Map(users.map((user) => [user.id, user]));
-
-    return latestVisits.flatMap((visit) => {
-      const visitedAt = visit._max.visitedAt;
-      const user = usersById.get(visit.visitedBy);
-
-      if (!visitedAt || !user) {
-        return [];
-      }
-
-      return [{ user, visitedAt }];
-    });
+    }));
   }
 
   findAddressByCode(code: string) {

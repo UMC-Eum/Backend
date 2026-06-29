@@ -36,6 +36,13 @@ export class UserVisitorItemDto {
 }
 
 export class UserVisitorsResponseDto {
+  @ApiPropertyOptional({
+    example:
+      'eyJ2aXNpdGVkQXQiOiIyMDI2LTA1LTAyVDE1OjQwOjAwLjAwMFoiLCJ1c2VySWQiOiI0MiJ9',
+    nullable: true,
+  })
+  nextCursor!: string | null;
+
   @ApiProperty({ type: [UserVisitorItemDto] })
   items!: UserVisitorItemDto[];
 }

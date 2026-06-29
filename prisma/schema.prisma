@@ -47,6 +47,7 @@ enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM // 입장/퇴장 등 시스템 공지 메시지
 }
 
 enum ChatRoomStatus {
@@ -377,18 +378,20 @@ model ChatRoom {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 채팅방은 보존.
   club Club? @relation(fields: [clubId], references: [id], onDelete: SetNull) //클럽이 사라져도 채팅방은 보존
 
+  @@unique([clubId]) //클럽당 채팅방 1개 (DIRECT은 clubId=null이라 다중 NULL 허용되어 무관)
   @@index([userId])
   @@index([status])
   @@index([startedAt])
 }
 
 model ChatParticipant {
-  id       BigInt        @id @default(autoincrement()) @db.BigInt
-  joinedAt DateTime      @default(now()) @db.Timestamp(6)
-  userId   BigInt?       @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
-  roomId   BigInt        @db.BigInt
-  endedAt  DateTime?     @db.Timestamp(6)
-  role     ClubAuthority @default(HOST)
+  id         BigInt        @id @default(autoincrement()) @db.BigInt
+  joinedAt   DateTime      @default(now()) @db.Timestamp(6)
+  userId     BigInt?       @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
+  roomId     BigInt        @db.BigInt
+  endedAt    DateTime?     @db.Timestamp(6)
+  role       ClubAuthority @default(GENERAL) //클럽 provisioning 시 ClubUser.authority로 명시 세팅
+  lastReadAt DateTime?     @db.Timestamp(6) //참여자별 읽음 커서 (DIRECT/CLUB 공통)
 
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade) //채팅방이 사라지면 참여자 기록도 삭제돼야 함.
   user User?    @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 남아야 함.
@@ -397,6 +400,7 @@ model ChatParticipant {
 
   @@unique([roomId, userId])
   @@index([userId])
+  @@index([roomId, endedAt]) //멤버 목록/인원수/읽음 집계용
 }
 
 model ChatMessage {

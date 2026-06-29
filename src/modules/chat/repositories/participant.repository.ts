@@ -83,7 +83,7 @@ export class ParticipantRepository {
     });
 
     const map = new Map<bigint, bigint>();
-    // TODO(schema-nullable): participant.userId가 nullable (탈퇴 유저). null인 row는 peer로 매핑할 수 없으니 skip.
+    // userId가 null인 row(hard delete)는 peer로 매핑 불가하니 skip. soft-delete 탈퇴 유저는 userId가 유지된다.
     for (const r of rows) {
       if (r.userId !== null) map.set(r.roomId, r.userId);
     }

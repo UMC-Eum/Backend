@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../../common/errors/app.exception';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
 import { buildMessagePreview } from '../../utils/message-preview.util';
+import { normalizeIdentity } from '../../utils/withdrawn.util';
 
 import type {
   CreateRoomRes,
@@ -70,6 +71,18 @@ export class RoomService {
       });
     }
 
+    const peerIdentity = normalizeIdentity(
+      peerUser.status,
+      peerUser.nickname,
+      peerUser.profileImageUrl ?? null,
+    );
+    const peer = {
+      userId: Number(peerUser.id),
+      nickname: peerIdentity.nickname,
+      profileImageUrl: peerIdentity.profileImageUrl,
+      isWithdrawn: peerIdentity.isWithdrawn,
+    };
+
     // 1) 현재 활성 채팅방이 있으면 그대로 반환
     const activeRoomId = await this.roomRepo.findRoomIdByMeAndTarget(
       me,
@@ -79,11 +92,7 @@ export class RoomService {
       return {
         chatRoomId: Number(activeRoomId),
         created: false,
-        peer: {
-          userId: Number(peerUser.id),
-          nickname: peerUser.nickname,
-          profileImageUrl: peerUser.profileImageUrl ?? null,
-        },
+        peer,
       };
     }
 
@@ -97,11 +106,7 @@ export class RoomService {
       return {
         chatRoomId: Number(latestRoomId),
         created: false,
-        peer: {
-          userId: Number(peerUser.id),
-          nickname: peerUser.nickname,
-          profileImageUrl: peerUser.profileImageUrl ?? null,
-        },
+        peer,
       };
     }
 
@@ -114,11 +119,7 @@ export class RoomService {
     return {
       chatRoomId: Number(newRoomId),
       created: true,
-      peer: {
-        userId: Number(peerUser.id),
-        nickname: peerUser.nickname,
-        profileImageUrl: peerUser.profileImageUrl ?? null,
-      },
+      peer,
     };
   }
 
@@ -142,16 +143,22 @@ export class RoomService {
     if (!peer) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
     const areaName = pickAreaName(peer.address);
+    const identity = normalizeIdentity(
+      peer.status,
+      peer.nickname,
+      peer.profileImageUrl ?? null,
+    );
 
     return {
       chatRoomId,
       joinedAt: myPart.joinedAt.toISOString(),
       peer: {
         userId: Number(peer.id),
-        nickname: peer.nickname,
-        profileImageUrl: peer.profileImageUrl ?? null,
+        nickname: identity.nickname,
+        profileImageUrl: identity.profileImageUrl,
         age: peer.age,
         areaName,
+        isWithdrawn: identity.isWithdrawn,
       },
     };
   }
@@ -233,15 +240,22 @@ export class RoomService {
         nickname: string;
         profileImageUrl: string | null;
         areaName: string | null;
+        isWithdrawn: boolean;
       }
     >();
 
     for (const u of peerUsers) {
+      const identity = normalizeIdentity(
+        u.status,
+        u.nickname,
+        u.profileImageUrl ?? null,
+      );
       peerMap.set(u.id, {
         userId: Number(u.id),
-        nickname: u.nickname,
-        profileImageUrl: u.profileImageUrl ?? null,
+        nickname: identity.nickname,
+        profileImageUrl: identity.profileImageUrl,
         areaName: pickAreaName(u.address),
+        isWithdrawn: identity.isWithdrawn,
       });
     }
 

@@ -45,6 +45,7 @@ export type PeerBase = {
   userId: number;
   nickname: string;
   profileImageUrl: string | null;
+  isWithdrawn: boolean;
 };
 
 export type PeerWithArea = PeerBase & {
@@ -82,5 +83,6 @@ export type RoomDetailRes = {
     age: number;
     areaName: string | null;
     profileImageUrl: string | null;
+    isWithdrawn: boolean;
   };
 };

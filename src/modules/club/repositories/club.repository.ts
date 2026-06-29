@@ -159,10 +159,11 @@ export class ClubRepository {
     id: bigint;
     hostId: bigint | null;
     deletedAt: Date | null;
+    introText: string | null;
   } | null> {
     return this.prisma.club.findUnique({
       where: { id: clubId },
-      select: { id: true, hostId: true, deletedAt: true },
+      select: { id: true, hostId: true, deletedAt: true, introText: true },
     });
   }
 
@@ -181,6 +182,10 @@ export class ClubRepository {
     params: UpdateClubRepositoryParams,
   ): Promise<UpdatedClubRow> {
     const keywordIds = params.keywordIds;
+    const vibeVectorLiteral =
+      params.vibeVector === undefined
+        ? undefined
+        : toPgVectorLiteral(params.vibeVector);
 
     if (keywordIds !== undefined && keywordIds.length > 0) {
       const keywordCount = await this.prisma.personality.count({
@@ -212,11 +217,18 @@ export class ClubRepository {
       }
 
       if (hasClubData) {
-        return tx.club.update({
+        await tx.club.update({
           where: { id: params.clubId },
           data: params.data,
-          select: UPDATE_CLUB_SELECT,
         });
+      }
+
+      if (vibeVectorLiteral !== undefined) {
+        await tx.$executeRaw`
+          UPDATE "Club"
+          SET "vibeVector" = ${vibeVectorLiteral}::vector
+          WHERE "id" = ${params.clubId}
+        `;
       }
 
       return tx.club.findUniqueOrThrow({

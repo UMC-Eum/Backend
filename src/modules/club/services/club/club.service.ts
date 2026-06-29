@@ -156,11 +156,24 @@ export class ClubService {
       dto.keywordIds === undefined
         ? undefined
         : this.toUniqueBigIntIds(dto.keywordIds);
+    const introTextForAnalysis =
+      dto.introText !== undefined && dto.introText !== club.introText
+        ? dto.introText
+        : null;
+
+    const analysis = introTextForAnalysis !== null
+      ? await this.onboardingAiService.analyzeClubVibe({
+          clubId,
+          transcript: introTextForAnalysis,
+          analysis_type: 'profile',
+        })
+      : null;
 
     const updated = await this.clubRepository.updateClub({
       clubId: clubKey,
       data,
       keywordIds,
+      ...(analysis ? { vibeVector: analysis.vibeVector } : {}),
     });
 
     return this.toUpdateClubResponseDto(updated);

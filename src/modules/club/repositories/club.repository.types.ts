@@ -135,6 +135,7 @@ export interface UpdateClubRepositoryParams {
   clubId: bigint;
   data: Prisma.ClubUpdateInput;
   keywordIds?: bigint[];
+  vibeVector?: number[];
 }
 
 export interface TopHostRow {

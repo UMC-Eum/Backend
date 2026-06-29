@@ -350,13 +350,19 @@ describe('ClubService', () => {
       data: { name: '등산 러버즈 시즌3' },
       keywordIds: undefined,
     });
+    expect(analyzeClubVibe).not.toHaveBeenCalled();
   });
 
-  it('호스트가 introText와 capacity만 수정하면 해당 필드만 전달한다', async () => {
+  it('호스트가 introText를 수정하면 동호회 vibeVector를 다시 분석한다', async () => {
     findById.mockResolvedValue({
       id: 12n,
       hostId: 7n,
       deletedAt: null,
+      introText: '등산으로 친해져요',
+    });
+    analyzeClubVibe.mockResolvedValue({
+      selectedKeywords: ['등산', '친목'],
+      vibeVector: [0.3, -0.1],
     });
     updateClub.mockResolvedValue({
       id: 12n,
@@ -381,6 +387,12 @@ describe('ClubService', () => {
         capacity: 60,
       },
       keywordIds: undefined,
+      vibeVector: [0.3, -0.1],
+    });
+    expect(analyzeClubVibe).toHaveBeenCalledWith({
+      clubId: 12,
+      transcript: '더 즐겁게 모여요',
+      analysis_type: 'profile',
     });
   });
 

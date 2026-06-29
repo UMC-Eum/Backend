@@ -5,6 +5,7 @@ import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-requ
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import { UserClubsResponseDto } from '../../dtos/user-clubs-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
 @Injectable()
@@ -88,6 +89,27 @@ export class UserService {
         personality: {
           body: item.personality.body,
         },
+      })),
+    };
+  }
+
+  async getMyClubs(userId: number): Promise<UserClubsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const memberships = await this.userRepository.findMyActiveClubs(userId);
+
+    return {
+      items: memberships.map((membership) => ({
+        clubId: Number(membership.club.id),
+        name: membership.club.name,
+        thumbnailUrl: membership.club.thumbnailUrl,
+        category: membership.club.category,
+        introText: membership.club.introText,
+        memberCount: membership.club.clubUsers.length,
+        authority: membership.authority,
+        joinedAt: membership.joinedAt?.toISOString() ?? '',
       })),
     };
   }

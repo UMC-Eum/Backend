@@ -3,6 +3,7 @@ import {
   ActiveStatus,
   AddressLevel,
   AuthProvider,
+  ClubUserStatus,
   Prisma,
   Sex,
 } from '@prisma/client';
@@ -205,6 +206,34 @@ export class UserRepository {
         },
       },
       orderBy: { id: 'asc' },
+    });
+  }
+
+  findMyActiveClubs(userId: number) {
+    return this.prismaService.clubUser.findMany({
+      where: {
+        userId: BigInt(userId),
+        status: ClubUserStatus.ACTIVE,
+        club: { deletedAt: null },
+      },
+      select: {
+        authority: true,
+        joinedAt: true,
+        club: {
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+            clubUsers: {
+              where: { status: ClubUserStatus.ACTIVE },
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
     });
   }
 

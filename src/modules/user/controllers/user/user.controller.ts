@@ -13,6 +13,7 @@ import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-requ
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import { UserClubsResponseDto } from '../../dtos/user-clubs-response.dto';
 import { UserService } from '../../services/user/user.service';
 
 @ApiTags('User')
@@ -32,6 +33,14 @@ export class UserController {
   @ApiOkResponse({ type: UserMeResponseDto })
   getMe(@CurrentUser('userId') userId: number | null) {
     return this.userService.getMe(userId ?? 0);
+  }
+
+  @Get('me/clubs')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Get my clubs' })
+  @ApiOkResponse({ type: UserClubsResponseDto })
+  getMyClubs(@CurrentUser('userId') userId: number | null) {
+    return this.userService.getMyClubs(userId ?? 0);
   }
 
   @Patch('me')

@@ -161,13 +161,14 @@ export class ClubService {
         ? dto.introText
         : null;
 
-    const analysis = introTextForAnalysis !== null
-      ? await this.onboardingAiService.analyzeClubVibe({
-          clubId,
-          transcript: introTextForAnalysis,
-          analysis_type: 'profile',
-        })
-      : null;
+    const analysis =
+      introTextForAnalysis !== null
+        ? await this.onboardingAiService.analyzeClubVibe({
+            clubId,
+            transcript: introTextForAnalysis,
+            analysis_type: 'profile',
+          })
+        : null;
 
     const updated = await this.clubRepository.updateClub({
       clubId: clubKey,

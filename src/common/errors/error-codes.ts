@@ -235,6 +235,7 @@ export const ERROR_DEFINITIONS = {
     status: HttpStatus.NOT_FOUND,
     code: 'CLUB-004',
     message: '좋아요한 클럽이 아닙니다.',
+  },
   CLUB_FORBIDDEN_NOT_MEMBER: {
     status: HttpStatus.FORBIDDEN,
     code: 'CLUB-003',

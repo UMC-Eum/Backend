@@ -103,7 +103,7 @@ describe('OnboardingAiService', () => {
     });
   });
 
-  it('builds FastAPI club_id from clubId for club vibe analysis', async () => {
+  it('sends transcript and analysis_type to FastAPI for club vibe analysis', async () => {
     fetchMock.mockResolvedValue(
       Response.json({
         resultType: 'SUCCESS',
@@ -124,7 +124,6 @@ describe('OnboardingAiService', () => {
       service.analyzeClubVibe({
         clubId: 12,
         transcript: '함께 새벽 산행할 분들 모집해요.',
-        local_audio_path: 'https://cdn.example.com/clubs/12/intro.m4a',
         analysis_type: 'profile',
       }),
     ).resolves.toMatchObject({
@@ -135,9 +134,9 @@ describe('OnboardingAiService', () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(typeof init?.body).toBe('string');
-    expect(JSON.parse(init?.body as string)).toMatchObject({
-      clubId: 12,
-      club_id: 12,
+    expect(JSON.parse(init?.body as string)).toEqual({
+      transcript: '함께 새벽 산행할 분들 모집해요.',
+      analysis_type: 'profile',
     });
   });
 });

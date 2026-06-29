@@ -56,7 +56,6 @@ export class ClubService {
       const analysis = await this.onboardingAiService.analyzeClubVibe({
         clubId: Number(created.id),
         transcript: dto.introText,
-        local_audio_path: dto.introVoice,
         analysis_type: 'profile',
       });
 

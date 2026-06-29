@@ -111,13 +111,6 @@ export class AnalyzeClubVibeRequestDto {
   transcript: string;
 
   @ApiProperty({
-    example: 'https://cdn.example.com/clubs/12/intro.m4a',
-    description: '동호회 소개 음성 URL 또는 local audio path',
-  })
-  @IsString()
-  local_audio_path: string;
-
-  @ApiProperty({
     example: 'profile',
     description: 'FastAPI 분석 타입',
     default: 'profile',

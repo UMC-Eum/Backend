@@ -128,7 +128,6 @@ export class OnboardingRepository {
         where: { id: clubId },
         data: {
           introText: dto.transcript,
-          introVoiceUrl: dto.local_audio_path,
         },
       });
 

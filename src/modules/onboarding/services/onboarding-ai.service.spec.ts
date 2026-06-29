@@ -102,4 +102,42 @@ describe('OnboardingAiService', () => {
       vibeVector: [0.1, -0.2],
     });
   });
+
+  it('builds FastAPI club_id from clubId for club vibe analysis', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            clubId: 12,
+            transcript: '함께 새벽 산행할 분들 모집해요.',
+            summary: '새벽 산행 모임',
+            vectorId: '12',
+            matchedKeywords: [{ keyword: '등산' }],
+            vibeVector: [0.1, -0.2],
+          },
+        },
+      }),
+    );
+
+    await expect(
+      service.analyzeClubVibe({
+        clubId: 12,
+        transcript: '함께 새벽 산행할 분들 모집해요.',
+        local_audio_path: 'https://cdn.example.com/clubs/12/intro.m4a',
+        analysis_type: 'profile',
+      }),
+    ).resolves.toMatchObject({
+      clubId: 12,
+      selectedKeywords: ['등산'],
+      vibeVector: [0.1, -0.2],
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(typeof init?.body).toBe('string');
+    expect(JSON.parse(init?.body as string)).toMatchObject({
+      clubId: 12,
+      club_id: 12,
+    });
+  });
 });

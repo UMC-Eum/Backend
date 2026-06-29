@@ -230,7 +230,6 @@ describe('ClubService', () => {
     });
     expect(analyzeClubVibe).toHaveBeenCalledWith({
       clubId: 12,
-      club_id: 12,
       transcript: dto.introText,
       local_audio_path: dto.introVoice,
       analysis_type: 'profile',

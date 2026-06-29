@@ -103,11 +103,6 @@ export class AnalyzeClubVibeRequestDto {
   @IsInt()
   clubId: number;
 
-  @ApiProperty({ example: 12, description: 'FastAPI 호환용 클럽 ID' })
-  @Type(() => Number)
-  @IsInt()
-  club_id: number;
-
   @ApiProperty({
     example: '함께 새벽 산행할 분들 모집해요.',
     description: '동호회 소개 transcript',

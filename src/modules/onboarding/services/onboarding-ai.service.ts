@@ -104,7 +104,6 @@ export class OnboardingAiService {
 
   async analyzeClubVibe(dto: {
     clubId: number;
-    club_id: number;
     transcript: string;
     local_audio_path: string;
     analysis_type: string;
@@ -157,7 +156,7 @@ export class OnboardingAiService {
       vibe_vector?: unknown;
     }>(this.clubVibeAnalysisPath, {
       clubId: dto.clubId,
-      club_id: dto.club_id,
+      club_id: dto.clubId,
       transcript: dto.transcript,
       local_audio_path: dto.local_audio_path,
       analysis_type: dto.analysis_type,

@@ -1,13 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.repository';
+import { FcmPushService } from '../../push/services/fcm-push.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
   const repositoryMock = {
-    create: jest.fn(),
+    createNotification: jest.fn(),
     markAsRead: jest.fn(),
     findAll: jest.fn(),
+  };
+  const fcmPushServiceMock = {
+    sendNotificationToUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -15,6 +19,7 @@ describe('NotificationService', () => {
       providers: [
         NotificationService,
         { provide: NotificationRepository, useValue: repositoryMock },
+        { provide: FcmPushService, useValue: fcmPushServiceMock },
       ],
     }).compile();
 

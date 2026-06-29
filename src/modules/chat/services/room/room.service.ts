@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
+import { ClubRepository } from '../../../club/repositories/club.repository';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
 import { buildMessagePreview } from '../../utils/message-preview.util';
 import { normalizeIdentity } from '../../utils/withdrawn.util';
@@ -10,6 +11,7 @@ import type {
   ListRoomsQueryDto,
   ListRoomsRes,
   RoomDetailRes,
+  RoomListItem,
 } from '../../dtos/room.dto';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
@@ -41,6 +43,7 @@ export class RoomService {
     private readonly roomRepo: RoomRepository,
     private readonly participantRepo: ParticipantRepository,
     private readonly messageRepo: MessageRepository,
+    private readonly clubRepo: ClubRepository,
   ) {}
 
   async createRoom(
@@ -136,6 +139,18 @@ export class RoomService {
     );
     if (!myPart) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (!roomInfo) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    if (roomInfo.type === 'CLUB') {
+      return this.getClubRoomDetail(
+        chatRoomId,
+        roomId,
+        roomInfo.clubId,
+        myPart.joinedAt,
+      );
+    }
+
     const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
     if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
@@ -151,6 +166,7 @@ export class RoomService {
 
     return {
       chatRoomId,
+      type: 'DIRECT',
       joinedAt: myPart.joinedAt.toISOString(),
       peer: {
         userId: Number(peer.id),
@@ -160,6 +176,52 @@ export class RoomService {
         areaName,
         isWithdrawn: identity.isWithdrawn,
       },
+    };
+  }
+
+  private async getClubRoomDetail(
+    chatRoomId: number,
+    roomId: bigint,
+    clubId: bigint | null,
+    joinedAt: Date,
+  ): Promise<RoomDetailRes> {
+    if (clubId == null) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    const club = await this.clubRepo.findClubBasic(clubId);
+    if (!club) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    const participants =
+      await this.participantRepo.getActiveParticipantsWithUser(roomId);
+
+    const members = participants
+      // hard delete(userId null)된 참여자는 멤버 목록에서 제외
+      .filter((p) => p.userId != null)
+      .map((p) => {
+        const identity = normalizeIdentity(
+          p.status,
+          p.nickname,
+          p.profileImageUrl,
+        );
+        return {
+          userId: Number(p.userId),
+          nickname: identity.nickname,
+          profileImageUrl: identity.profileImageUrl,
+          role: p.role,
+          isWithdrawn: identity.isWithdrawn,
+        };
+      });
+
+    return {
+      chatRoomId,
+      type: 'CLUB',
+      joinedAt: joinedAt.toISOString(),
+      club: {
+        clubId: Number(club.id),
+        name: club.name,
+        thumbnailUrl: club.thumbnailUrl,
+      },
+      memberCount: members.length,
+      members,
     };
   }
 
@@ -225,12 +287,27 @@ export class RoomService {
 
     const pageRoomIds = page.map((x) => x.roomId);
 
+    const roomMetaById = new Map<
+      bigint,
+      { type: 'DIRECT' | 'CLUB'; clubId: bigint | null }
+    >();
+    for (const r of rooms) {
+      roomMetaById.set(r.id, { type: r.type, clubId: r.clubId });
+    }
+
+    const directRoomIds = pageRoomIds.filter(
+      (id) => roomMetaById.get(id)?.type === 'DIRECT',
+    );
+    const clubRoomIds = pageRoomIds.filter(
+      (id) => roomMetaById.get(id)?.type === 'CLUB',
+    );
+
+    // DIRECT: 상대 정보
     const peerIdByRoom = await this.participantRepo.findPeerUserIdsByRoomIds(
-      pageRoomIds,
+      directRoomIds,
       me,
     );
     const peerIds = Array.from(new Set(Array.from(peerIdByRoom.values())));
-
     const peerUsers = await this.roomRepo.getPeerBasicsByIds(peerIds);
 
     const peerMap = new Map<
@@ -243,7 +320,6 @@ export class RoomService {
         isWithdrawn: boolean;
       }
     >();
-
     for (const u of peerUsers) {
       const identity = normalizeIdentity(
         u.status,
@@ -259,22 +335,37 @@ export class RoomService {
       });
     }
 
-    const unreadMap = await this.messageRepo.countUnreadByRoomIds(
+    // CLUB: 클럽 정보 + 인원수
+    const clubIds = Array.from(
+      new Set(
+        clubRoomIds
+          .map((id) => roomMetaById.get(id)?.clubId ?? null)
+          .filter((c): c is bigint => c != null),
+      ),
+    );
+    const clubBriefs = await this.clubRepo.findClubBriefsByIds(clubIds);
+    const clubBriefById = new Map(clubBriefs.map((c) => [c.id, c]));
+    const memberCountByRoom =
+      await this.participantRepo.countActiveByRoomIds(clubRoomIds);
+
+    // unread는 DIRECT/CLUB 공통 커서
+    const readStateMap = await this.participantRepo.getMyReadStateByRoomIds(
+      me,
+      pageRoomIds,
+    );
+    const unreadMap = await this.messageRepo.countUnreadByCursor(
       pageRoomIds,
       me,
+      readStateMap,
     );
 
-    const items: ListRoomsRes['items'] = [];
+    const items: RoomListItem[] = [];
 
     for (const p of page) {
-      const peerId = peerIdByRoom.get(p.roomId);
-      if (!peerId) continue;
-
-      const peer = peerMap.get(peerId);
-      if (!peer) continue;
+      const meta = roomMetaById.get(p.roomId);
+      if (!meta) continue;
 
       const joinedAt = joinedAtMap.get(p.roomId) ?? null;
-
       const last = await this.messageRepo.getLastMessageSummary(
         p.roomId,
         joinedAt,
@@ -285,13 +376,39 @@ export class RoomService {
             sentAt: last.sentAt.toISOString(),
           }
         : null;
+      const unreadCount = unreadMap.get(p.roomId) ?? 0;
 
-      items.push({
-        chatRoomId: Number(p.roomId),
-        peer,
-        lastMessage,
-        unreadCount: unreadMap.get(p.roomId) ?? 0,
-      });
+      if (meta.type === 'CLUB') {
+        if (meta.clubId == null) continue;
+        const brief = clubBriefById.get(meta.clubId);
+        if (!brief) continue;
+
+        items.push({
+          chatRoomId: Number(p.roomId),
+          type: 'CLUB',
+          club: {
+            clubId: Number(brief.id),
+            name: brief.name,
+            thumbnailUrl: brief.thumbnailUrl,
+          },
+          memberCount: memberCountByRoom.get(p.roomId) ?? 0,
+          lastMessage,
+          unreadCount,
+        });
+      } else {
+        const peerId = peerIdByRoom.get(p.roomId);
+        if (!peerId) continue;
+        const peer = peerMap.get(peerId);
+        if (!peer) continue;
+
+        items.push({
+          chatRoomId: Number(p.roomId),
+          type: 'DIRECT',
+          peer,
+          lastMessage,
+          unreadCount,
+        });
+      }
     }
 
     const nextCursor = hasNext

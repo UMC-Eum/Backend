@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ActiveStatus, ClubAuthority } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -89,5 +90,146 @@ export class ParticipantRepository {
     }
 
     return map;
+  }
+
+  // 읽음 커서 계산용: 내 active participant의 joinedAt + lastReadAt (방별).
+  async getMyReadStateByRoomIds(
+    me: bigint,
+    roomIds: bigint[],
+  ): Promise<Map<bigint, { joinedAt: Date; lastReadAt: Date | null }>> {
+    if (roomIds.length === 0) return new Map();
+
+    const rows = await this.prisma.chatParticipant.findMany({
+      where: { userId: me, roomId: { in: roomIds }, endedAt: null },
+      select: { roomId: true, joinedAt: true, lastReadAt: true },
+    });
+
+    const map = new Map<bigint, { joinedAt: Date; lastReadAt: Date | null }>();
+    for (const r of rows) {
+      map.set(r.roomId, { joinedAt: r.joinedAt, lastReadAt: r.lastReadAt });
+    }
+
+    return map;
+  }
+
+  // 방 단위 읽음 처리: 내 active participant의 lastReadAt을 단조 증가로 세팅.
+  async markRoomRead(
+    roomId: bigint,
+    me: bigint,
+    readAt: Date,
+  ): Promise<boolean> {
+    const updated = await this.prisma.chatParticipant.updateMany({
+      where: {
+        roomId,
+        userId: me,
+        endedAt: null,
+        OR: [{ lastReadAt: null }, { lastReadAt: { lt: readAt } }],
+      },
+      data: { lastReadAt: readAt },
+    });
+
+    return updated.count > 0;
+  }
+
+  // 클럽방 lazy 입장: participant upsert. created=true는 최초 생성(=입장 SYSTEM 대상).
+  // 재입장(endedAt 있던 row)은 joinedAt/lastReadAt을 now로 리셋, 이미 활성 row는 role만 갱신.
+  async ensureClubParticipant(
+    roomId: bigint,
+    me: bigint,
+    role: ClubAuthority,
+    now: Date,
+  ): Promise<{ participantId: bigint; created: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.chatParticipant.findUnique({
+        where: { roomId_userId: { roomId, userId: me } },
+        select: { id: true, endedAt: true },
+      });
+
+      if (existing) {
+        const updated = await tx.chatParticipant.update({
+          where: { id: existing.id },
+          data: {
+            endedAt: null,
+            role,
+            ...(existing.endedAt ? { joinedAt: now, lastReadAt: now } : {}),
+          },
+          select: { id: true },
+        });
+        return { participantId: updated.id, created: false };
+      }
+
+      const created = await tx.chatParticipant.create({
+        data: { roomId, userId: me, role, joinedAt: now, lastReadAt: now },
+        select: { id: true },
+      });
+      return { participantId: created.id, created: true };
+    });
+  }
+
+  async countActiveParticipants(roomId: bigint): Promise<number> {
+    return this.prisma.chatParticipant.count({
+      where: { roomId, endedAt: null },
+    });
+  }
+
+  async countActiveByRoomIds(roomIds: bigint[]): Promise<Map<bigint, number>> {
+    if (roomIds.length === 0) return new Map();
+
+    const grouped = await this.prisma.chatParticipant.groupBy({
+      by: ['roomId'],
+      where: { roomId: { in: roomIds }, endedAt: null },
+      _count: { _all: true },
+    });
+
+    const map = new Map<bigint, number>();
+    for (const g of grouped) map.set(g.roomId, g._count._all);
+    return map;
+  }
+
+  // 그룹 멤버 목록 + 읽음 집계용: 활성 참여자의 신원/role/읽음 커서.
+  async getActiveParticipantsWithUser(roomId: bigint): Promise<
+    Array<{
+      userId: bigint | null;
+      nickname: string | null;
+      profileImageUrl: string | null;
+      status: ActiveStatus | null;
+      role: ClubAuthority;
+      lastReadAt: Date | null;
+    }>
+  > {
+    const rows = await this.prisma.chatParticipant.findMany({
+      where: { roomId, endedAt: null },
+      orderBy: { joinedAt: 'asc' },
+      select: {
+        userId: true,
+        role: true,
+        lastReadAt: true,
+        user: {
+          select: { nickname: true, profileImageUrl: true, status: true },
+        },
+      },
+    });
+
+    return rows.map((r) => ({
+      userId: r.userId,
+      nickname: r.user?.nickname ?? null,
+      profileImageUrl: r.user?.profileImageUrl ?? null,
+      status: r.user?.status ?? null,
+      role: r.role,
+      lastReadAt: r.lastReadAt,
+    }));
+  }
+
+  // 1:1 unsend/읽음 표시용: 상대 참여자의 읽음 커서.
+  async findPeerReadState(
+    roomId: bigint,
+    me: bigint,
+  ): Promise<{ userId: bigint | null; lastReadAt: Date | null } | null> {
+    const peer = await this.prisma.chatParticipant.findFirst({
+      where: { roomId, userId: { not: me }, endedAt: null },
+      select: { userId: true, lastReadAt: true },
+    });
+
+    return peer ?? null;
   }
 }

@@ -4,6 +4,7 @@ import { RoomService } from './room.service';
 import { RoomRepository } from '../../repositories/room.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { MessageRepository } from '../../repositories/message.repository';
+import { ClubRepository } from '../../../club/repositories/club.repository';
 
 describe('RoomService', () => {
   let service: RoomService;
@@ -24,12 +25,18 @@ describe('RoomService', () => {
     findPeerUserId: jest.fn(),
     getMyRoomIds: jest.fn(),
     findPeerUserIdsByRoomIds: jest.fn(),
+    getMyReadStateByRoomIds: jest.fn(),
   };
 
   const messageRepoMock: Partial<MessageRepository> = {
     getLastSentAtByRoomIds: jest.fn(),
-    countUnreadByRoomIds: jest.fn(),
+    countUnreadByCursor: jest.fn(),
     getLastMessageSummary: jest.fn(),
+  };
+
+  const clubRepoMock: Partial<ClubRepository> = {
+    findClubBasic: jest.fn(),
+    findClubBriefsByIds: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -39,6 +46,7 @@ describe('RoomService', () => {
         { provide: RoomRepository, useValue: roomRepoMock },
         { provide: ParticipantRepository, useValue: participantRepoMock },
         { provide: MessageRepository, useValue: messageRepoMock },
+        { provide: ClubRepository, useValue: clubRepoMock },
       ],
     }).compile();
 

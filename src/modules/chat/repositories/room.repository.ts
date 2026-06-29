@@ -97,30 +97,21 @@ export class RoomRepository {
         select: { id: true },
       });
 
+      // 재입장 시 읽음 커서를 now로 리셋 → joinedAt 이전 백로그는 unread로 잡히지 않음.
       await tx.chatParticipant.upsert({
         where: { roomId_userId: { roomId, userId } },
         update: {
           joinedAt: now,
           endedAt: null,
+          lastReadAt: now,
         },
         create: {
           roomId,
           userId,
           joinedAt: now,
           endedAt: null,
+          lastReadAt: now,
         },
-      });
-
-      // join 시점까지 "내가 받은 안 읽은 메시지"를 모두 읽음 처리 = participant.userId !== me (1:1 가정).
-      // TODO(EUM-29 그룹 채팅): 참여자별 읽음 모델로 재설계 필요.
-      await tx.chatMessage.updateMany({
-        where: {
-          participant: { roomId, userId: { not: userId } },
-          readAt: null,
-          deletedAt: null,
-          sentAt: { lt: now },
-        },
-        data: { readAt: now },
       });
 
       return roomId;
@@ -185,10 +176,50 @@ export class RoomRepository {
     });
   }
 
+  // 클럽 채팅방 find-or-create (클럽당 1방, @@unique([clubId]))로 동시 생성 race 방지).
+  async ensureClubRoom(clubId: bigint, hostId: bigint | null): Promise<bigint> {
+    const existing = await this.prisma.chatRoom.findFirst({
+      where: { clubId, type: 'CLUB' },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+
+    try {
+      const room = await this.prisma.chatRoom.create({
+        data: { clubId, type: 'CLUB', userId: hostId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      return room.id;
+    } catch {
+      // unique(clubId) 충돌 = 동시 첫 입장 → 재조회
+      const room = await this.prisma.chatRoom.findFirstOrThrow({
+        where: { clubId, type: 'CLUB' },
+        select: { id: true },
+      });
+      return room.id;
+    }
+  }
+
   getRoomsByIds(roomIds: bigint[]) {
     return this.prisma.chatRoom.findMany({
       where: { id: { in: roomIds }, endedAt: null, status: 'ACTIVE' },
-      select: { id: true, startedAt: true },
+      select: {
+        id: true,
+        startedAt: true,
+        type: true,
+        clubId: true,
+      },
+    });
+  }
+
+  // 단일 방의 타입/클럽 정보 (DIRECT/CLUB 분기용).
+  async getRoomTypeInfo(roomId: bigint): Promise<{
+    type: 'DIRECT' | 'CLUB';
+    clubId: bigint | null;
+  } | null> {
+    return this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { type: true, clubId: true },
     });
   }
 

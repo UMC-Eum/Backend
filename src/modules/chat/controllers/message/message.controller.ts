@@ -113,36 +113,34 @@ export class MessageController {
     return this.messageService.listMessages(user.userId, chatRoomId, query);
   }
 
-  @Patch('messages/:messageId/read')
+  @Patch('rooms/:chatRoomId/read')
   @ApiOperation({
-    summary: '메시지 읽음 처리',
+    summary: '채팅방 읽음 처리(읽음 커서 전진)',
     description:
-      '특정 메시지를 읽음 처리합니다. 수신자만 가능하며, 성공 시 data는 null 입니다.',
+      '채팅방의 내 읽음 커서(lastReadAt)를 현재 시각으로 전진시킵니다. 참여자만 가능하며, 응답으로 갱신된 lastReadAt을 반환합니다.',
   })
   @ApiParam({
-    name: 'messageId',
-    description: '읽음 처리할 메시지 ID',
-    example: 555,
+    name: 'chatRoomId',
+    description: '읽음 처리할 채팅방 ID',
+    example: 101,
   })
   @ApiOkResponse({
     description: '처리 성공',
     schema: {
-      example: successExample('/api/v1/chats/messages/555/read', null),
+      example: successExample('/api/v1/chats/rooms/101/read', {
+        lastReadAt: '2026-02-10T00:00:00.000Z',
+      }),
     },
   })
-  @ApiUnprocessableEntityResponse({
-    description: '요청값이 유효하지 않음 (메시지 없음 등)',
-  })
   @ApiForbiddenResponse({
-    description: '권한 없음 (수신자가 아님 / 참여자가 아님 / 차단 상태)',
+    description: '권한 없음 (참여자가 아님)',
   })
   @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
-  async markAsRead(
+  async markRoomRead(
     @RequiredUser() user: AuthenticatedUser,
-    @Param('messageId', new ParsePositiveIntPipe()) messageId: number,
+    @Param('chatRoomId', new ParsePositiveIntPipe()) chatRoomId: number,
   ) {
-    await this.messageService.markAsRead(user.userId, messageId);
-    return null;
+    return this.messageService.markRoomRead(user.userId, chatRoomId);
   }
 
   @Patch('messages/:messageId')

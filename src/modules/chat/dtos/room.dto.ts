@@ -58,24 +58,45 @@ export type CreateRoomRes = {
   peer: PeerBase;
 };
 
-export type RoomListItem = {
+export type ClubBrief = {
+  clubId: number;
+  name: string;
+  thumbnailUrl: string | null;
+};
+
+export type LastMessage = null | {
+  type: ChatMediaType;
+  textPreview: string;
+  sentAt: string;
+};
+
+export type DirectRoomListItem = {
   chatRoomId: number;
+  type: 'DIRECT';
   peer: PeerWithArea;
-  lastMessage: null | {
-    type: ChatMediaType;
-    textPreview: string;
-    sentAt: string;
-  };
+  lastMessage: LastMessage;
   unreadCount: number;
 };
+
+export type ClubRoomListItem = {
+  chatRoomId: number;
+  type: 'CLUB';
+  club: ClubBrief;
+  memberCount: number;
+  lastMessage: LastMessage;
+  unreadCount: number;
+};
+
+export type RoomListItem = DirectRoomListItem | ClubRoomListItem;
 
 export type ListRoomsRes = {
   nextCursor: string | null;
   items: RoomListItem[];
 };
 
-export type RoomDetailRes = {
+export type DirectRoomDetailRes = {
   chatRoomId: number;
+  type: 'DIRECT';
   joinedAt: string;
   peer: {
     userId: number;
@@ -86,3 +107,22 @@ export type RoomDetailRes = {
     isWithdrawn: boolean;
   };
 };
+
+export type ClubRoomMember = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  role: 'GENERAL' | 'HOST';
+  isWithdrawn: boolean;
+};
+
+export type ClubRoomDetailRes = {
+  chatRoomId: number;
+  type: 'CLUB';
+  joinedAt: string;
+  club: ClubBrief;
+  memberCount: number;
+  members: ClubRoomMember[];
+};
+
+export type RoomDetailRes = DirectRoomDetailRes | ClubRoomDetailRes;

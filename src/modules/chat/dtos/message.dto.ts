@@ -81,6 +81,13 @@ export class ListMessagesQueryDto {
   size?: number;
 }
 
+export type MessageSender = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  isWithdrawn: boolean;
+};
+
 export type MessageItem = {
   messageId: number;
   type: ChatMediaType;
@@ -91,6 +98,9 @@ export type MessageItem = {
   sentAt: string;
   readAt: string | null;
   isMine: boolean;
+  // CLUB(그룹)에서만 채워짐: 메시지별 발신자 신원 + 읽은 인원수(발신자 제외).
+  sender?: MessageSender | null;
+  readCount?: number;
 };
 
 export type PeerInfo = {
@@ -101,12 +111,29 @@ export type PeerInfo = {
   isWithdrawn: boolean;
 };
 
-export type ListMessagesRes = {
+export type ClubBrief = {
+  clubId: number;
+  name: string;
+  thumbnailUrl: string | null;
+};
+
+export type DirectListMessagesRes = {
   chatRoomId: number;
+  type: 'DIRECT';
   peer: PeerInfo;
   items: MessageItem[];
   nextCursor: string | null;
 };
+
+export type ClubListMessagesRes = {
+  chatRoomId: number;
+  type: 'CLUB';
+  club: ClubBrief;
+  items: MessageItem[];
+  nextCursor: string | null;
+};
+
+export type ListMessagesRes = DirectListMessagesRes | ClubListMessagesRes;
 
 export type SendMessageRes = {
   messageId: number;

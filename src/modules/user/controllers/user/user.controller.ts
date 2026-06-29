@@ -1,13 +1,24 @@
-import { Body, Controller, Get, Patch, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
+import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
@@ -52,6 +63,18 @@ export class UserController {
   @ApiOkResponse({ type: UserClubsResponseDto })
   getMyClubs(@CurrentUser('userId') userId: number | null) {
     return this.userService.getMyClubs(userId ?? 0);
+  }
+
+  @Post(':userId/visits')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Mark profile visit' })
+  @ApiOkResponse({ schema: { example: null } })
+  @ApiNotFoundResponse({ description: '대상 사용자를 찾을 수 없음' })
+  markProfileVisit(
+    @CurrentUser('userId') visitorUserId: number | null,
+    @Param('userId', new ParsePositiveIntPipe()) visitedUserId: number,
+  ) {
+    return this.userService.markProfileVisit(visitorUserId ?? 0, visitedUserId);
   }
 
   @Patch('me')

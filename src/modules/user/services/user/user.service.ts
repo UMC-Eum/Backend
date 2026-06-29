@@ -137,6 +137,34 @@ export class UserService {
     };
   }
 
+  async markProfileVisit(
+    visitorUserId: number,
+    visitedUserId: number,
+  ): Promise<null> {
+    if (!visitorUserId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const targetUser =
+      await this.userRepository.findActiveUserId(visitedUserId);
+    if (!targetUser) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        details: { targetUserId: visitedUserId },
+      });
+    }
+
+    if (visitorUserId === visitedUserId) {
+      return null;
+    }
+
+    await this.userRepository.createProfileVisitLog({
+      visitedBy: visitorUserId,
+      visitedTo: visitedUserId,
+    });
+
+    return null;
+  }
+
   async updateMe(
     userId: number,
     payload: UserProfileUpdateRequestDto,

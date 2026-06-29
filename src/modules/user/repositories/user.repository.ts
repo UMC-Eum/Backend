@@ -263,6 +263,32 @@ export class UserRepository {
     });
   }
 
+  findActiveUserId(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+  }
+
+  createProfileVisitLog({
+    visitedBy,
+    visitedTo,
+  }: {
+    visitedBy: number;
+    visitedTo: number;
+  }) {
+    return this.prismaService.userWatchLog.create({
+      data: {
+        visitedBy: BigInt(visitedBy),
+        visitedTo: BigInt(visitedTo),
+      },
+    });
+  }
+
   findAddressByCode(code: string) {
     return this.prismaService.address.findUnique({
       where: { code },

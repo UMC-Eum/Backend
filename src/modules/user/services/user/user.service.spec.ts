@@ -13,6 +13,8 @@ describe('UserService', () => {
     findAllPersonalities: jest.fn(),
     findMyActiveClubs: jest.fn(),
     findMyLikedClubs: jest.fn(),
+    findActiveUserId: jest.fn(),
+    createProfileVisitLog: jest.fn(),
     updateProfile: jest.fn(),
     updateKeywords: jest.fn(),
     updatePersonalities: jest.fn(),
@@ -122,5 +124,46 @@ describe('UserService', () => {
       internalCode: 'AUTH_LOGIN_REQUIRED',
     });
     expect(repositoryMock.findMyLikedClubs).not.toHaveBeenCalled();
+  });
+
+  it('프로필 조회 기록을 생성한다', async () => {
+    repositoryMock.findActiveUserId.mockResolvedValue({ id: 8n });
+    repositoryMock.createProfileVisitLog.mockResolvedValue({ id: 1n });
+
+    const result = await service.markProfileVisit(7, 8);
+
+    expect(result).toBeNull();
+    expect(repositoryMock.findActiveUserId).toHaveBeenCalledWith(8);
+    expect(repositoryMock.createProfileVisitLog).toHaveBeenCalledWith({
+      visitedBy: 7,
+      visitedTo: 8,
+    });
+  });
+
+  it('로그인하지 않았으면 프로필 조회 기록을 생성할 수 없다', async () => {
+    await expect(service.markProfileVisit(0, 8)).rejects.toMatchObject({
+      internalCode: 'AUTH_LOGIN_REQUIRED',
+    });
+    expect(repositoryMock.findActiveUserId).not.toHaveBeenCalled();
+    expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
+  });
+
+  it('대상 유저가 없으면 프로필 조회 기록을 생성할 수 없다', async () => {
+    repositoryMock.findActiveUserId.mockResolvedValue(null);
+
+    await expect(service.markProfileVisit(7, 8)).rejects.toMatchObject({
+      internalCode: 'SOCIAL_TARGET_USER_NOT_FOUND',
+    });
+    expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
+  });
+
+  it('자기 자신의 프로필 조회는 기록하지 않는다', async () => {
+    repositoryMock.findActiveUserId.mockResolvedValue({ id: 7n });
+
+    const result = await service.markProfileVisit(7, 7);
+
+    expect(result).toBeNull();
+    expect(repositoryMock.findActiveUserId).toHaveBeenCalledWith(7);
+    expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
   });
 });

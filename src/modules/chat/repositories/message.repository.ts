@@ -293,6 +293,24 @@ export class MessageRepository {
     };
   }
 
+  // SYSTEM(입장/퇴장 공지) 메시지 생성. 주체(participantId)는 입장/퇴장한 본인.
+  async createSystemMessage(
+    participantId: bigint,
+    text: string,
+  ): Promise<{ id: bigint; sentAt: Date }> {
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const msg = await tx.chatMessage.create({
+        data: { participantId, sentAt: now },
+        select: { id: true, sentAt: true },
+      });
+      await tx.chatMedia.create({
+        data: { messageId: msg.id, type: 'SYSTEM', text },
+      });
+      return msg;
+    });
+  }
+
   // 전송취소: 발신자 본인의 미삭제 메시지를 soft delete.
   // "수신자가 읽었는지"는 읽음 커서로 service에서 판단(읽었으면 호출 전에 차단).
   async deleteMessage(messageId: bigint, me: bigint, deletedAt: Date) {

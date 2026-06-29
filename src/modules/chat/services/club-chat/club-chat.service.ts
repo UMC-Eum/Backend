@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
 
@@ -13,6 +14,7 @@ export class ClubChatService {
     private readonly clubRepo: ClubRepository,
     private readonly roomRepo: RoomRepository,
     private readonly participantRepo: ParticipantRepository,
+    private readonly messageRepo: MessageRepository,
   ) {}
 
   // 클럽 채팅방 입장(lazy provisioning): 방 find-or-create + 내 participant ensure.
@@ -36,13 +38,22 @@ export class ClubChatService {
 
     const roomId = await this.roomRepo.ensureClubRoom(clubBigId, club.hostId);
 
-    // created=true면 이번에 처음 입장 → 입장 SYSTEM 메시지는 P4에서 처리
-    const { created } = await this.participantRepo.ensureClubParticipant(
-      roomId,
-      me,
-      member.authority,
-      new Date(),
-    );
+    const { participantId, created, nickname } =
+      await this.participantRepo.ensureClubParticipant(
+        roomId,
+        me,
+        member.authority,
+        new Date(),
+      );
+
+    // 이번에 처음 입장한 경우에만 "{닉네임}님이 입장했습니다." SYSTEM 메시지 영속
+    // (실시간 broadcast는 P5에서 처리)
+    if (created) {
+      await this.messageRepo.createSystemMessage(
+        participantId,
+        `${nickname ?? '알 수 없음'}님이 입장했습니다.`,
+      );
+    }
 
     const memberCount =
       await this.participantRepo.countActiveParticipants(roomId);

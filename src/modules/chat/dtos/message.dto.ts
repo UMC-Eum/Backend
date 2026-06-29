@@ -98,6 +98,8 @@ export type MessageItem = {
   sentAt: string;
   readAt: string | null;
   isMine: boolean;
+  // SYSTEM(입장/퇴장 공지) 메시지 여부. true면 가운데 정렬, isMine=false로 내려간다.
+  isSystem: boolean;
   // CLUB(그룹)에서만 채워짐: 메시지별 발신자 신원 + 읽은 인원수(발신자 제외).
   sender?: MessageSender | null;
   readCount?: number;

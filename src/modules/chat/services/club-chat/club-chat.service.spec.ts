@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { ClubChatService } from './club-chat.service';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
 
@@ -22,6 +23,10 @@ describe('ClubChatService', () => {
     countActiveParticipants: jest.fn(),
   };
 
+  const messageRepoMock: Partial<MessageRepository> = {
+    createSystemMessage: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -29,6 +34,7 @@ describe('ClubChatService', () => {
         { provide: ClubRepository, useValue: clubRepoMock },
         { provide: RoomRepository, useValue: roomRepoMock },
         { provide: ParticipantRepository, useValue: participantRepoMock },
+        { provide: MessageRepository, useValue: messageRepoMock },
       ],
     }).compile();
 
@@ -76,6 +82,7 @@ describe('ClubChatService', () => {
     (participantRepoMock.ensureClubParticipant as jest.Mock).mockResolvedValue({
       participantId: BigInt(200),
       created: true,
+      nickname: '홍길동',
     });
     (
       participantRepoMock.countActiveParticipants as jest.Mock
@@ -100,5 +107,38 @@ describe('ClubChatService', () => {
       'GENERAL',
       expect.any(Date),
     );
+    // 최초 입장이면 입장 SYSTEM 메시지 영속
+    expect(messageRepoMock.createSystemMessage).toHaveBeenCalledWith(
+      BigInt(200),
+      '홍길동님이 입장했습니다.',
+    );
+  });
+
+  it('should NOT emit join SYSTEM message on re-entry (created=false)', async () => {
+    (clubRepoMock.findClubBasic as jest.Mock).mockResolvedValue({
+      id: BigInt(7),
+      name: '클럽',
+      thumbnailUrl: null,
+      hostId: BigInt(9),
+      deletedAt: null,
+    });
+    (clubRepoMock.findActiveClubUser as jest.Mock).mockResolvedValue({
+      id: BigInt(50),
+      authority: 'GENERAL',
+    });
+    (roomRepoMock.ensureClubRoom as jest.Mock).mockResolvedValue(BigInt(101));
+    (participantRepoMock.ensureClubParticipant as jest.Mock).mockResolvedValue({
+      participantId: BigInt(200),
+      created: false,
+      nickname: null,
+    });
+    (
+      participantRepoMock.countActiveParticipants as jest.Mock
+    ).mockResolvedValue(3);
+
+    const res = await service.enterClubRoom(1, 7);
+
+    expect(res.created).toBe(false);
+    expect(messageRepoMock.createSystemMessage).not.toHaveBeenCalled();
   });
 });

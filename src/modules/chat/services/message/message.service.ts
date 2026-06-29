@@ -141,7 +141,8 @@ export class MessageService {
     const items: MessageItem[] = await Promise.all(
       page.map(async (msg) => {
         const media = msg.chatMedia[0] ?? null;
-        const isMine = msg.sentById === me;
+        const isSystem = (media?.type ?? 'TEXT') === 'SYSTEM';
+        const isMine = !isSystem && msg.sentById === me;
         const mediaUrl = await this.chatMediaService.toClientUrl(
           media?.url ?? null,
         );
@@ -160,6 +161,7 @@ export class MessageService {
           sentAt: msg.sentAt.toISOString(),
           readAt,
           isMine,
+          isSystem,
         };
       }),
     );
@@ -209,7 +211,8 @@ export class MessageService {
     const items: MessageItem[] = await Promise.all(
       page.map(async (msg) => {
         const media = msg.chatMedia[0] ?? null;
-        const isMine = msg.sentById === me;
+        const isSystem = (media?.type ?? 'TEXT') === 'SYSTEM';
+        const isMine = !isSystem && msg.sentById === me;
         const mediaUrl = await this.chatMediaService.toClientUrl(
           media?.url ?? null,
         );
@@ -236,12 +239,16 @@ export class MessageService {
           sentAt: msg.sentAt.toISOString(),
           readAt: null,
           isMine,
-          sender: {
-            userId: Number(msg.sentById),
-            nickname: senderIdentity.nickname,
-            profileImageUrl: senderIdentity.profileImageUrl,
-            isWithdrawn: senderIdentity.isWithdrawn,
-          },
+          isSystem,
+          // SYSTEM 메시지는 발신자 신원 노출 불필요
+          sender: isSystem
+            ? null
+            : {
+                userId: Number(msg.sentById),
+                nickname: senderIdentity.nickname,
+                profileImageUrl: senderIdentity.profileImageUrl,
+                isWithdrawn: senderIdentity.isWithdrawn,
+              },
           readCount,
         };
       }),

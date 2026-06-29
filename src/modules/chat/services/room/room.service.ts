@@ -428,7 +428,22 @@ export class RoomService {
     const ok = await this.participantRepo.isParticipant(me, roomId);
     if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
+    // CLUB이면 퇴장 SYSTEM 메시지용으로 나가기 전에 내 참여자 정보 확보
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    const leaver =
+      roomInfo?.type === 'CLUB'
+        ? await this.participantRepo.getMyParticipantBrief(roomId, me)
+        : null;
+
     const left = await this.roomRepo.leaveRoom(roomId, me);
     if (!left) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    // 퇴장 SYSTEM 메시지 (참여자 row는 endedAt만 세팅돼 남아있어 FK 유효)
+    if (leaver) {
+      await this.messageRepo.createSystemMessage(
+        leaver.participantId,
+        `${leaver.nickname ?? '알 수 없음'}님이 나갔습니다.`,
+      );
+    }
   }
 }

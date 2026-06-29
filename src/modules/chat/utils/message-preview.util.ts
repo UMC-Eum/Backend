@@ -1,4 +1,9 @@
-export type MessagePreviewType = 'AUDIO' | 'PHOTO' | 'VIDEO' | 'TEXT';
+export type MessagePreviewType =
+  | 'AUDIO'
+  | 'PHOTO'
+  | 'VIDEO'
+  | 'TEXT'
+  | 'SYSTEM';
 
 export type MessagePreview = {
   type: MessagePreviewType;
@@ -18,6 +23,11 @@ export function buildMessagePreview(
 
   const raw = (text ?? '').trim();
   const clipped = raw.length > 30 ? `${raw.slice(0, 30)}…` : raw;
+
+  // SYSTEM(입장/퇴장 공지)은 공지 텍스트를 그대로 미리보기로 사용.
+  if (t === 'SYSTEM') {
+    return { type: 'SYSTEM', textPreview: clipped };
+  }
 
   return { type: 'TEXT', textPreview: clipped || '메시지를 보냈어요' };
 }

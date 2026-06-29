@@ -138,7 +138,11 @@ export class ParticipantRepository {
     me: bigint,
     role: ClubAuthority,
     now: Date,
-  ): Promise<{ participantId: bigint; created: boolean }> {
+  ): Promise<{
+    participantId: bigint;
+    created: boolean;
+    nickname: string | null;
+  }> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.chatParticipant.findUnique({
         where: { roomId_userId: { roomId, userId: me } },
@@ -155,15 +159,37 @@ export class ParticipantRepository {
           },
           select: { id: true },
         });
-        return { participantId: updated.id, created: false };
+        return { participantId: updated.id, created: false, nickname: null };
       }
 
       const created = await tx.chatParticipant.create({
         data: { roomId, userId: me, role, joinedAt: now, lastReadAt: now },
         select: { id: true },
       });
-      return { participantId: created.id, created: true };
+      // 입장 SYSTEM 메시지 문구에 쓸 닉네임 (최초 입장 시에만 필요)
+      const user = await tx.user.findUnique({
+        where: { id: me },
+        select: { nickname: true },
+      });
+      return {
+        participantId: created.id,
+        created: true,
+        nickname: user?.nickname ?? null,
+      };
     });
+  }
+
+  // 퇴장 SYSTEM 메시지용: 내 참여자 id + 닉네임.
+  async getMyParticipantBrief(
+    roomId: bigint,
+    me: bigint,
+  ): Promise<{ participantId: bigint; nickname: string | null } | null> {
+    const row = await this.prisma.chatParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: me } },
+      select: { id: true, user: { select: { nickname: true } } },
+    });
+    if (!row) return null;
+    return { participantId: row.id, nickname: row.user?.nickname ?? null };
   }
 
   async countActiveParticipants(roomId: bigint): Promise<number> {

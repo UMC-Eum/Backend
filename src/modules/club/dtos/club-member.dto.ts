@@ -1,6 +1,6 @@
 import { ClubAuthority, ClubUserStatus } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, TransformFnParams } from 'class-transformer';
 import { IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateClubMemberRequestDto {
@@ -9,7 +9,11 @@ export class CreateClubMemberRequestDto {
     description: '호스트가 확인할 가입 신청 메시지',
     maxLength: 300,
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: TransformFnParams) => {
+    const rawValue: unknown = value;
+
+    return typeof rawValue === 'string' ? rawValue.trim() : rawValue;
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(300)

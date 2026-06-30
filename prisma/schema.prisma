@@ -82,6 +82,7 @@ enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 enum MeetingJoinPolicy {
@@ -569,13 +570,15 @@ model Club {
 }
 
 model ClubUser {
-  id        BigInt         @id @default(autoincrement()) @db.BigInt
-  userId    BigInt         @db.BigInt
-  clubId    BigInt         @db.BigInt
-  joinedAt  DateTime       @default(now()) @db.Timestamp(6)
-  leftAt    DateTime?      @db.Timestamp(6)
-  authority ClubAuthority  @default(GENERAL)
-  status    ClubUserStatus @default(PENDING)
+  id          BigInt         @id @default(autoincrement()) @db.BigInt
+  userId      BigInt         @db.BigInt
+  clubId      BigInt         @db.BigInt
+  requestedAt DateTime       @default(now()) @db.Timestamp(6)
+  joinedAt    DateTime?      @db.Timestamp(6)
+  leftAt      DateTime?      @db.Timestamp(6)
+  authority   ClubAuthority  @default(GENERAL)
+  status      ClubUserStatus @default(PENDING)
+  joinMessage String         @default("") @db.VarChar(300)
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저가 삭제되면 동호회 유저로 남겨둘 필요 없음
   club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽이 삭제되면 더이상 동호회 유저가 아님

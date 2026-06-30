@@ -374,10 +374,12 @@ Table ClubUser {
   id BigInt [pk, increment]
   userId BigInt [not null]
   clubId BigInt [not null]
-  joinedAt DateTime [default: `now()`, not null]
+  requestedAt DateTime [default: `now()`, not null]
+  joinedAt DateTime
   leftAt DateTime
   authority ClubAuthority [not null, default: 'GENERAL']
   status ClubUserStatus [not null, default: 'PENDING']
+  joinMessage String [not null, default: '']
   user User [not null]
   club Club [not null]
   articlePhotos ArticlePhoto [not null]
@@ -551,6 +553,7 @@ Enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 Enum MeetingJoinPolicy {

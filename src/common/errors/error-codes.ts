@@ -226,19 +226,69 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
-  CLUB_LIKE_ALREADY_EXISTS: {
+  CLUB_MEMBER_ALREADY_EXISTS: {
     status: HttpStatus.CONFLICT,
     code: 'CLUB-003',
+    message: '이미 가입한 동호회입니다.',
+  },
+  CLUB_MEMBER_REQUEST_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-004',
+    message: '이미 가입 신청이 접수되었습니다.',
+  },
+  CLUB_MEMBER_JOIN_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-005',
+    message: '이 동호회에 가입 신청할 수 없습니다.',
+  },
+  CLUB_MEMBER_REQUEST_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-006',
+    message: '가입 신청을 찾을 수 없습니다.',
+  },
+  CLUB_MEMBER_ONLY: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-007',
+    message: '동호회 멤버만 이용할 수 있습니다.',
+  },
+  CLUB_HOST_LEAVE_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-008',
+    message: '호스트는 권한을 위임한 후 탈퇴할 수 있습니다.',
+  },
+  CLUB_HOST_KICK_FORBIDDEN: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-009',
+    message: '호스트는 자기 자신을 강퇴할 수 없습니다.',
+  },
+  CLUB_MEMBER_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-010',
+    message: '동호회 멤버를 찾을 수 없습니다.',
+  },
+  CLUB_HOST_AUTHORITY_REQUIRED: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'CLUB-011',
+    message: '호스트 권한은 다른 멤버에게 위임해야 합니다.',
+  },
+  CLUB_CAPACITY_EXCEEDED: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-012',
+    message: '동호회 정원이 가득 찼습니다.',
+  },
+  CLUB_LIKE_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-013',
     message: '이미 좋아요한 클럽입니다.',
   },
   CLUB_LIKE_NOT_FOUND: {
     status: HttpStatus.NOT_FOUND,
-    code: 'CLUB-004',
+    code: 'CLUB-014',
     message: '좋아요한 클럽이 아닙니다.',
   },
   CLUB_FORBIDDEN_NOT_MEMBER: {
     status: HttpStatus.FORBIDDEN,
-    code: 'CLUB-003',
+    code: 'CLUB-015',
     message: '클럽 멤버만 참여할 수 있어요.',
   },
 

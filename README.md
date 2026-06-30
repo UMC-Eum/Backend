@@ -179,7 +179,7 @@ Response:
 FastAPI 상태 확인용 엔드포인트입니다.
 
 ```http
-GET /api/v1/health/fatapi
+GET /api/v1/health/fastapi
 ```
 
 ---

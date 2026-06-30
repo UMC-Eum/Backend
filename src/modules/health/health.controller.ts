@@ -33,10 +33,4 @@ export class HealthController {
 
     return res.status(result.statusCode).send(result.body);
   }
-
-  @Get('fatapi')
-  @ApiOperation({ summary: 'FastAPI health check (deprecated typo alias)' })
-  async proxyFastApiHealthTypoAlias(@Res() res: Response) {
-    return this.proxyFastApiHealth(res);
-  }
 }

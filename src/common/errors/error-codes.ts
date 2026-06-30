@@ -258,6 +258,31 @@ export const ERROR_DEFINITIONS = {
     code: 'MEETING-003',
     message: '현재 참석자 수보다 수용 인원을 낮출 수 없어요.',
   },
+  MEETING_CAPACITY_EXCEEDED: {
+    status: HttpStatus.CONFLICT,
+    code: 'MEETING-004',
+    message: '참석 인원이 다 찼어요.',
+  },
+  MEETING_ALREADY_JOINED: {
+    status: HttpStatus.CONFLICT,
+    code: 'MEETING-005',
+    message: '이미 참석 중인 정모예요.',
+  },
+  MEETING_NOT_JOINED: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'MEETING-006',
+    message: '참석 중인 정모가 아니에요.',
+  },
+  MEETING_HOST_CANNOT_LEAVE: {
+    status: HttpStatus.FORBIDDEN,
+    code: 'MEETING-007',
+    message: '호스트는 본인 정모 참석을 취소할 수 없어요.',
+  },
+  MEETING_APPROVAL_NOT_SUPPORTED: {
+    status: HttpStatus.NOT_IMPLEMENTED,
+    code: 'MEETING-008',
+    message: '승인 정모는 곧 지원될 예정이에요.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

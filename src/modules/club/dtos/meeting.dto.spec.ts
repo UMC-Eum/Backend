@@ -78,11 +78,33 @@ describe('RecurrenceShapeConstraint', () => {
     ).toBe(false);
   });
 
-  it('빈 daysOfWeek 배열은 부수 필드로 간주하지 않음', () => {
+  it('DAILY + 빈 daysOfWeek 배열 → 거절 (존재 여부 기준)', () => {
     expect(
       c.validate({
         type: RecurrenceType.DAILY,
         daysOfWeek: [],
+        hour: 7,
+        minute: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it('DAILY + scalar daysOfWeek(예: "MON") → 거절', () => {
+    expect(
+      c.validate({
+        type: RecurrenceType.DAILY,
+        daysOfWeek: 'MON' as unknown as DayOfWeek[],
+        hour: 7,
+        minute: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it('DAILY + daysOfWeek=null → 통과 (null=명시적 부재)', () => {
+    expect(
+      c.validate({
+        type: RecurrenceType.DAILY,
+        daysOfWeek: null as unknown as DayOfWeek[],
         hour: 7,
         minute: 0,
       }),

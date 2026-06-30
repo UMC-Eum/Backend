@@ -42,4 +42,24 @@ describe('HealthController', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.send).toHaveBeenCalledWith({ status: 'ok' });
   });
+
+  it('keeps typo alias for FastAPI health response', async () => {
+    healthService.proxyFastApiHealth.mockResolvedValue({
+      statusCode: 200,
+      contentType: null,
+      body: { status: 'ok' },
+    });
+
+    const res = {
+      type: jest.fn().mockReturnThis(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    await controller.proxyFastApiHealthTypoAlias(res as never);
+
+    expect(res.type).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.send).toHaveBeenCalledWith({ status: 'ok' });
+  });
 });

@@ -12,7 +12,9 @@ describe('HealthService', () => {
     configService.getOrThrow.mockReturnValue('http://fastapi:8000');
     configService.get.mockImplementation(
       (key: string, defaultValue: unknown) =>
-        key === 'FASTAPI_HEALTH_PATH' ? '/api/v1/health' : defaultValue,
+        key === 'FASTAPI_HEALTH_URL'
+          ? 'http://fastapi.eum.local:8000/health'
+          : defaultValue,
     );
   });
 
@@ -39,7 +41,7 @@ describe('HealthService', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      'http://fastapi:8000/api/v1/health',
+      'http://fastapi.eum.local:8000/health',
     );
     const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(requestInit.method).toBe('GET');

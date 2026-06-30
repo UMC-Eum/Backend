@@ -58,6 +58,8 @@ enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
@@ -86,6 +88,22 @@ enum ClubUserStatus {
 enum MeetingJoinPolicy {
   AUTO
   APPROVAL_REQUIRED
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
 }
 
 enum ReportCategory {
@@ -607,19 +625,23 @@ model ClubLike {
 }
 
 model Meeting {
-  id         BigInt            @id @default(autoincrement()) @db.BigInt
-  name       String            @db.VarChar(50)
-  introText  String            @db.VarChar(200)
-  date       String            @db.VarChar(100)
-  spot       String            @db.Text
-  capacity   Int               @db.Integer
-  cost       String?           @db.VarChar(50)
-  joinPolicy MeetingJoinPolicy @default(AUTO)
-  isRegular  Boolean           @default(true)
-  createdAt  DateTime          @default(now()) @db.Timestamp(6)
-  deletedAt  DateTime?         @db.Timestamp(6)
-  updatedAt  DateTime?         @updatedAt
-  clubId     BigInt            @db.BigInt
+  id             BigInt            @id @default(autoincrement()) @db.BigInt
+  name           String            @db.VarChar(50)
+  introText      String            @db.VarChar(200)
+  spot           String            @db.Text
+  capacity       Int               @db.Integer
+  cost           String?           @db.VarChar(50)
+  joinPolicy     MeetingJoinPolicy @default(AUTO)
+  isRegular      Boolean           @default(true)
+  recurrenceType RecurrenceType
+  daysOfWeek     DayOfWeek[]       @default([])
+  dayOfMonth     Int?              @db.Integer
+  hour           Int               @db.Integer
+  minute         Int               @db.Integer
+  createdAt      DateTime          @default(now()) @db.Timestamp(6)
+  deletedAt      DateTime?         @db.Timestamp(6)
+  updatedAt      DateTime?         @updatedAt
+  clubId         BigInt            @db.BigInt
 
   club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽 삭제 시 정기모임도 삭제
   meetingMembers MeetingMember[]

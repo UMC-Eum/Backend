@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { DayOfWeek, Prisma, PrismaClient, RecurrenceType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
@@ -449,17 +449,40 @@ async function insertDummyData() {
     skipDuplicates: true,
   });
 
+  const RECURRENCE_TYPES: RecurrenceType[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
+  const DAY_OF_WEEK_VALUES: DayOfWeek[] = [
+    'MON',
+    'TUE',
+    'WED',
+    'THU',
+    'FRI',
+    'SAT',
+    'SUN',
+  ];
+
   await prisma.meeting.createMany({
-    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
-      id: BigInt(index + 1),
-      name: `Seed Meeting ${index + 1}`,
-      date: daysFromSeed(7 + index),
-      createdAt: daysFromSeed(index),
-      updatedAt: daysFromSeed(index),
-      clubId: BigInt(index + 1),
-      spot: `Seed meeting spot ${index + 1}`,
-      isRegular: index % 2 === 0,
-    })),
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
+      const type = RECURRENCE_TYPES[index % RECURRENCE_TYPES.length];
+      return {
+        id: BigInt(index + 1),
+        name: `Seed Meeting ${index + 1}`,
+        introText: `Seed meeting intro ${index + 1}`,
+        spot: `Seed meeting spot ${index + 1}`,
+        capacity: 8 + (index % 5),
+        cost: index % 4 === 0 ? null : `1인 ${(index + 1) * 1000}원`,
+        joinPolicy: index % 3 === 0 ? 'APPROVAL_REQUIRED' : 'AUTO',
+        isRegular: index % 2 === 0,
+        recurrenceType: type,
+        daysOfWeek:
+          type === 'WEEKLY' ? [DAY_OF_WEEK_VALUES[index % 7]] : [],
+        dayOfMonth: type === 'MONTHLY' ? ((index % 28) + 1) : null,
+        hour: (index + 9) % 24,
+        minute: (index * 10) % 60,
+        createdAt: daysFromSeed(index),
+        updatedAt: daysFromSeed(index),
+        clubId: BigInt(index + 1),
+      };
+    }),
     skipDuplicates: true,
   });
 

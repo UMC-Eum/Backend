@@ -14,5 +14,6 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
   imports: [AuthModule, PrismaModule, UserModule, OnboardingModule],
   controllers: [ClubController, MeetingController],
   providers: [ClubService, MeetingService, ClubRepository, MeetingRepository],
+  exports: [ClubRepository],
 })
 export class ClubModule {}

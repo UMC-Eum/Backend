@@ -1,9 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppException } from '../../../common/errors/app.exception';
-import { CreateProfileDto } from '../dtos/onboarding.dto';
+import { CreateProfileRequestDto } from '../dtos/onboarding.dto';
 
 type FastApiMatchesResponse = unknown;
+
+type ProfileMatchedKeyword = {
+  category: string;
+  id: number;
+  keyword: string;
+  score: number;
+};
+
+type ProfileAnalysisResult = {
+  matchedKeywords: ProfileMatchedKeyword[];
+  selectedKeywords: string[];
+  summary: string;
+  transcript: string;
+  vibeVector: number[];
+};
 
 @Injectable()
 export class OnboardingAiService {
@@ -40,8 +55,8 @@ export class OnboardingAiService {
 
   async analyzeProfile(
     userId: number,
-    dto: CreateProfileDto,
-  ): Promise<{ selectedKeywords: string[]; vibeVector: number[] }> {
+    dto: CreateProfileRequestDto,
+  ): Promise<ProfileAnalysisResult> {
     const result = await this.callFastApi<{
       resultType?: unknown;
       success?: {
@@ -52,6 +67,8 @@ export class OnboardingAiService {
           vibe_vector?: unknown;
           selectedKeywords?: unknown;
           selected_keywords?: unknown;
+          summary?: unknown;
+          transcript?: unknown;
         };
       };
       data?: {
@@ -61,25 +78,31 @@ export class OnboardingAiService {
         vibe_vector?: unknown;
         selectedKeywords?: unknown;
         selected_keywords?: unknown;
+        summary?: unknown;
+        transcript?: unknown;
       };
       selectedKeywords?: unknown;
       selected_keywords?: unknown;
+      summary?: unknown;
+      transcript?: unknown;
       vibeVector?: unknown;
       vibe_vector?: unknown;
     }>(this.profileAnalysisPath, {
-      transcript: dto.introText,
-      local_audio_path: dto.introAudioUrl,
-      analysis_type: 'profile',
-      user_id: userId,
+      birthdate: dto.birthDate,
+      introAudioUrl: dto.introAudioUrl,
+      sex: dto.gender,
     });
 
     this.assertFastApiSuccess(result, this.profileAnalysisPath);
 
     const payloadData = this.extractPayloadData(result);
 
-    const selectedKeywordsFromList = this.extractKeywordsFromMatchedKeywords(
+    const matchedKeywords = this.extractProfileMatchedKeywordObjects(
       payloadData.matchedKeywords,
+      payloadData.matched_keywords,
     );
+    const selectedKeywordsFromList =
+      this.extractKeywordsFromMatchedKeywords(matchedKeywords);
     const selectedKeywords = this.pickStringArray(
       payloadData.selectedKeywords,
       payloadData.selected_keywords,
@@ -97,7 +120,14 @@ export class OnboardingAiService {
     );
 
     return {
+      matchedKeywords,
       selectedKeywords,
+      summary:
+        typeof payloadData.summary === 'string' ? payloadData.summary : '',
+      transcript:
+        typeof payloadData.transcript === 'string'
+          ? payloadData.transcript
+          : '',
       vibeVector,
     };
   }
@@ -519,6 +549,43 @@ export class OnboardingAiService {
       })
       .filter((item): item is { keyword: string } => item !== null)
       .map((item) => ({ keyword: item.keyword.trim() }))
+      .filter((item) => item.keyword.length > 0);
+  }
+
+  private extractProfileMatchedKeywordObjects(
+    ...candidates: unknown[]
+  ): ProfileMatchedKeyword[] {
+    const matchedKeywords = candidates.find((candidate) =>
+      Array.isArray(candidate),
+    );
+    if (!Array.isArray(matchedKeywords)) {
+      return [];
+    }
+
+    return matchedKeywords
+      .map((item) => {
+        if (typeof item !== 'object' || item === null) {
+          return null;
+        }
+
+        const record = item as Record<string, unknown>;
+        if (
+          typeof record.category !== 'string' ||
+          typeof record.id !== 'number' ||
+          typeof record.keyword !== 'string' ||
+          typeof record.score !== 'number'
+        ) {
+          return null;
+        }
+
+        return {
+          category: record.category,
+          id: record.id,
+          keyword: record.keyword.trim(),
+          score: record.score,
+        };
+      })
+      .filter((item): item is ProfileMatchedKeyword => item !== null)
       .filter((item) => item.keyword.length > 0);
   }
 }

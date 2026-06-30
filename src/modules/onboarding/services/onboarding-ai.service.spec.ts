@@ -10,7 +10,6 @@ describe('OnboardingAiService', () => {
     gender: 'F',
     birthDate: '1972-03-01',
     areaCode: '1168000000',
-    introText: '안녕하세요',
     introAudioUrl: 'https://cdn.example.com/intro.m4a',
   };
 
@@ -90,7 +89,17 @@ describe('OnboardingAiService', () => {
         resultType: 'SUCCESS',
         success: {
           data: {
-            matchedKeywords: [{ keyword: '등산' }],
+            matchedKeywords: [
+              {
+                category: 'PERSONALITY',
+                id: 21,
+                keyword: '차분함',
+                score: 0.86,
+              },
+            ],
+            summary: '조용한 공간에서 독서와 산책을 즐기는 차분한 성향입니다.',
+            transcript:
+              '저는 조용한 카페에서 책 읽는 걸 좋아하고, 주말에는 가볍게 산책하는 편입니다.',
             vibeVector: [0.1, -0.2],
           },
         },
@@ -98,8 +107,27 @@ describe('OnboardingAiService', () => {
     );
 
     await expect(service.analyzeProfile(1, dto)).resolves.toEqual({
-      selectedKeywords: ['등산'],
+      matchedKeywords: [
+        {
+          category: 'PERSONALITY',
+          id: 21,
+          keyword: '차분함',
+          score: 0.86,
+        },
+      ],
+      selectedKeywords: ['차분함'],
+      summary: '조용한 공간에서 독서와 산책을 즐기는 차분한 성향입니다.',
+      transcript:
+        '저는 조용한 카페에서 책 읽는 걸 좋아하고, 주말에는 가볍게 산책하는 편입니다.',
       vibeVector: [0.1, -0.2],
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(typeof init?.body).toBe('string');
+    expect(JSON.parse(init?.body as string)).toEqual({
+      birthdate: '1972-03-01',
+      introAudioUrl: 'https://cdn.example.com/intro.m4a',
+      sex: 'F',
     });
   });
 

@@ -28,7 +28,11 @@ export class CreateProfileDto {
   @IsString()
   areaCode: string;
 
-  @ApiProperty({ example: '안녕하세요 ...', description: '자기소개 텍스트' })
+  @ApiProperty({
+    example:
+      '저는 조용한 카페에서 책 읽는 걸 좋아하고, 주말에는 가볍게 산책하는 편입니다.',
+    description: 'FastAPI 음성 분석 결과 transcript',
+  })
   @IsString()
   introText: string;
 
@@ -76,10 +80,6 @@ export class CreateProfileRequestDto {
   @IsString()
   areaCode: string;
 
-  @ApiProperty({ example: '안녕하세요 ...', description: '자기소개 텍스트' })
-  @IsString()
-  introText: string;
-
   @ApiProperty({
     example: 'https://cdn/.../intro.m4a',
     description: '자기소개 음성 URL',
@@ -88,10 +88,43 @@ export class CreateProfileRequestDto {
   introAudioUrl: string;
 }
 
+export class ProfileMatchedKeywordDto {
+  @ApiProperty({ example: 'PERSONALITY', description: '키워드 카테고리' })
+  category: string;
+
+  @ApiProperty({ example: 21, description: '키워드 ID' })
+  id: number;
+
+  @ApiProperty({ example: '차분함', description: '매칭된 키워드' })
+  keyword: string;
+
+  @ApiProperty({ example: 0.86, description: '키워드 매칭 점수' })
+  score: number;
+}
+
 export class CreateProfileResponseDto {
   @ApiProperty({ example: 101, description: '사용자 ID' })
   @IsNumber()
   userId: number;
+
+  @ApiProperty({
+    type: [ProfileMatchedKeywordDto],
+    description: 'FastAPI 프로필 분석으로 매칭된 키워드 목록',
+  })
+  matchedKeywords: ProfileMatchedKeywordDto[];
+
+  @ApiProperty({
+    example: '조용한 공간에서 독서와 산책을 즐기는 차분한 성향입니다.',
+    description: 'FastAPI 프로필 분석 요약',
+  })
+  summary: string;
+
+  @ApiProperty({
+    example:
+      '저는 조용한 카페에서 책 읽는 걸 좋아하고, 주말에는 가볍게 산책하는 편입니다.',
+    description: 'FastAPI가 분석에 사용한 자기소개 transcript',
+  })
+  transcript: string;
 
   @ApiProperty({ example: true, description: '프로필 완료 여부' })
   profileCompleted: boolean;

@@ -27,7 +27,6 @@ describe('OnboardingController', () => {
     gender: 'F',
     birthDate: '1972-03-01',
     areaCode: '1168000000',
-    introText: '안녕하세요',
     introAudioUrl: 'https://cdn.example.com/intro.m4a',
   };
 

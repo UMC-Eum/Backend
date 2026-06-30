@@ -86,7 +86,10 @@ export const CLUB_DETAIL_SELECT = {
     select: {
       id: true,
       name: true,
-      date: true,
+      recurrenceType: true,
+      daysOfWeek: true,
+      hour: true,
+      minute: true,
     },
     orderBy: {
       createdAt: 'desc',

@@ -51,7 +51,16 @@ describe('ClubService', () => {
       { personality: { body: '야외' } },
       { personality: { body: '등산' } },
     ],
-    meetings: [{ id: 88n, name: '주간 정모', date: 'FRI 20:00:00' }],
+    meetings: [
+      {
+        id: 88n,
+        name: '주간 정모',
+        recurrenceType: 'WEEKLY',
+        daysOfWeek: ['FRI'],
+        hour: 20,
+        minute: 0,
+      },
+    ],
     _count: { clubUsers: 18 },
   };
 
@@ -644,10 +653,19 @@ describe('ClubService', () => {
     expect(result.myAuthority).toBe(ClubAuthority.HOST);
   });
 
-  it('한국어 정모 일정을 요일/시간으로 구조화한다', async () => {
+  it('정모 반복 정보를 요일/시간으로 구조화한다', async () => {
     findDetailById.mockResolvedValue({
       ...baseClubRow,
-      meetings: [{ id: 88n, name: '주간 정모', date: '매주 목요일 저녁 19시' }],
+      meetings: [
+        {
+          id: 88n,
+          name: '주간 정모',
+          recurrenceType: 'WEEKLY',
+          daysOfWeek: ['THU'],
+          hour: 19,
+          minute: 0,
+        },
+      ],
     });
     findClubUserState.mockResolvedValue(null);
     hasClubLike.mockResolvedValue(false);

@@ -164,7 +164,13 @@ export class ClubRepository {
   } | null> {
     return this.prisma.club.findUnique({
       where: { id: clubId },
-      select: { id: true, hostId: true, capacity: true, deletedAt: true, introText: true },
+      select: {
+        id: true,
+        hostId: true,
+        capacity: true,
+        deletedAt: true,
+        introText: true,
+      },
     });
   }
 

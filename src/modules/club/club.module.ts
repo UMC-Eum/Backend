@@ -16,7 +16,14 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
 @Module({
   imports: [AuthModule, PrismaModule, UserModule, OnboardingModule],
   controllers: [ClubController, MeetingController, ClubMemberController],
-  providers: [ClubService, MeetingService, ClubRepository, MeetingRepository, ClubMemberService, ClubMemberRepository],
+  providers: [
+    ClubService,
+    MeetingService,
+    ClubRepository,
+    MeetingRepository,
+    ClubMemberService,
+    ClubMemberRepository,
+  ],
   exports: [ClubRepository],
 })
 export class ClubModule {}

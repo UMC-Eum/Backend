@@ -275,6 +275,7 @@ export const ERROR_DEFINITIONS = {
     status: HttpStatus.CONFLICT,
     code: 'CLUB-012',
     message: '동호회 정원이 가득 찼습니다.',
+  },
   CLUB_LIKE_ALREADY_EXISTS: {
     status: HttpStatus.CONFLICT,
     code: 'CLUB-013',

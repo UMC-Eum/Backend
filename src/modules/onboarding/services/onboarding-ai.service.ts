@@ -251,15 +251,18 @@ export class OnboardingAiService {
 
   private async callFastApi<T>(path: string, payload: unknown): Promise<T> {
     let response: Response;
+    const url = this.buildUrl(path);
     try {
-      response = await fetch(this.buildUrl(path), {
+      response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+      throw new AppException('NETWORK_CONNECTION_FAILED', {
+        details: this.buildFetchErrorDetails('POST', url, error),
+      });
     }
 
     if (!response.ok) {
@@ -298,7 +301,9 @@ export class OnboardingAiService {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+      throw new AppException('NETWORK_CONNECTION_FAILED', {
+        details: this.buildFetchErrorDetails('GET', url.toString(), error),
+      });
     }
 
     if (!response.ok) {
@@ -319,6 +324,61 @@ export class OnboardingAiService {
         },
       });
     }
+  }
+
+  private buildFetchErrorDetails(
+    method: 'GET' | 'POST',
+    url: string,
+    error: unknown,
+  ): Record<string, unknown> {
+    return {
+      method,
+      url,
+      timeoutMs: this.timeoutMs,
+      error: this.serializeError(error),
+    };
+  }
+
+  private serializeError(error: unknown, depth = 0): Record<string, unknown> {
+    if (depth > 2) {
+      return { message: String(error) };
+    }
+
+    if (error instanceof Error) {
+      const cause = this.readProperty(error, 'cause');
+      return {
+        name: error.name,
+        message: error.message,
+        code: this.readProperty(error, 'code'),
+        errno: this.readProperty(error, 'errno'),
+        syscall: this.readProperty(error, 'syscall'),
+        address: this.readProperty(error, 'address'),
+        port: this.readProperty(error, 'port'),
+        cause:
+          cause === undefined
+            ? undefined
+            : this.serializeError(cause, depth + 1),
+      };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      return Object.fromEntries(
+        Object.getOwnPropertyNames(error).map((key) => [
+          key,
+          this.readProperty(error, key),
+        ]),
+      );
+    }
+
+    return { message: String(error) };
+  }
+
+  private readProperty(target: unknown, key: string): unknown {
+    if (typeof target !== 'object' || target === null) {
+      return undefined;
+    }
+
+    return (target as Record<string, unknown>)[key];
   }
 
   private pickStringArray(...candidates: unknown[]): string[] {

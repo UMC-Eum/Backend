@@ -16,6 +16,7 @@ describe('UserService', () => {
     findMyLikedClubs: jest.fn(),
     findMyLatestProfileVisitors: jest.fn(),
     findActiveUserId: jest.fn(),
+    findActiveHeartSentByUser: jest.fn(),
     createProfileVisitLog: jest.fn(),
     updateProfile: jest.fn(),
     updateKeywords: jest.fn(),
@@ -319,11 +320,16 @@ describe('UserService', () => {
         },
       ],
     });
+    repositoryMock.findActiveHeartSentByUser.mockResolvedValue({ id: 101n });
     repositoryMock.createProfileVisitLog.mockResolvedValue({ id: 1n });
 
     const result = await service.getPublicProfile(7, 8);
 
     expect(repositoryMock.findPublicProfileById).toHaveBeenCalledWith(8);
+    expect(repositoryMock.findActiveHeartSentByUser).toHaveBeenCalledWith({
+      sentById: 7,
+      sentToId: 8,
+    });
     expect(repositoryMock.createProfileVisitLog).toHaveBeenCalledWith({
       visitedBy: 7,
       visitedTo: 8,
@@ -357,6 +363,7 @@ describe('UserService', () => {
           introText: '운영 중인 동호회입니다.',
         },
       ],
+      hasSentHeart: true,
       profileImageUrl: 'https://example.com/profile.png',
     });
   });
@@ -375,10 +382,12 @@ describe('UserService', () => {
       clubs: [],
       clubUsers: [],
     });
+    repositoryMock.findActiveHeartSentByUser.mockResolvedValue(null);
 
     const result = await service.getPublicProfile(7, 7);
 
     expect(result.userId).toBe(7);
+    expect(result.hasSentHeart).toBe(false);
     expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
   });
 

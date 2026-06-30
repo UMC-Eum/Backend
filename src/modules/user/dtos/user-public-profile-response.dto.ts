@@ -60,6 +60,13 @@ export class UserPublicProfileResponseDto {
   @ApiProperty({ type: [UserPublicProfileClubDto] })
   hostingClubs!: UserPublicProfileClubDto[];
 
+  @ApiProperty({
+    example: true,
+    description:
+      '현재 로그인 사용자가 이 사용자에게 활성 좋아요를 보냈는지 여부',
+  })
+  hasSentHeart!: boolean;
+
   @ApiProperty({ example: 'https://example.com/assets/profile.png' })
   profileImageUrl!: string;
 }

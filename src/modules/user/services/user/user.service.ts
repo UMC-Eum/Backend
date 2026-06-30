@@ -204,6 +204,11 @@ export class UserService {
       });
     }
 
+    const sentHeart = await this.userRepository.findActiveHeartSentByUser({
+      sentById: viewerUserId,
+      sentToId: targetUserId,
+    });
+
     if (viewerUserId !== targetUserId) {
       await this.userRepository.createProfileVisitLog({
         visitedBy: viewerUserId,
@@ -247,6 +252,7 @@ export class UserService {
         .filter((body): body is string => Boolean(body)),
       participatingClubs,
       hostingClubs: Array.from(hostingClubsById.values()),
+      hasSentHeart: Boolean(sentHeart),
       profileImageUrl: user.profileImageUrl,
     };
   }

@@ -364,6 +364,24 @@ export class UserRepository {
     });
   }
 
+  findActiveHeartSentByUser({
+    sentById,
+    sentToId,
+  }: {
+    sentById: number;
+    sentToId: number;
+  }) {
+    return this.prismaService.heart.findFirst({
+      where: {
+        sentById: BigInt(sentById),
+        sentToId: BigInt(sentToId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+  }
+
   async findMyLatestProfileVisitors({
     userId,
     cursor,

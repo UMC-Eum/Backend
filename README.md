@@ -77,7 +77,7 @@ npm run start:dev
 1. `.env`의 `DATABASE_URL`을 RDS로 지정:
 
    ```env
-   DATABASE_URL=postgresql://<user>:<pw>@<rds-endpoint>:5432/<db>?sslmode=require
+   DATABASE_URL=postgresql://<user>:<pw>@<rds-endpoint>:5432/<db>?sslmode=no-verify
    ```
 2. 연결 확인 (선택):
 
@@ -251,14 +251,6 @@ docker-compose.yml           # 로컬 backend 이미지 단독 실행용
 * CI 환경에서는 PostgreSQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `5432/6379`입니다.
 
 ---
-
-```
-
-> `timestamp`는 UTC ISO-8601 형식(`Z`)으로 내려주며, 클라이언트에서 KST로 변환하여 표시합니다.
-
-````
-
-=======
 
 ## 📌 Scripts
 

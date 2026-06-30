@@ -14,6 +14,8 @@ import { NotificationModule } from '../notification/notification.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
 import { ClubModule } from '../club/club.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
+import { ArticleModule } from '../article/article.module';
+import { CommentModule } from '../comment/comment.module';
 
 @Module({
   imports: [
@@ -40,8 +42,10 @@ import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.modu
     NotificationModule,
     OnboardingModule,
     ClubModule,
+    CommentModule,
     AuthModule,
     UserModule,
+    ArticleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

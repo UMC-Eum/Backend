@@ -12,6 +12,7 @@ export class CreateClubMemberRequestDto {
   })
   @Transform(({ value }: TransformFnParams) => {
     const rawValue: unknown = value;
+
     return typeof rawValue === 'string' ? rawValue.trim() : rawValue;
   })
   @IsString()

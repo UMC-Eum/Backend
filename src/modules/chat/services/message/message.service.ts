@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
-import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
+import { decodeMessageCursor, encodeCursor } from '../../utils/cursor.util';
 import { ChatGateway } from '../../gateways/chat.gateway';
 import { ChatMediaService } from '../chat-media/chat-media.service';
 
@@ -73,10 +73,9 @@ export class MessageService {
       null;
 
     const size = query.size ?? 30;
-    const cursor = query.cursor ? decodeCursor(query.cursor) : null;
+    const cursor = query.cursor ? decodeMessageCursor(query.cursor) : null;
     const cursorSentAt = cursor ? new Date(cursor.sortAt) : null;
-    const cursorMessageId =
-      cursor && 'messageId' in cursor ? BigInt(cursor.messageId) : null;
+    const cursorMessageId = cursor ? BigInt(cursor.messageId) : null;
 
     const messages = await this.messageRepo.findMessagesByRoomId(
       roomId,

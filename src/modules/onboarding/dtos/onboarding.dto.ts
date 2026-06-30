@@ -153,8 +153,17 @@ export class AnalyzeClubVibeRequestDto {
 }
 
 export class ClubMatchedKeywordDto {
-  @ApiProperty({ example: '등산' })
+  @ApiProperty({ example: 'ACTIVITY', description: '키워드 카테고리' })
+  category: string;
+
+  @ApiProperty({ example: 3, description: '키워드 ID' })
+  id: number;
+
+  @ApiProperty({ example: '활동적', description: '매칭된 키워드' })
   keyword: string;
+
+  @ApiProperty({ example: 0.82, description: '키워드 매칭 점수' })
+  score: number;
 }
 
 export class AnalyzeClubVibeResponseDto {
@@ -177,7 +186,4 @@ export class AnalyzeClubVibeResponseDto {
 
   @ApiProperty({ example: [0.12, -0.98] })
   vibeVector: number[];
-
-  @ApiProperty({ example: true, description: '클럽 업데이트 완료 여부' })
-  clubUpdated: boolean;
 }

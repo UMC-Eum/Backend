@@ -91,8 +91,43 @@ export class OnboardingController {
     description:
       '동호회 소개 텍스트/음성을 FastAPI로 분석한 뒤, 클럽 vibeVector와 키워드를 저장합니다.',
   })
-  @ApiBody({ type: AnalyzeClubVibeRequestDto })
-  @ApiOkResponse({ type: AnalyzeClubVibeResponseDto })
+  @ApiBody({
+    type: AnalyzeClubVibeRequestDto,
+    examples: {
+      default: {
+        summary: '동호회 바이브 분석 요청',
+        value: {
+          analysis_type: 'profile',
+          clubId: 12,
+          transcript:
+            '저희 모임은 퇴근 후 가볍게 러닝하고 서로 기록을 공유하는 분위기입니다.',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: AnalyzeClubVibeResponseDto,
+    description:
+      '동호회 바이브 분석 성공. FastAPI 분석 결과를 반환하고 vibeVector는 클럽에 저장합니다.',
+    schema: {
+      example: {
+        clubId: 12,
+        matchedKeywords: [
+          {
+            category: 'ACTIVITY',
+            id: 3,
+            keyword: '활동적',
+            score: 0.82,
+          },
+        ],
+        summary: '퇴근 후 러닝 기록을 공유하는 활동적인 모임입니다.',
+        transcript:
+          '저희 모임은 퇴근 후 가볍게 러닝하고 서로 기록을 공유하는 분위기입니다.',
+        vectorId: '12',
+        vibeVector: [0.12, -0.04, 0.31],
+      },
+    },
+  })
   async analyzeClubVibe(
     @RequiredUserId() userId: number,
     @Body() dto: AnalyzeClubVibeRequestDto,

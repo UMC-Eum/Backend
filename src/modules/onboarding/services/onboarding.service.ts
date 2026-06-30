@@ -70,7 +70,6 @@ export class OnboardingService {
       vectorId: analysis.vectorId,
       matchedKeywords: analysis.matchedKeywords,
       vibeVector: analysis.vibeVector,
-      clubUpdated: true,
     };
   }
 }

@@ -5,7 +5,7 @@ import { CreateProfileRequestDto } from '../dtos/onboarding.dto';
 
 type FastApiMatchesResponse = unknown;
 
-type ProfileMatchedKeyword = {
+type AnalysisMatchedKeyword = {
   category: string;
   id: number;
   keyword: string;
@@ -13,7 +13,7 @@ type ProfileMatchedKeyword = {
 };
 
 type ProfileAnalysisResult = {
-  matchedKeywords: ProfileMatchedKeyword[];
+  matchedKeywords: AnalysisMatchedKeyword[];
   selectedKeywords: string[];
   summary: string;
   transcript: string;
@@ -141,7 +141,7 @@ export class OnboardingAiService {
     transcript: string;
     summary: string;
     vectorId: string;
-    matchedKeywords: { keyword: string }[];
+    matchedKeywords: AnalysisMatchedKeyword[];
     selectedKeywords: string[];
     vibeVector: number[];
   }> {
@@ -184,6 +184,7 @@ export class OnboardingAiService {
       vibeVector?: unknown;
       vibe_vector?: unknown;
     }>(this.clubVibeAnalysisPath, {
+      clubId: dto.clubId,
       transcript: dto.transcript,
       analysis_type: dto.analysis_type,
     });
@@ -191,7 +192,7 @@ export class OnboardingAiService {
     this.assertFastApiSuccess(result, this.clubVibeAnalysisPath);
 
     const payloadData = this.extractPayloadData(result);
-    const matchedKeywords = this.extractMatchedKeywordObjects(
+    const matchedKeywords = this.extractAnalysisMatchedKeywordObjects(
       payloadData.matchedKeywords,
       payloadData.matched_keywords,
     );
@@ -524,37 +525,15 @@ export class OnboardingAiService {
       .filter((keyword) => keyword.length > 0);
   }
 
-  private extractMatchedKeywordObjects(
-    ...candidates: unknown[]
-  ): { keyword: string }[] {
-    const matchedKeywords = candidates.find((candidate) =>
-      Array.isArray(candidate),
-    );
-    if (!Array.isArray(matchedKeywords)) {
-      return [];
-    }
-
-    return matchedKeywords
-      .map((item) => {
-        if (typeof item === 'string') {
-          return { keyword: item };
-        }
-        if (typeof item !== 'object' || item === null) {
-          return null;
-        }
-        const record = item as Record<string, unknown>;
-        return typeof record.keyword === 'string'
-          ? { keyword: record.keyword }
-          : null;
-      })
-      .filter((item): item is { keyword: string } => item !== null)
-      .map((item) => ({ keyword: item.keyword.trim() }))
-      .filter((item) => item.keyword.length > 0);
-  }
-
   private extractProfileMatchedKeywordObjects(
     ...candidates: unknown[]
-  ): ProfileMatchedKeyword[] {
+  ): AnalysisMatchedKeyword[] {
+    return this.extractAnalysisMatchedKeywordObjects(...candidates);
+  }
+
+  private extractAnalysisMatchedKeywordObjects(
+    ...candidates: unknown[]
+  ): AnalysisMatchedKeyword[] {
     const matchedKeywords = candidates.find((candidate) =>
       Array.isArray(candidate),
     );
@@ -585,7 +564,7 @@ export class OnboardingAiService {
           score: record.score,
         };
       })
-      .filter((item): item is ProfileMatchedKeyword => item !== null)
+      .filter((item): item is AnalysisMatchedKeyword => item !== null)
       .filter((item) => item.keyword.length > 0);
   }
 }

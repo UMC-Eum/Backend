@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AppException } from 'src/common/errors/app.exception';
+import { AppException } from '../../../common/errors/app.exception';
 import { CreateProfileDto } from '../dtos/onboarding.dto';
 
 type FastApiMatchesResponse = unknown;
@@ -10,7 +10,9 @@ export class OnboardingAiService {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly profileAnalysisPath: string;
+  private readonly clubVibeAnalysisPath: string;
   private readonly matchRecommendPath: string;
+  private readonly clubRecommendPath: string;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.getOrThrow<string>('FASTAPI_BASE_URL');
@@ -22,9 +24,17 @@ export class OnboardingAiService {
       'FASTAPI_PROFILE_ANALYSIS_PATH',
       '/onboarding/profile/analyze',
     );
+    this.clubVibeAnalysisPath = this.configService.get<string>(
+      'FASTAPI_CLUB_VIBE_ANALYSIS_PATH',
+      '/api/v1/onboarding/club-vibe/analyze',
+    );
     this.matchRecommendPath = this.configService.get<string>(
       'FASTAPI_MATCH_RECOMMEND_PATH',
       '/onboarding/matches/recommend',
+    );
+    this.clubRecommendPath = this.configService.get<string>(
+      'FASTAPI_CLUB_RECOMMEND_PATH',
+      '/api/v1/recommendation/clubs',
     );
   }
 
@@ -37,6 +47,7 @@ export class OnboardingAiService {
       success?: {
         data?: {
           matchedKeywords?: unknown;
+          matched_keywords?: unknown;
           vibeVector?: unknown;
           vibe_vector?: unknown;
           selectedKeywords?: unknown;
@@ -45,6 +56,7 @@ export class OnboardingAiService {
       };
       data?: {
         matchedKeywords?: unknown;
+        matched_keywords?: unknown;
         vibeVector?: unknown;
         vibe_vector?: unknown;
         selectedKeywords?: unknown;
@@ -61,14 +73,9 @@ export class OnboardingAiService {
       user_id: userId,
     });
 
-    const payloadData: Record<string, unknown> =
-      result.success?.data &&
-      typeof result.success.data === 'object' &&
-      result.success.data !== null
-        ? (result.success.data as Record<string, unknown>)
-        : result.data && typeof result.data === 'object' && result.data !== null
-          ? (result.data as Record<string, unknown>)
-          : (result as Record<string, unknown>);
+    this.assertFastApiSuccess(result, this.profileAnalysisPath);
+
+    const payloadData = this.extractPayloadData(result);
 
     const selectedKeywordsFromList = this.extractKeywordsFromMatchedKeywords(
       payloadData.matchedKeywords,
@@ -83,8 +90,108 @@ export class OnboardingAiService {
       payloadData.vibeVector,
       payloadData.vibe_vector,
     );
+    this.assertNonEmptyArray(
+      vibeVector,
+      this.profileAnalysisPath,
+      'vibeVector',
+    );
 
     return {
+      selectedKeywords,
+      vibeVector,
+    };
+  }
+
+  async analyzeClubVibe(dto: {
+    clubId: number;
+    transcript: string;
+    analysis_type: string;
+  }): Promise<{
+    clubId: number;
+    transcript: string;
+    summary: string;
+    vectorId: string;
+    matchedKeywords: { keyword: string }[];
+    selectedKeywords: string[];
+    vibeVector: number[];
+  }> {
+    const result = await this.callFastApi<{
+      resultType?: unknown;
+      success?: {
+        data?: {
+          clubId?: unknown;
+          club_id?: unknown;
+          transcript?: unknown;
+          summary?: unknown;
+          vectorId?: unknown;
+          vector_id?: unknown;
+          matchedKeywords?: unknown;
+          matched_keywords?: unknown;
+          vibeVector?: unknown;
+          vibe_vector?: unknown;
+        };
+      };
+      data?: {
+        clubId?: unknown;
+        club_id?: unknown;
+        transcript?: unknown;
+        summary?: unknown;
+        vectorId?: unknown;
+        vector_id?: unknown;
+        matchedKeywords?: unknown;
+        matched_keywords?: unknown;
+        vibeVector?: unknown;
+        vibe_vector?: unknown;
+      };
+      clubId?: unknown;
+      club_id?: unknown;
+      transcript?: unknown;
+      summary?: unknown;
+      vectorId?: unknown;
+      vector_id?: unknown;
+      matchedKeywords?: unknown;
+      matched_keywords?: unknown;
+      vibeVector?: unknown;
+      vibe_vector?: unknown;
+    }>(this.clubVibeAnalysisPath, {
+      transcript: dto.transcript,
+      analysis_type: dto.analysis_type,
+    });
+
+    this.assertFastApiSuccess(result, this.clubVibeAnalysisPath);
+
+    const payloadData = this.extractPayloadData(result);
+    const matchedKeywords = this.extractMatchedKeywordObjects(
+      payloadData.matchedKeywords,
+      payloadData.matched_keywords,
+    );
+    const selectedKeywords = matchedKeywords.map((item) => item.keyword);
+    const vibeVector = this.pickNumberArray(
+      payloadData.vibeVector,
+      payloadData.vibe_vector,
+    );
+    this.assertNonEmptyArray(
+      vibeVector,
+      this.clubVibeAnalysisPath,
+      'vibeVector',
+    );
+
+    return {
+      clubId:
+        this.pickNumber(payloadData.clubId, payloadData.club_id) ?? dto.clubId,
+      transcript:
+        typeof payloadData.transcript === 'string'
+          ? payloadData.transcript
+          : dto.transcript,
+      summary:
+        typeof payloadData.summary === 'string' ? payloadData.summary : '',
+      vectorId:
+        typeof payloadData.vectorId === 'string'
+          ? payloadData.vectorId
+          : typeof payloadData.vector_id === 'string'
+            ? payloadData.vector_id
+            : dto.clubId.toString(),
+      matchedKeywords,
       selectedKeywords,
       vibeVector,
     };
@@ -109,6 +216,29 @@ export class OnboardingAiService {
 
     return this.callFastApiGet<FastApiMatchesResponse>(
       this.matchRecommendPath,
+      query,
+    );
+  }
+
+  async getRecommendedClubs(
+    userId: bigint,
+    cursor?: string,
+    size?: string,
+  ): Promise<FastApiMatchesResponse> {
+    const query: Record<string, string> = {
+      userId: userId.toString(),
+    };
+
+    if (cursor !== undefined) {
+      query.cursor = cursor;
+    }
+
+    if (size !== undefined) {
+      query.size = size;
+    }
+
+    return this.callFastApiGet<FastApiMatchesResponse>(
+      this.clubRecommendPath,
       query,
     );
   }
@@ -221,6 +351,69 @@ export class OnboardingAiService {
     return [];
   }
 
+  private pickNumber(...candidates: unknown[]): number | null {
+    for (const candidate of candidates) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private extractPayloadData(result: {
+    success?: { data?: unknown };
+    data?: unknown;
+  }): Record<string, unknown> {
+    return result.success?.data &&
+      typeof result.success.data === 'object' &&
+      result.success.data !== null
+      ? (result.success.data as Record<string, unknown>)
+      : result.data && typeof result.data === 'object' && result.data !== null
+        ? (result.data as Record<string, unknown>)
+        : (result as Record<string, unknown>);
+  }
+
+  private assertFastApiSuccess(result: unknown, path: string): void {
+    if (typeof result !== 'object' || result === null) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: {
+          path,
+          message: 'Invalid response shape from FastAPI',
+          result,
+        },
+      });
+    }
+
+    const record = result as Record<string, unknown>;
+    if (record.resultType === 'FAIL' || record.success === null) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        details: {
+          path,
+          message: 'FastAPI returned failure response',
+          result,
+        },
+      });
+    }
+  }
+
+  private assertNonEmptyArray<T>(
+    value: T[],
+    path: string,
+    field: string,
+  ): void {
+    if (value.length > 0) {
+      return;
+    }
+
+    throw new AppException('SERVER_TEMPORARY_ERROR', {
+      details: {
+        path,
+        field,
+        message: 'Required analysis field is missing or empty',
+      },
+    });
+  }
+
   private extractKeywordsFromMatchedKeywords(
     matchedKeywords: unknown,
   ): string[] {
@@ -239,5 +432,33 @@ export class OnboardingAiService {
       .filter((keyword): keyword is string => keyword !== null)
       .map((keyword) => keyword.trim())
       .filter((keyword) => keyword.length > 0);
+  }
+
+  private extractMatchedKeywordObjects(
+    ...candidates: unknown[]
+  ): { keyword: string }[] {
+    const matchedKeywords = candidates.find((candidate) =>
+      Array.isArray(candidate),
+    );
+    if (!Array.isArray(matchedKeywords)) {
+      return [];
+    }
+
+    return matchedKeywords
+      .map((item) => {
+        if (typeof item === 'string') {
+          return { keyword: item };
+        }
+        if (typeof item !== 'object' || item === null) {
+          return null;
+        }
+        const record = item as Record<string, unknown>;
+        return typeof record.keyword === 'string'
+          ? { keyword: record.keyword }
+          : null;
+      })
+      .filter((item): item is { keyword: string } => item !== null)
+      .map((item) => ({ keyword: item.keyword.trim() }))
+      .filter((item) => item.keyword.length > 0);
   }
 }

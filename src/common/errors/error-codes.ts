@@ -226,6 +226,16 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-002',
     message: '호스트만 이 작업을 수행할 수 있어요.',
   },
+  CLUB_LIKE_ALREADY_EXISTS: {
+    status: HttpStatus.CONFLICT,
+    code: 'CLUB-003',
+    message: '이미 좋아요한 클럽입니다.',
+  },
+  CLUB_LIKE_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'CLUB-004',
+    message: '좋아요한 클럽이 아닙니다.',
+  },
   CLUB_FORBIDDEN_NOT_MEMBER: {
     status: HttpStatus.FORBIDDEN,
     code: 'CLUB-003',

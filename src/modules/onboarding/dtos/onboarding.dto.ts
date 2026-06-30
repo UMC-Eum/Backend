@@ -5,9 +5,11 @@ import {
   IsNumber,
   ArrayNotEmpty,
   IsOptional,
+  IsInt,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateProfileDto {
   @ApiProperty({ example: '루씨', description: '닉네임' })
@@ -93,4 +95,56 @@ export class CreateProfileResponseDto {
 
   @ApiProperty({ example: true, description: '프로필 완료 여부' })
   profileCompleted: boolean;
+}
+
+export class AnalyzeClubVibeRequestDto {
+  @ApiProperty({ example: 12, description: '분석/업데이트할 클럽 ID' })
+  @Type(() => Number)
+  @IsInt()
+  clubId: number;
+
+  @ApiProperty({
+    example: '함께 새벽 산행할 분들 모집해요.',
+    description: '동호회 소개 transcript',
+  })
+  @IsString()
+  transcript: string;
+
+  @ApiProperty({
+    example: 'profile',
+    description: 'FastAPI 분석 타입',
+    default: 'profile',
+  })
+  @IsString()
+  analysis_type: string;
+}
+
+export class ClubMatchedKeywordDto {
+  @ApiProperty({ example: '등산' })
+  keyword: string;
+}
+
+export class AnalyzeClubVibeResponseDto {
+  @ApiProperty({ example: 12, description: '클럽 ID' })
+  clubId: number;
+
+  @ApiProperty({ example: '함께 새벽 산행할 분들 모집해요.' })
+  transcript: string;
+
+  @ApiProperty({
+    example: '새벽 산행을 함께 즐기는 활동적인 동호회입니다.',
+  })
+  summary: string;
+
+  @ApiProperty({ example: '12' })
+  vectorId: string;
+
+  @ApiProperty({ type: [ClubMatchedKeywordDto] })
+  matchedKeywords: ClubMatchedKeywordDto[];
+
+  @ApiProperty({ example: [0.12, -0.98] })
+  vibeVector: number[];
+
+  @ApiProperty({ example: true, description: '클럽 업데이트 완료 여부' })
+  clubUpdated: boolean;
 }

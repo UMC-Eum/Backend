@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { toPgVectorLiteral } from 'src/common/utils/pgvector.util';
 import { PrismaService } from 'src/infra/prisma/prisma.service';
-import { CreateProfileDto } from '../dtos/onboarding.dto';
+import {
+  AnalyzeClubVibeRequestDto,
+  CreateProfileDto,
+} from '../dtos/onboarding.dto';
 
 @Injectable()
 export class OnboardingRepository {
@@ -33,24 +37,8 @@ export class OnboardingRepository {
 
     const birthDateObj = new Date(birthDate);
     const age = this.calculateAge(birthDateObj);
-
-    // 유저 정보 업데이트
-    // TODO(vibe-pgvector): vibeVector는 Unsupported("vector") 타입이라 Prisma client로 data 불가.
-    // 아래 update 후 별도 $executeRaw로 vibeVector 갱신 필요.
-    // 예: await this.prisma.$executeRaw`UPDATE "User" SET "vibeVector" = ${vec}::vector WHERE id = ${userId}`;
-    void vibeVector;
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        nickname,
-        sex: gender === 'F' ? 'F' : 'M',
-        birthdate: new Date(birthDate),
-        code: areaCode,
-        introText,
-        introVoiceUrl: introAudioUrl,
-        age,
-      },
-    });
+    const userIdBigInt = BigInt(userId);
+    const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
 
     // 키워드 후보들 중 DB에 존재하는 ID 조회
     const matchedInterests = await this.prisma.interest.findMany({
@@ -69,14 +57,34 @@ export class OnboardingRepository {
 
     // 기존 키워드 삭제 + 새 키워드 저장
     await this.prisma.$transaction(async (tx) => {
+      // 유저 정보 업데이트
+      await tx.user.update({
+        where: { id: userIdBigInt },
+        data: {
+          nickname,
+          sex: gender === 'F' ? 'F' : 'M',
+          birthdate: birthDateObj,
+          code: areaCode,
+          introText,
+          introVoiceUrl: introAudioUrl,
+          age,
+        },
+      });
+
+      await tx.$executeRaw`
+        UPDATE "User"
+        SET "vibeVector" = ${vibeVectorLiteral}::vector
+        WHERE "id" = ${userIdBigInt}
+      `;
+
       // 기존 관심사 삭제
       await tx.userInterest.deleteMany({
-        where: { userId },
+        where: { userId: userIdBigInt },
       });
 
       // 기존 성향 삭제
       await tx.userPersonality.deleteMany({
-        where: { userId },
+        where: { userId: userIdBigInt },
       });
 
       // 새로운 관심사 저장
@@ -84,7 +92,7 @@ export class OnboardingRepository {
         await tx.userInterest.createMany({
           data: matchedInterests.map(({ id }) => ({
             interestId: id,
-            userId,
+            userId: userIdBigInt,
           })),
         });
       }
@@ -94,8 +102,63 @@ export class OnboardingRepository {
         await tx.userPersonality.createMany({
           data: matchedPersonalities.map(({ id }) => ({
             personalityId: id,
-            userId,
+            userId: userIdBigInt,
           })),
+        });
+      }
+    });
+  }
+
+  async updateClubVibe(
+    clubId: bigint,
+    dto: AnalyzeClubVibeRequestDto,
+    selectedKeywords: string[],
+    vibeVector: number[],
+  ): Promise<void> {
+    const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
+
+    const uniqueKeywords = Array.from(
+      new Set(
+        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
+      ),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.club.update({
+        where: { id: clubId },
+        data: {
+          introText: dto.transcript,
+        },
+      });
+
+      await tx.$executeRaw`
+        UPDATE "Club"
+        SET "vibeVector" = ${vibeVectorLiteral}::vector
+        WHERE "id" = ${clubId}
+      `;
+
+      await tx.clubKeyword.deleteMany({
+        where: { clubId },
+      });
+
+      if (uniqueKeywords.length > 0) {
+        const personalities = await Promise.all(
+          uniqueKeywords.map((keyword) =>
+            tx.personality.upsert({
+              where: { body: keyword },
+              update: {},
+              create: { body: keyword },
+              select: { id: true },
+            }),
+          ),
+        );
+
+        await tx.clubKeyword.createMany({
+          data: personalities.map(({ id }) => ({
+            clubId,
+            keywordId: id,
+          })),
+          skipDuplicates: true,
         });
       }
     });

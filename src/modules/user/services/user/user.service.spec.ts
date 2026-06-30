@@ -11,6 +11,7 @@ describe('UserService', () => {
     findInterestsByBodies: jest.fn(),
     findPersonalitiesByBodies: jest.fn(),
     findAllPersonalities: jest.fn(),
+    findPublicProfileById: jest.fn(),
     findMyActiveClubs: jest.fn(),
     findMyLikedClubs: jest.fn(),
     findMyLatestProfileVisitors: jest.fn(),
@@ -267,6 +268,134 @@ describe('UserService', () => {
       internalCode: 'VALIDATION_INVALID_FORMAT',
     });
     expect(repositoryMock.findMyLatestProfileVisitors).not.toHaveBeenCalled();
+  });
+
+  it('상대방 공개 프로필을 반환하고 방문 기록을 생성한다', async () => {
+    repositoryMock.findPublicProfileById.mockResolvedValue({
+      id: 8n,
+      nickname: '상대방',
+      age: 32,
+      sex: Sex.F,
+      introText: '반갑습니다.',
+      profileImageUrl: 'https://example.com/profile.png',
+      address: {
+        fullName: '서울특별시 강남구 역삼동',
+        sigunguName: '서울특별시 강남구',
+      },
+      interests: [
+        {
+          interest: {
+            body: '등산',
+          },
+        },
+      ],
+      idealPersonalities: [
+        {
+          personality: {
+            body: '차분한',
+          },
+        },
+      ],
+      clubs: [
+        {
+          id: 12n,
+          name: '호스트 동호회',
+          thumbnailUrl: 'https://example.com/host-club.png',
+          category: ClubCategory.OTHERS,
+          introText: '운영 중인 동호회입니다.',
+        },
+      ],
+      clubUsers: [
+        {
+          authority: ClubAuthority.GENERAL,
+          joinedAt: new Date('2026-05-01T00:00:00.000Z'),
+          club: {
+            id: 13n,
+            name: '참여 동호회',
+            thumbnailUrl: null,
+            category: ClubCategory.CULTURE,
+            introText: '참여 중인 동호회입니다.',
+          },
+        },
+      ],
+    });
+    repositoryMock.createProfileVisitLog.mockResolvedValue({ id: 1n });
+
+    const result = await service.getPublicProfile(7, 8);
+
+    expect(repositoryMock.findPublicProfileById).toHaveBeenCalledWith(8);
+    expect(repositoryMock.createProfileVisitLog).toHaveBeenCalledWith({
+      visitedBy: 7,
+      visitedTo: 8,
+    });
+    expect(result).toEqual({
+      userId: 8,
+      nickname: '상대방',
+      age: 32,
+      gender: Sex.F,
+      area: {
+        name: '서울특별시 강남구',
+      },
+      introText: '반갑습니다.',
+      interests: ['등산'],
+      idealPersonalities: ['차분한'],
+      participatingClubs: [
+        {
+          clubId: 13,
+          name: '참여 동호회',
+          thumbnailUrl: null,
+          category: ClubCategory.CULTURE,
+          introText: '참여 중인 동호회입니다.',
+        },
+      ],
+      hostingClubs: [
+        {
+          clubId: 12,
+          name: '호스트 동호회',
+          thumbnailUrl: 'https://example.com/host-club.png',
+          category: ClubCategory.OTHERS,
+          introText: '운영 중인 동호회입니다.',
+        },
+      ],
+      profileImageUrl: 'https://example.com/profile.png',
+    });
+  });
+
+  it('자기 자신의 공개 프로필 조회는 방문 기록을 생성하지 않는다', async () => {
+    repositoryMock.findPublicProfileById.mockResolvedValue({
+      id: 7n,
+      nickname: '나',
+      age: 30,
+      sex: Sex.M,
+      introText: '안녕하세요.',
+      profileImageUrl: 'https://example.com/me.png',
+      address: null,
+      interests: [],
+      idealPersonalities: [],
+      clubs: [],
+      clubUsers: [],
+    });
+
+    const result = await service.getPublicProfile(7, 7);
+
+    expect(result.userId).toBe(7);
+    expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
+  });
+
+  it('대상 유저가 없으면 공개 프로필을 조회할 수 없다', async () => {
+    repositoryMock.findPublicProfileById.mockResolvedValue(null);
+
+    await expect(service.getPublicProfile(7, 8)).rejects.toMatchObject({
+      internalCode: 'SOCIAL_TARGET_USER_NOT_FOUND',
+    });
+    expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
+  });
+
+  it('로그인하지 않았으면 공개 프로필을 조회할 수 없다', async () => {
+    await expect(service.getPublicProfile(0, 8)).rejects.toMatchObject({
+      internalCode: 'AUTH_LOGIN_REQUIRED',
+    });
+    expect(repositoryMock.findPublicProfileById).not.toHaveBeenCalled();
   });
 
   it('프로필 조회 기록을 생성한다', async () => {

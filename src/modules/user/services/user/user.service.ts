@@ -10,6 +10,7 @@ import {
   UserLikedClubsResponseDto,
 } from '../../dtos/user-clubs-response.dto';
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
+import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
 type ProfileVisitorsCursor = {
@@ -185,6 +186,68 @@ export class UserService {
         profileImageUrl: user.profileImageUrl,
         visitedAt: visitedAt.toISOString(),
       })),
+    };
+  }
+
+  async getPublicProfile(
+    viewerUserId: number,
+    targetUserId: number,
+  ): Promise<UserPublicProfileResponseDto> {
+    if (!viewerUserId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const user = await this.userRepository.findPublicProfileById(targetUserId);
+    if (!user) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        details: { targetUserId },
+      });
+    }
+
+    if (viewerUserId !== targetUserId) {
+      await this.userRepository.createProfileVisitLog({
+        visitedBy: viewerUserId,
+        visitedTo: targetUserId,
+      });
+    }
+
+    const hostingClubIds = new Set(user.clubs.map((club) => club.id));
+    for (const membership of user.clubUsers) {
+      if (membership.authority === 'HOST') {
+        hostingClubIds.add(membership.club.id);
+      }
+    }
+
+    const participatingClubs = user.clubUsers
+      .filter((membership) => !hostingClubIds.has(membership.club.id))
+      .map((membership) => this.mapPublicProfileClub(membership.club));
+    const hostingClubsById = new Map(
+      [
+        ...user.clubs.map((club) => this.mapPublicProfileClub(club)),
+        ...user.clubUsers
+          .filter((membership) => membership.authority === 'HOST')
+          .map((membership) => this.mapPublicProfileClub(membership.club)),
+      ].map((club) => [club.clubId, club]),
+    );
+
+    return {
+      userId: Number(user.id),
+      nickname: user.nickname,
+      age: user.age,
+      gender: user.sex,
+      area: {
+        name: user.address?.sigunguName ?? user.address?.fullName ?? '',
+      },
+      introText: user.introText,
+      interests: user.interests
+        .map((item) => item.interest.body)
+        .filter((body): body is string => Boolean(body)),
+      idealPersonalities: user.idealPersonalities
+        .map((item) => item.personality.body)
+        .filter((body): body is string => Boolean(body)),
+      participatingClubs,
+      hostingClubs: Array.from(hostingClubsById.values()),
+      profileImageUrl: user.profileImageUrl,
     };
   }
 
@@ -519,5 +582,21 @@ export class UserService {
         message: 'cursor 형식이 올바르지 않습니다.',
       });
     }
+  }
+
+  private mapPublicProfileClub(club: {
+    id: bigint;
+    name: string;
+    thumbnailUrl: string | null;
+    category: UserPublicProfileResponseDto['participatingClubs'][number]['category'];
+    introText: string | null;
+  }): UserPublicProfileResponseDto['participatingClubs'][number] {
+    return {
+      clubId: Number(club.id),
+      name: club.name,
+      thumbnailUrl: club.thumbnailUrl,
+      category: club.category,
+      introText: club.introText,
+    };
   }
 }

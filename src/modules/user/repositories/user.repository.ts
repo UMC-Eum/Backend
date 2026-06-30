@@ -209,6 +209,81 @@ export class UserRepository {
     });
   }
 
+  findPublicProfileById(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        age: true,
+        sex: true,
+        introText: true,
+        profileImageUrl: true,
+        address: {
+          select: {
+            fullName: true,
+            sigunguName: true,
+          },
+        },
+        interests: {
+          where: { deletedAt: null },
+          select: {
+            interest: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        idealPersonalities: {
+          where: { deletedAt: null },
+          select: {
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        clubs: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        clubUsers: {
+          where: {
+            status: ClubUserStatus.ACTIVE,
+            club: { deletedAt: null },
+          },
+          select: {
+            authority: true,
+            joinedAt: true,
+            club: {
+              select: {
+                id: true,
+                name: true,
+                thumbnailUrl: true,
+                category: true,
+                introText: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: 'desc' },
+        },
+      },
+    });
+  }
+
   findMyActiveClubs(userId: number) {
     return this.prismaService.clubUser.findMany({
       where: {

@@ -31,6 +31,7 @@ import {
   UserLikedClubsResponseDto,
 } from '../../dtos/user-clubs-response.dto';
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
+import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserService } from '../../services/user/user.service';
 
 @ApiTags('User')
@@ -101,6 +102,18 @@ export class UserController {
     @Param('userId', new ParsePositiveIntPipe()) visitedUserId: number,
   ) {
     return this.userService.markProfileVisit(visitorUserId ?? 0, visitedUserId);
+  }
+
+  @Get(':userId/profile')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Get user public profile' })
+  @ApiOkResponse({ type: UserPublicProfileResponseDto })
+  @ApiNotFoundResponse({ description: '대상 사용자를 찾을 수 없음' })
+  getUserProfile(
+    @CurrentUser('userId') viewerUserId: number | null,
+    @Param('userId', new ParsePositiveIntPipe()) targetUserId: number,
+  ) {
+    return this.userService.getPublicProfile(viewerUserId ?? 0, targetUserId);
   }
 
   @Patch('me')

@@ -62,7 +62,7 @@ describe('LocalAuthService', () => {
 
     const result = await service.login({
       username: ' admin01 ',
-      password: 'password123',
+      password: '',
     });
 
     expect(

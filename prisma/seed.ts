@@ -1,5 +1,6 @@
 import { DayOfWeek, Prisma, PrismaClient, RecurrenceType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { scryptSync } from 'crypto';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
@@ -68,6 +69,13 @@ function vectorLiteral(seed: number) {
   return `[${values.join(',')}]`;
 }
 
+function createLocalPasswordHash(password: string, username: string) {
+  const salt = Buffer.from(`seed-local-auth-${username}`);
+  const hash = scryptSync(password, salt, 64);
+
+  return `scrypt$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+}
+
 async function resetDatabase() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to reset database while NODE_ENV=production');
@@ -107,6 +115,7 @@ async function resetDatabase() {
       "Heart",
       "UserPhoto",
       "RefreshToken",
+      "LocalAuthAccount",
       "Club",
       "User"
     RESTART IDENTITY CASCADE
@@ -244,6 +253,23 @@ async function insertClubs() {
 
 async function insertDummyData() {
   await insertUsers();
+
+  await prisma.localAuthAccount.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
+      const username = `admin${String(index + 1).padStart(2, '0')}`;
+
+      return {
+        id: BigInt(index + 1),
+        username,
+        passwordHash: createLocalPasswordHash('password123', username),
+        userId: BigInt(index + 1),
+        isActive: true,
+        createdAt: daysFromSeed(index),
+        updatedAt: daysFromSeed(index),
+      };
+    }),
+    skipDuplicates: true,
+  });
 
   await prisma.refreshToken.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
@@ -591,6 +617,7 @@ async function insertDummyData() {
 async function resetSequences() {
   const tableNames = [
     'User',
+    'LocalAuthAccount',
     'RefreshToken',
     'UserPhoto',
     'Heart',

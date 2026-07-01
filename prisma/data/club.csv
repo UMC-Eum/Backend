@@ -1,0 +1,25 @@
+id,hostId,name,introVoiceUrl,introText,category,capacity,code,likes,thumbnailUrl,vibeSeed
+1,1,흑석 한강 걷기 모임,https://cdn.example.com/voice/club/heukseok-club-1.m4a,한강과 흑석동 골목을 천천히 걸으며 건강을 챙기는 모임입니다.,OUTDOOR,24,1159010500,4,https://cdn.example.com/images/club/heukseok-club-1.jpg,101
+2,2,중앙대 앞 독서살롱,https://cdn.example.com/voice/club/heukseok-club-2.m4a,읽은 책을 편하게 나누고 서로의 삶을 듣는 독서 모임입니다.,CULTURE,18,1159010500,7,https://cdn.example.com/images/club/heukseok-club-2.jpg,102
+3,3,흑석동 집밥 연구회,https://cdn.example.com/voice/club/heukseok-club-3.m4a,집밥 메뉴와 장보기 팁을 나누며 함께 요리합니다.,CULTURE,20,1159010500,10,https://cdn.example.com/images/club/heukseok-club-3.jpg,103
+4,4,서달산 가벼운 등산회,https://cdn.example.com/voice/club/heukseok-club-4.m4a,무리하지 않는 코스로 서달산을 오르는 동네 등산 모임입니다.,SPORTS,28,1159010500,13,https://cdn.example.com/images/club/heukseok-club-4.jpg,104
+5,5,5060 클래식 감상반,https://cdn.example.com/voice/club/heukseok-club-5.m4a,클래식 재즈 옛 가요를 함께 듣고 이야기합니다.,CULTURE,22,1159010500,16,https://cdn.example.com/images/club/heukseok-club-5.jpg,105
+6,6,흑석 사진 산책단,https://cdn.example.com/voice/club/heukseok-club-6.m4a,스마트폰으로 동네 풍경을 기록하는 사진 모임입니다.,CULTURE,24,1159010500,19,https://cdn.example.com/images/club/heukseok-club-6.jpg,106
+7,7,동작 봉사 나눔회,https://cdn.example.com/voice/club/heukseok-club-7.m4a,작은 봉사부터 꾸준히 실천하는 흑석동 이웃 모임입니다.,VOLUNTEER,30,1159010500,22,https://cdn.example.com/images/club/heukseok-club-7.jpg,107
+8,8,건강 스트레칭 모임,https://cdn.example.com/voice/club/heukseok-club-8.m4a,관절에 부담이 적은 스트레칭과 생활 운동을 함께합니다.,SPORTS,26,1159010500,25,https://cdn.example.com/images/club/heukseok-club-8.jpg,108
+9,9,영화 한편 수다회,https://cdn.example.com/voice/club/heukseok-club-9.m4a,영화를 본 뒤 감상을 나누는 편안한 수다 모임입니다.,CULTURE,18,1159010500,28,https://cdn.example.com/images/club/heukseok-club-9.jpg,109
+10,10,흑석시장 맛집 탐방,https://cdn.example.com/voice/club/heukseok-club-10.m4a,흑석시장과 근처 식당을 함께 찾아가는 맛집 모임입니다.,CULTURE,20,1159010500,31,https://cdn.example.com/images/club/heukseok-club-10.jpg,110
+11,11,스마트폰 사진 교실,https://cdn.example.com/voice/club/heukseok-club-11.m4a,스마트폰 카메라와 사진 정리를 천천히 배웁니다.,CULTURE,16,1159010500,34,https://cdn.example.com/images/club/heukseok-club-11.jpg,111
+12,12,차와 대화 모임,https://cdn.example.com/voice/club/heukseok-club-12.m4a,차 한잔과 함께 일상 이야기를 나누는 소모임입니다.,OTHERS,18,1159010500,37,https://cdn.example.com/images/club/heukseok-club-12.jpg,112
+13,13,한강 자전거 친구들,https://cdn.example.com/voice/club/heukseok-club-13.m4a,한강변을 안전하게 달리는 자전거 친구 모임입니다.,SPORTS,24,1159010500,40,https://cdn.example.com/images/club/heukseok-club-13.jpg,113
+14,14,우리동네 역사 산책,https://cdn.example.com/voice/club/heukseok-club-14.m4a,동작구와 한강 주변의 역사 이야기를 함께 걷습니다.,CULTURE,22,1159010500,43,https://cdn.example.com/images/club/heukseok-club-14.jpg,114
+15,15,생활 재테크 스터디,https://cdn.example.com/voice/club/heukseok-club-15.m4a,생활비 연금 금융 습관을 차분히 공부합니다.,OTHERS,18,1159010500,46,https://cdn.example.com/images/club/heukseok-club-15.jpg,115
+16,16,7080 통기타 모임,https://cdn.example.com/voice/club/heukseok-club-16.m4a,통기타와 오래된 노래를 함께 즐기는 음악 모임입니다.,CULTURE,20,1159010500,49,https://cdn.example.com/images/club/heukseok-club-16.jpg,116
+17,17,식물 돌봄 동호회,https://cdn.example.com/voice/club/heukseok-club-17.m4a,화분과 반려식물 관리법을 나누는 모임입니다.,OTHERS,18,1159010500,52,https://cdn.example.com/images/club/heukseok-club-17.jpg,117
+18,18,수요일 바둑 모임,https://cdn.example.com/voice/club/heukseok-club-18.m4a,승패보다 대화를 즐기는 바둑 모임입니다.,OTHERS,16,1159010500,55,https://cdn.example.com/images/club/heukseok-club-18.jpg,118
+19,19,공연 전시 동행회,https://cdn.example.com/voice/club/heukseok-club-19.m4a,공연과 전시를 함께 보고 감상을 나눕니다.,CULTURE,24,1159010500,58,https://cdn.example.com/images/club/heukseok-club-19.jpg,119
+20,20,느린 여행 준비반,https://cdn.example.com/voice/club/heukseok-club-20.m4a,국내 여행 코스와 준비 팁을 공유합니다.,OUTDOOR,22,1159010500,61,https://cdn.example.com/images/club/heukseok-club-20.jpg,120
+21,21,아침 체조 친구들,https://cdn.example.com/voice/club/heukseok-club-21.m4a,아침 시간을 가볍게 열어주는 체조 모임입니다.,SPORTS,26,1159010500,64,https://cdn.example.com/images/club/heukseok-club-21.jpg,121
+22,22,손글씨와 글쓰기,https://cdn.example.com/voice/club/heukseok-club-22.m4a,손글씨와 짧은 글쓰기를 함께 연습합니다.,CULTURE,18,1159010500,67,https://cdn.example.com/images/club/heukseok-club-22.jpg,122
+23,23,동네 멘토링 클럽,https://cdn.example.com/voice/club/heukseok-club-23.m4a,경험을 나누고 서로 돕는 멘토링 모임입니다.,VOLUNTEER,20,1159010500,70,https://cdn.example.com/images/club/heukseok-club-23.jpg,123
+24,24,주말 문화 탐방대,https://cdn.example.com/voice/club/heukseok-club-24.m4a,주말마다 가까운 문화 공간을 찾아갑니다.,CULTURE,24,1159010500,73,https://cdn.example.com/images/club/heukseok-club-24.jpg,124

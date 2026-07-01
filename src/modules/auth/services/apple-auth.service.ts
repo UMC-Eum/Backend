@@ -60,8 +60,10 @@ export class AppleAuthService {
 
   async loginWithApple(
     request: AppleLoginRequestDto,
+    clientIdOverride?: string,
   ): Promise<AppleLoginResult> {
-    const clientId = this.configService.get<string>('APPLE_CLIENT_ID');
+    const clientId =
+      clientIdOverride ?? this.configService.get<string>('APPLE_CLIENT_ID');
 
     if (!clientId) {
       throw new AppException('SERVER_TEMPORARY_ERROR', {

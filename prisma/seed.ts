@@ -5,6 +5,7 @@ import {
   RecurrenceType,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { scryptSync } from 'crypto';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
@@ -332,6 +333,13 @@ function requireRowRange<T>(
   }
 }
 
+function createLocalPasswordHash(password: string, username: string) {
+  const salt = Buffer.from(`seed-local-auth-${username}`);
+  const hash = scryptSync(password, salt, 64);
+
+  return `scrypt$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+}
+
 async function resetDatabase() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to reset database while NODE_ENV=production');
@@ -532,6 +540,23 @@ async function insertSeedData() {
 
   await insertUsers();
 
+  await prisma.localAuthAccount.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
+      const username = `admin${String(index + 1).padStart(2, '0')}`;
+
+      return {
+        id: BigInt(index + 1),
+        username,
+        passwordHash: createLocalPasswordHash('password123', username),
+        userId: BigInt(index + 1),
+        isActive: true,
+        createdAt: daysFromSeed(index),
+        updatedAt: daysFromSeed(index),
+      };
+    }),
+    skipDuplicates: true,
+  });
+
   await prisma.refreshToken.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
@@ -539,19 +564,6 @@ async function insertSeedData() {
       tokenHash: `heukseok-refresh-token-hash-${index + 1}`,
       expiresAt: daysFromSeed(30 + index),
       createdAt: daysFromSeed(index),
-    })),
-    skipDuplicates: true,
-  });
-
-  await prisma.localAuthAccount.createMany({
-    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
-      id: BigInt(index + 1),
-      username: `heukseok${String(index + 1).padStart(2, '0')}`,
-      passwordHash: `$2b$10$seeded.hash.for.heukseok.user.${String(index + 1).padStart(2, '0')}`,
-      userId: BigInt(index + 1),
-      isActive: index % 11 !== 0,
-      createdAt: daysFromSeed(index),
-      updatedAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
   });
@@ -920,6 +932,7 @@ async function insertSeedData() {
 async function resetSequences() {
   const tableNames = [
     'User',
+    'LocalAuthAccount',
     'RefreshToken',
     'UserPhoto',
     'Heart',

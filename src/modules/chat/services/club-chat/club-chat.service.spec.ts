@@ -5,6 +5,7 @@ import { ClubRepository } from '../../../club/repositories/club.repository';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
+import { ChatGateway } from '../../gateways/chat.gateway';
 
 describe('ClubChatService', () => {
   let service: ClubChatService;
@@ -27,6 +28,10 @@ describe('ClubChatService', () => {
     createSystemMessage: jest.fn(),
   };
 
+  const chatGatewayMock: Partial<ChatGateway> = {
+    emitChatMessage: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -35,6 +40,7 @@ describe('ClubChatService', () => {
         { provide: RoomRepository, useValue: roomRepoMock },
         { provide: ParticipantRepository, useValue: participantRepoMock },
         { provide: MessageRepository, useValue: messageRepoMock },
+        { provide: ChatGateway, useValue: chatGatewayMock },
       ],
     }).compile();
 
@@ -87,6 +93,10 @@ describe('ClubChatService', () => {
     (
       participantRepoMock.countActiveParticipants as jest.Mock
     ).mockResolvedValue(3);
+    (messageRepoMock.createSystemMessage as jest.Mock).mockResolvedValue({
+      id: BigInt(300),
+      sentAt: new Date('2026-02-10T00:00:00.000Z'),
+    });
 
     const res = await service.enterClubRoom(1, 7);
 
@@ -97,6 +107,8 @@ describe('ClubChatService', () => {
       club: { clubId: 7, name: '클럽', thumbnailUrl: 'https://img/club.png' },
       memberCount: 3,
     });
+    // 입장 SYSTEM 메시지 실시간 broadcast
+    expect(chatGatewayMock.emitChatMessage).toHaveBeenCalledTimes(1);
     expect(roomRepoMock.ensureClubRoom).toHaveBeenCalledWith(
       BigInt(7),
       BigInt(9),

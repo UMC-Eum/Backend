@@ -68,6 +68,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(uniqueRooms).emit(event, payload);
   }
 
+  // REST(입장/퇴장 SYSTEM 메시지 등)에서 호출 — 방 전체에 message.new broadcast.
+  emitChatMessage(chatRoomId: number, payload: unknown): void {
+    this.emitToRooms([toChatRoom(chatRoomId)], 'message.new', payload);
+  }
+
   // REST(읽음)에서 호출 — 방 단위 읽음 커서 broadcast.
   // 클라는 readerUserId의 커서를 lastReadAt으로 갱신하고 sentAt <= lastReadAt 메시지를 읽음 처리한다.
   emitRoomRead(params: {

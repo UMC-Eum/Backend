@@ -198,6 +198,24 @@ export class ParticipantRepository {
     });
   }
 
+  // 소켓 fan-out 대상: 활성 참여자 userId (선택적으로 발신자 제외).
+  async getActiveParticipantUserIds(
+    roomId: bigint,
+    excludeUserId?: bigint,
+  ): Promise<bigint[]> {
+    const rows = await this.prisma.chatParticipant.findMany({
+      where: { roomId, endedAt: null },
+      select: { userId: true },
+    });
+
+    return rows
+      .map((r) => r.userId)
+      .filter(
+        (id): id is bigint =>
+          id != null && (excludeUserId == null || id !== excludeUserId),
+      );
+  }
+
   async countActiveByRoomIds(roomIds: bigint[]): Promise<Map<bigint, number>> {
     if (roomIds.length === 0) return new Map();
 

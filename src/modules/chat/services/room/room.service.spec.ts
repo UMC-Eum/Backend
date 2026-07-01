@@ -5,6 +5,7 @@ import { RoomRepository } from '../../repositories/room.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { ChatGateway } from '../../gateways/chat.gateway';
 
 describe('RoomService', () => {
   let service: RoomService;
@@ -39,6 +40,12 @@ describe('RoomService', () => {
     findClubBriefsByIds: jest.fn(),
   };
 
+  const chatGatewayMock: Partial<ChatGateway> = {
+    emitChatMessage: jest.fn(),
+    emitRoomRead: jest.fn(),
+    emitMessageDeleted: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +54,7 @@ describe('RoomService', () => {
         { provide: ParticipantRepository, useValue: participantRepoMock },
         { provide: MessageRepository, useValue: messageRepoMock },
         { provide: ClubRepository, useValue: clubRepoMock },
+        { provide: ChatGateway, useValue: chatGatewayMock },
       ],
     }).compile();
 

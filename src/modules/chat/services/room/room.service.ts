@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { ChatGateway } from '../../gateways/chat.gateway';
 import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
 import { buildMessagePreview } from '../../utils/message-preview.util';
 import { normalizeIdentity } from '../../utils/withdrawn.util';
@@ -44,6 +45,7 @@ export class RoomService {
     private readonly participantRepo: ParticipantRepository,
     private readonly messageRepo: MessageRepository,
     private readonly clubRepo: ClubRepository,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async createRoom(
@@ -438,12 +440,24 @@ export class RoomService {
     const left = await this.roomRepo.leaveRoom(roomId, me);
     if (!left) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    // 퇴장 SYSTEM 메시지 (참여자 row는 endedAt만 세팅돼 남아있어 FK 유효)
+    // 퇴장 SYSTEM 메시지 (참여자 row는 endedAt만 세팅돼 남아있어 FK 유효) + 실시간 broadcast
     if (leaver) {
-      await this.messageRepo.createSystemMessage(
+      const text = `${leaver.nickname ?? '알 수 없음'}님이 나갔습니다.`;
+      const sys = await this.messageRepo.createSystemMessage(
         leaver.participantId,
-        `${leaver.nickname ?? '알 수 없음'}님이 나갔습니다.`,
+        text,
       );
+      this.chatGateway.emitChatMessage(chatRoomId, {
+        messageId: Number(sys.id),
+        chatRoomId,
+        senderUserId: meUserId,
+        type: 'SYSTEM',
+        text,
+        mediaUrl: null,
+        durationSec: null,
+        sentAt: sys.sentAt.toISOString(),
+        isSystem: true,
+      });
     }
   }
 }

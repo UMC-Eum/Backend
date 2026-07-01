@@ -371,10 +371,18 @@ export class MessageService {
     const readAt = new Date();
     await this.participantRepo.markRoomRead(roomId, me, readAt);
 
-    // DIRECT: 나 + 상대에게 읽음 커서 broadcast. (그룹 전원 fan-out은 P5에서)
-    const peer = await this.participantRepo.findPeerReadState(roomId, me);
-    const notifyUserIds = [meUserId];
-    if (peer?.userId != null) notifyUserIds.push(Number(peer.userId));
+    // 읽음 커서 broadcast 대상: DIRECT는 나+상대, CLUB은 활성 참여자 전원.
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    let notifyUserIds: number[];
+    if (roomInfo?.type === 'CLUB') {
+      const ids =
+        await this.participantRepo.getActiveParticipantUserIds(roomId);
+      notifyUserIds = ids.map(Number);
+    } else {
+      const peer = await this.participantRepo.findPeerReadState(roomId, me);
+      notifyUserIds = [meUserId];
+      if (peer?.userId != null) notifyUserIds.push(Number(peer.userId));
+    }
 
     this.chatGateway.emitRoomRead({
       chatRoomId,

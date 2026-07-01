@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { ChatGateway } from '../../gateways/chat.gateway';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
@@ -15,6 +16,7 @@ export class ClubChatService {
     private readonly roomRepo: RoomRepository,
     private readonly participantRepo: ParticipantRepository,
     private readonly messageRepo: MessageRepository,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   // 클럽 채팅방 입장(lazy provisioning): 방 find-or-create + 내 participant ensure.
@@ -46,13 +48,24 @@ export class ClubChatService {
         new Date(),
       );
 
-    // 이번에 처음 입장한 경우에만 "{닉네임}님이 입장했습니다." SYSTEM 메시지 영속
-    // (실시간 broadcast는 P5에서 처리)
+    // 이번에 처음 입장한 경우에만 "{닉네임}님이 입장했습니다." SYSTEM 메시지 영속 + 실시간 broadcast
     if (created) {
-      await this.messageRepo.createSystemMessage(
+      const text = `${nickname ?? '알 수 없음'}님이 입장했습니다.`;
+      const sys = await this.messageRepo.createSystemMessage(
         participantId,
-        `${nickname ?? '알 수 없음'}님이 입장했습니다.`,
+        text,
       );
+      this.chatGateway.emitChatMessage(Number(roomId), {
+        messageId: Number(sys.id),
+        chatRoomId: Number(roomId),
+        senderUserId: meUserId,
+        type: 'SYSTEM',
+        text,
+        mediaUrl: null,
+        durationSec: null,
+        sentAt: sys.sentAt.toISOString(),
+        isSystem: true,
+      });
     }
 
     const memberCount =

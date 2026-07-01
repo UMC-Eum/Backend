@@ -405,6 +405,11 @@ export class MessageService {
       });
     }
 
+    // CLUB(그룹) 전송취소는 현재 미지원 — 다중 참여자 읽음 판정/삭제 fan-out 미구현으로 명시 차단.
+    if (message.roomType === 'CLUB') {
+      throw new AppException('CHAT_GROUP_MESSAGE_UNSEND_NOT_ALLOWED');
+    }
+
     // 전송취소는 발신자만 가능
     if (message.sentById !== me) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');

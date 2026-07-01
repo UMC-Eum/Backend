@@ -180,6 +180,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CHAT-005',
     message: '이미 읽은 메시지는 전송취소할 수 없어요.',
   },
+  CHAT_GROUP_MESSAGE_UNSEND_NOT_ALLOWED: {
+    status: HttpStatus.CONFLICT,
+    code: 'CHAT-006',
+    message: '그룹 채팅 메시지는 전송취소할 수 없어요.',
+  },
 
   // CLUB
   CLUB_NOT_FOUND: {

@@ -166,6 +166,7 @@ describe('MessageService', () => {
       (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
         id: BigInt(100),
         roomId: BigInt(10),
+        roomType: 'DIRECT',
         sentById: BigInt(1),
         sentToId: BigInt(2),
         deletedAt: null,
@@ -186,6 +187,7 @@ describe('MessageService', () => {
       (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
         id: BigInt(100),
         roomId: BigInt(10),
+        roomType: 'DIRECT',
         sentById: BigInt(2),
         sentToId: BigInt(1),
         deletedAt: null,
@@ -201,6 +203,7 @@ describe('MessageService', () => {
       (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
         id: BigInt(100),
         roomId: BigInt(10),
+        roomType: 'DIRECT',
         sentById: BigInt(1),
         sentToId: BigInt(2),
         sentAt: new Date('2026-02-10T00:00:00.000Z'),
@@ -226,6 +229,7 @@ describe('MessageService', () => {
       (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
         id: BigInt(100),
         roomId: BigInt(10),
+        roomType: 'DIRECT',
         sentById: BigInt(1),
         sentToId: BigInt(2),
         sentAt: new Date('2026-02-10T00:00:00.000Z'),
@@ -243,6 +247,24 @@ describe('MessageService', () => {
       await expect(service.deleteMessage(1, 100)).resolves.toBeUndefined();
       expect(messageRepoMock.deleteMessage).toHaveBeenCalledTimes(1);
       expect(chatGatewayMock.emitMessageDeleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('should block unsend for CLUB messages (CHAT_GROUP_MESSAGE_UNSEND_NOT_ALLOWED)', async () => {
+      (messageRepoMock.findMessageById as jest.Mock).mockResolvedValue({
+        id: BigInt(100),
+        roomId: BigInt(10),
+        roomType: 'CLUB',
+        sentById: BigInt(1),
+        sentToId: BigInt(0),
+        sentAt: new Date('2026-02-10T00:00:00.000Z'),
+        deletedAt: null,
+      });
+
+      await expect(service.deleteMessage(1, 100)).rejects.toMatchObject({
+        internalCode: 'CHAT_GROUP_MESSAGE_UNSEND_NOT_ALLOWED',
+      });
+      expect(messageRepoMock.deleteMessage).not.toHaveBeenCalled();
+      expect(chatGatewayMock.emitMessageDeleted).not.toHaveBeenCalled();
     });
   });
 

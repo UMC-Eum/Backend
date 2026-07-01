@@ -37,6 +37,7 @@ export type MessageDetail = {
   sentById: bigint;
   sentToId: bigint;
   roomId: bigint;
+  roomType: 'DIRECT' | 'CLUB';
 };
 
 // 유효 읽음 커서 = max(lastReadAt ?? joinedAt, joinedAt).
@@ -263,6 +264,7 @@ export class MessageRepository {
             roomId: true,
             room: {
               select: {
+                type: true,
                 participants: {
                   select: { userId: true },
                 },
@@ -290,6 +292,7 @@ export class MessageRepository {
       sentById: senderId ?? 0n,
       sentToId: peer ?? 0n,
       roomId: m.participant.roomId,
+      roomType: m.participant.room.type,
     };
   }
 

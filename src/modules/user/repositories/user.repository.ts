@@ -88,6 +88,84 @@ export class UserRepository {
     });
   }
 
+  async upsertAppleUser({
+    providerUserId,
+    email,
+    shouldUpdateEmail,
+    nickname,
+    defaultBirthdate,
+    defaultAddressCode,
+    defaultIntroVoiceUrl,
+    defaultProfileImageUrl,
+  }: {
+    providerUserId: string;
+    email: string;
+    shouldUpdateEmail: boolean;
+    nickname: string;
+    defaultBirthdate: Date;
+    defaultAddressCode: string;
+    defaultIntroVoiceUrl: string;
+    defaultProfileImageUrl: string;
+  }) {
+    await this.ensureDefaultAddress(defaultAddressCode);
+
+    return this.prismaService.$transaction(async (tx) => {
+      const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
+        Prisma.sql`
+          INSERT INTO "User" (
+            "birthdate",
+            "email",
+            "nickname",
+            "updatedAt",
+            "introVoiceUrl",
+            "introText",
+            "profileImageUrl",
+            "code",
+            "provider",
+            "providerUserId",
+            "vibeVector"
+          )
+          VALUES (
+            ${defaultBirthdate},
+            ${email},
+            ${nickname},
+            NOW(),
+            ${defaultIntroVoiceUrl},
+            ${''},
+            ${defaultProfileImageUrl},
+            ${defaultAddressCode},
+            ${AuthProvider.APPLE}::"AuthProvider",
+            ${providerUserId},
+            '[0]'::vector
+          )
+          ON CONFLICT ("provider", "providerUserId") DO NOTHING
+          RETURNING "id"
+        `,
+      );
+
+      const insertedId = insertedRows[0]?.id;
+      if (insertedId) {
+        const createdUser = await tx.user.findUniqueOrThrow({
+          where: { id: insertedId },
+        });
+
+        return { user: createdUser, isNewUser: true };
+      }
+
+      const updatedUser = await tx.user.update({
+        where: {
+          provider_providerUserId: {
+            provider: AuthProvider.APPLE,
+            providerUserId,
+          },
+        },
+        data: shouldUpdateEmail ? { email } : {},
+      });
+
+      return { user: updatedUser, isNewUser: false };
+    });
+  }
+
   countActiveReportsByUserId(userId: number) {
     return this.prismaService.userReport.count({
       where: {

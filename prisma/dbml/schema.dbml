@@ -511,6 +511,7 @@ Enum BlockStatus {
 
 Enum AuthProvider {
   KAKAO
+  APPLE
 }
 
 Enum ChatMediaType {

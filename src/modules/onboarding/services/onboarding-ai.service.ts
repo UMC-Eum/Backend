@@ -1,9 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppException } from '../../../common/errors/app.exception';
-import { CreateProfileDto } from '../dtos/onboarding.dto';
+import { CreateProfileRequestDto } from '../dtos/onboarding.dto';
 
 type FastApiMatchesResponse = unknown;
+
+type AnalysisMatchedKeyword = {
+  category: string;
+  id: number;
+  keyword: string;
+  score: number;
+};
+
+type ProfileAnalysisResult = {
+  matchedKeywords: AnalysisMatchedKeyword[];
+  selectedKeywords: string[];
+  summary: string;
+  transcript: string;
+  vibeVector: number[];
+};
 
 @Injectable()
 export class OnboardingAiService {
@@ -40,8 +55,8 @@ export class OnboardingAiService {
 
   async analyzeProfile(
     userId: number,
-    dto: CreateProfileDto,
-  ): Promise<{ selectedKeywords: string[]; vibeVector: number[] }> {
+    dto: CreateProfileRequestDto,
+  ): Promise<ProfileAnalysisResult> {
     const result = await this.callFastApi<{
       resultType?: unknown;
       success?: {
@@ -52,6 +67,8 @@ export class OnboardingAiService {
           vibe_vector?: unknown;
           selectedKeywords?: unknown;
           selected_keywords?: unknown;
+          summary?: unknown;
+          transcript?: unknown;
         };
       };
       data?: {
@@ -61,25 +78,31 @@ export class OnboardingAiService {
         vibe_vector?: unknown;
         selectedKeywords?: unknown;
         selected_keywords?: unknown;
+        summary?: unknown;
+        transcript?: unknown;
       };
       selectedKeywords?: unknown;
       selected_keywords?: unknown;
+      summary?: unknown;
+      transcript?: unknown;
       vibeVector?: unknown;
       vibe_vector?: unknown;
     }>(this.profileAnalysisPath, {
-      transcript: dto.introText,
-      local_audio_path: dto.introAudioUrl,
-      analysis_type: 'profile',
-      user_id: userId,
+      birthdate: dto.birthDate,
+      introAudioUrl: dto.introAudioUrl,
+      sex: dto.gender,
     });
 
     this.assertFastApiSuccess(result, this.profileAnalysisPath);
 
     const payloadData = this.extractPayloadData(result);
 
-    const selectedKeywordsFromList = this.extractKeywordsFromMatchedKeywords(
+    const matchedKeywords = this.extractProfileMatchedKeywordObjects(
       payloadData.matchedKeywords,
+      payloadData.matched_keywords,
     );
+    const selectedKeywordsFromList =
+      this.extractKeywordsFromMatchedKeywords(matchedKeywords);
     const selectedKeywords = this.pickStringArray(
       payloadData.selectedKeywords,
       payloadData.selected_keywords,
@@ -97,7 +120,14 @@ export class OnboardingAiService {
     );
 
     return {
+      matchedKeywords,
       selectedKeywords,
+      summary:
+        typeof payloadData.summary === 'string' ? payloadData.summary : '',
+      transcript:
+        typeof payloadData.transcript === 'string'
+          ? payloadData.transcript
+          : '',
       vibeVector,
     };
   }
@@ -111,7 +141,7 @@ export class OnboardingAiService {
     transcript: string;
     summary: string;
     vectorId: string;
-    matchedKeywords: { keyword: string }[];
+    matchedKeywords: AnalysisMatchedKeyword[];
     selectedKeywords: string[];
     vibeVector: number[];
   }> {
@@ -154,6 +184,7 @@ export class OnboardingAiService {
       vibeVector?: unknown;
       vibe_vector?: unknown;
     }>(this.clubVibeAnalysisPath, {
+      clubId: dto.clubId,
       transcript: dto.transcript,
       analysis_type: dto.analysis_type,
     });
@@ -161,7 +192,7 @@ export class OnboardingAiService {
     this.assertFastApiSuccess(result, this.clubVibeAnalysisPath);
 
     const payloadData = this.extractPayloadData(result);
-    const matchedKeywords = this.extractMatchedKeywordObjects(
+    const matchedKeywords = this.extractAnalysisMatchedKeywordObjects(
       payloadData.matchedKeywords,
       payloadData.matched_keywords,
     );
@@ -251,15 +282,18 @@ export class OnboardingAiService {
 
   private async callFastApi<T>(path: string, payload: unknown): Promise<T> {
     let response: Response;
+    const url = this.buildUrl(path);
     try {
-      response = await fetch(this.buildUrl(path), {
+      response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+      throw new AppException('NETWORK_CONNECTION_FAILED', {
+        details: this.buildFetchErrorDetails('POST', url, error),
+      });
     }
 
     if (!response.ok) {
@@ -298,7 +332,9 @@ export class OnboardingAiService {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
-      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+      throw new AppException('NETWORK_CONNECTION_FAILED', {
+        details: this.buildFetchErrorDetails('GET', url.toString(), error),
+      });
     }
 
     if (!response.ok) {
@@ -319,6 +355,61 @@ export class OnboardingAiService {
         },
       });
     }
+  }
+
+  private buildFetchErrorDetails(
+    method: 'GET' | 'POST',
+    url: string,
+    error: unknown,
+  ): Record<string, unknown> {
+    return {
+      method,
+      url,
+      timeoutMs: this.timeoutMs,
+      error: this.serializeError(error),
+    };
+  }
+
+  private serializeError(error: unknown, depth = 0): Record<string, unknown> {
+    if (depth > 2) {
+      return { message: String(error) };
+    }
+
+    if (error instanceof Error) {
+      const cause = this.readProperty(error, 'cause');
+      return {
+        name: error.name,
+        message: error.message,
+        code: this.readProperty(error, 'code'),
+        errno: this.readProperty(error, 'errno'),
+        syscall: this.readProperty(error, 'syscall'),
+        address: this.readProperty(error, 'address'),
+        port: this.readProperty(error, 'port'),
+        cause:
+          cause === undefined
+            ? undefined
+            : this.serializeError(cause, depth + 1),
+      };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+      return Object.fromEntries(
+        Object.getOwnPropertyNames(error).map((key) => [
+          key,
+          this.readProperty(error, key),
+        ]),
+      );
+    }
+
+    return { message: String(error) };
+  }
+
+  private readProperty(target: unknown, key: string): unknown {
+    if (typeof target !== 'object' || target === null) {
+      return undefined;
+    }
+
+    return (target as Record<string, unknown>)[key];
   }
 
   private pickStringArray(...candidates: unknown[]): string[] {
@@ -434,9 +525,15 @@ export class OnboardingAiService {
       .filter((keyword) => keyword.length > 0);
   }
 
-  private extractMatchedKeywordObjects(
+  private extractProfileMatchedKeywordObjects(
     ...candidates: unknown[]
-  ): { keyword: string }[] {
+  ): AnalysisMatchedKeyword[] {
+    return this.extractAnalysisMatchedKeywordObjects(...candidates);
+  }
+
+  private extractAnalysisMatchedKeywordObjects(
+    ...candidates: unknown[]
+  ): AnalysisMatchedKeyword[] {
     const matchedKeywords = candidates.find((candidate) =>
       Array.isArray(candidate),
     );
@@ -446,19 +543,28 @@ export class OnboardingAiService {
 
     return matchedKeywords
       .map((item) => {
-        if (typeof item === 'string') {
-          return { keyword: item };
-        }
         if (typeof item !== 'object' || item === null) {
           return null;
         }
+
         const record = item as Record<string, unknown>;
-        return typeof record.keyword === 'string'
-          ? { keyword: record.keyword }
-          : null;
+        if (
+          typeof record.category !== 'string' ||
+          typeof record.id !== 'number' ||
+          typeof record.keyword !== 'string' ||
+          typeof record.score !== 'number'
+        ) {
+          return null;
+        }
+
+        return {
+          category: record.category,
+          id: record.id,
+          keyword: record.keyword.trim(),
+          score: record.score,
+        };
       })
-      .filter((item): item is { keyword: string } => item !== null)
-      .map((item) => ({ keyword: item.keyword.trim() }))
+      .filter((item): item is AnalysisMatchedKeyword => item !== null)
       .filter((item) => item.keyword.length > 0);
   }
 }

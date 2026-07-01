@@ -140,10 +140,10 @@ model User {
   nickname        String                @db.VarChar(20)
   updatedAt       DateTime              @updatedAt @db.Timestamp(6)
   deletedAt       DateTime?             @db.Timestamp(6)
-  idealVoiceUrl   String?               @db.VarChar(512)
-  introVoiceUrl   String                @db.VarChar(512)
+  idealVoiceUrl   String?               @db.Text
+  introVoiceUrl   String                @db.Text
   introText       String                @db.VarChar(255)
-  profileImageUrl String                @db.VarChar(512)
+  profileImageUrl String                @db.Text
   status          ActiveStatus          @default(ACTIVE)
   code            String?               @db.Char(10)
   provider        AuthProvider?
@@ -217,7 +217,7 @@ model RefreshToken {
 model UserPhoto {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt
-  url       String    @db.VarChar(512)
+  url       String    @db.Text
   deletedAt DateTime? @db.Timestamp(6)
   createdAt DateTime  @default(now()) @db.Timestamp(6)
 
@@ -436,7 +436,7 @@ model ChatMessage {
 model ChatMedia {
   id          BigInt        @id @default(autoincrement()) @db.BigInt
   messageId   BigInt        @db.BigInt
-  url         String?       @db.VarChar(512)
+  url         String?       @db.Text
   type        ChatMediaType @default(TEXT)
   text        String?       @db.VarChar(512)
   durationSec Int?
@@ -543,7 +543,7 @@ model ArticleLike {
 
 model ArticlePhoto {
   id         BigInt    @id @default(autoincrement()) @db.BigInt
-  photoUrl   String    @db.VarChar(512)
+  photoUrl   String    @db.Text
   createdAt  DateTime  @default(now()) @db.Timestamp(6)
   deletedAt  DateTime? @db.Timestamp(6)
   articleId  BigInt    @db.BigInt
@@ -559,7 +559,7 @@ model Club {
   id            BigInt                @id @default(autoincrement()) @db.BigInt
   hostId        BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
   name          String                @db.VarChar(50)
-  introVoiceUrl String?               @db.VarChar(512)
+  introVoiceUrl String?               @db.Text
   introText     String?               @db.VarChar(512)
   category      ClubCategory          @default(OTHERS)
   capacity      Int                   @db.Integer
@@ -569,7 +569,7 @@ model Club {
   code          String?               @db.Char(10)
   likes         Int                   @db.Integer
   vibeVector    Unsupported("vector")
-  thumbnailUrl  String?               @db.VarChar(512)
+  thumbnailUrl  String?               @db.Text
 
   user    User?    @relation(fields: [hostId], references: [id], onDelete: SetNull) // 호스트가 삭제돼도 클럽은 유지.
   address Address? @relation(fields: [code], references: [code], onDelete: SetNull) // 지역이 삭제돼도 클럽 유지.

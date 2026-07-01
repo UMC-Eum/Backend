@@ -39,6 +39,15 @@ const REPORT_COUNT = DUMMY_COUNT * 2;
 const ADDRESS_CHUNK_SIZE = 5_000;
 const now = new Date('2026-01-10T09:00:00.000Z');
 
+function requiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} must be set before running prisma seed.`);
+  }
+
+  return value;
+}
+
 function dataPath(fileName: string) {
   return path.join(DATA_DIR, fileName);
 }
@@ -254,6 +263,8 @@ async function insertClubs() {
 async function insertDummyData() {
   await insertUsers();
 
+  const localAuthSeedPassword = requiredEnv('LOCAL_AUTH_SEED_PASSWORD');
+
   await prisma.localAuthAccount.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
       const username = `admin${String(index + 1).padStart(2, '0')}`;
@@ -261,7 +272,7 @@ async function insertDummyData() {
       return {
         id: BigInt(index + 1),
         username,
-        passwordHash: createLocalPasswordHash('password123', username),
+        passwordHash: createLocalPasswordHash(localAuthSeedPassword, username),
         userId: BigInt(index + 1),
         isActive: true,
         createdAt: daysFromSeed(index),

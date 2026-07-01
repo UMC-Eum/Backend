@@ -1,5 +1,6 @@
 import { DayOfWeek, Prisma, PrismaClient, RecurrenceType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { scryptSync } from 'crypto';
 import { parse } from 'csv-parse/sync';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
@@ -38,6 +39,15 @@ const REPORT_COUNT = DUMMY_COUNT * 2;
 const ADDRESS_CHUNK_SIZE = 5_000;
 const now = new Date('2026-01-10T09:00:00.000Z');
 
+function requiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} must be set before running prisma seed.`);
+  }
+
+  return value;
+}
+
 function dataPath(fileName: string) {
   return path.join(DATA_DIR, fileName);
 }
@@ -66,6 +76,13 @@ function vectorLiteral(seed: number) {
   });
 
   return `[${values.join(',')}]`;
+}
+
+function createLocalPasswordHash(password: string, username: string) {
+  const salt = Buffer.from(`seed-local-auth-${username}`);
+  const hash = scryptSync(password, salt, 64);
+
+  return `scrypt$${salt.toString('base64url')}$${hash.toString('base64url')}`;
 }
 
 async function resetDatabase() {
@@ -107,6 +124,7 @@ async function resetDatabase() {
       "Heart",
       "UserPhoto",
       "RefreshToken",
+      "LocalAuthAccount",
       "Club",
       "User"
     RESTART IDENTITY CASCADE
@@ -244,6 +262,25 @@ async function insertClubs() {
 
 async function insertDummyData() {
   await insertUsers();
+
+  const localAuthSeedPassword = requiredEnv('LOCAL_AUTH_SEED_PASSWORD');
+
+  await prisma.localAuthAccount.createMany({
+    data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
+      const username = `admin${String(index + 1).padStart(2, '0')}`;
+
+      return {
+        id: BigInt(index + 1),
+        username,
+        passwordHash: createLocalPasswordHash(localAuthSeedPassword, username),
+        userId: BigInt(index + 1),
+        isActive: true,
+        createdAt: daysFromSeed(index),
+        updatedAt: daysFromSeed(index),
+      };
+    }),
+    skipDuplicates: true,
+  });
 
   await prisma.refreshToken.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
@@ -591,6 +628,7 @@ async function insertDummyData() {
 async function resetSequences() {
   const tableNames = [
     'User',
+    'LocalAuthAccount',
     'RefreshToken',
     'UserPhoto',
     'Heart',

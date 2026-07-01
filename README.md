@@ -58,6 +58,12 @@ FASTAPI_MATCH_RECOMMEND_PATH=/api/v1/recommendation/users
 FASTAPI_TIMEOUT_MS=10000
 ```
 
+로컬 seed에서 생성되는 `admin01`~`admin10` 로그인 계정의 비밀번호는 아래 환경변수로 설정합니다.
+
+```env
+LOCAL_AUTH_SEED_PASSWORD=<local-test-password>
+```
+
 ---
 
 ### 4️⃣ Run (Development)
@@ -179,7 +185,7 @@ Response:
 FastAPI 상태 확인용 엔드포인트입니다.
 
 ```http
-GET /api/v1/health/fatapi
+GET /api/v1/health/fastapi
 ```
 
 ---

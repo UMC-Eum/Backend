@@ -1,6 +1,7 @@
 import { ClubAuthority, ClubUserStatus } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, TransformFnParams } from 'class-transformer';
+import { Transform } from 'class-transformer';
+import type { TransformFnParams } from 'class-transformer';
 import { IsIn, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class CreateClubMemberRequestDto {

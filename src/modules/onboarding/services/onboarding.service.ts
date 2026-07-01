@@ -26,6 +26,7 @@ export class OnboardingService {
     const analysis = await this.onboardingAiService.analyzeProfile(userId, dto);
     const profileDto: CreateProfileDto = {
       ...dto,
+      introText: analysis.transcript,
       selectedKeywords: analysis.selectedKeywords,
       vibeVector: analysis.vibeVector,
     };
@@ -34,6 +35,9 @@ export class OnboardingService {
 
     return {
       userId,
+      matchedKeywords: analysis.matchedKeywords,
+      summary: analysis.summary,
+      transcript: analysis.transcript,
       profileCompleted: true,
     };
   }
@@ -66,7 +70,6 @@ export class OnboardingService {
       vectorId: analysis.vectorId,
       matchedKeywords: analysis.matchedKeywords,
       vibeVector: analysis.vibeVector,
-      clubUpdated: true,
     };
   }
 }

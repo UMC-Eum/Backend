@@ -14,7 +14,7 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  @Get('fatapi')
+  @Get('fastapi')
   @ApiOperation({ summary: 'FastAPI health check' })
   @ApiOkResponse({
     description: 'FastAPI health response',

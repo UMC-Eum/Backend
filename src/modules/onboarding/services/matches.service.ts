@@ -15,6 +15,15 @@ export class MatchesService {
     return this.extractDataPayload(result);
   }
 
+  async getRecommendedClubs(userId: bigint, cursor?: string, size?: string) {
+    const result = await this.onboardingAiService.getRecommendedClubs(
+      userId,
+      cursor,
+      size,
+    );
+    return this.extractDataPayload(result);
+  }
+
   private extractDataPayload(raw: unknown): Record<string, unknown> {
     if (typeof raw !== 'object' || raw === null) {
       throw new AppException('SERVER_TEMPORARY_ERROR', {

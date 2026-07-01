@@ -3,6 +3,7 @@ import {
   ActiveStatus,
   AddressLevel,
   AuthProvider,
+  ClubUserStatus,
   Prisma,
   Sex,
 } from '@prisma/client';
@@ -206,6 +207,269 @@ export class UserRepository {
       },
       orderBy: { id: 'asc' },
     });
+  }
+
+  findPublicProfileById(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        nickname: true,
+        age: true,
+        sex: true,
+        introText: true,
+        profileImageUrl: true,
+        address: {
+          select: {
+            fullName: true,
+            sigunguName: true,
+          },
+        },
+        interests: {
+          where: { deletedAt: null },
+          select: {
+            interest: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        idealPersonalities: {
+          where: { deletedAt: null },
+          select: {
+            personality: {
+              select: {
+                body: true,
+              },
+            },
+          },
+        },
+        clubs: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        clubUsers: {
+          where: {
+            status: ClubUserStatus.ACTIVE,
+            club: { deletedAt: null },
+          },
+          select: {
+            authority: true,
+            joinedAt: true,
+            club: {
+              select: {
+                id: true,
+                name: true,
+                thumbnailUrl: true,
+                category: true,
+                introText: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: 'desc' },
+        },
+      },
+    });
+  }
+
+  findMyActiveClubs(userId: number) {
+    return this.prismaService.clubUser.findMany({
+      where: {
+        userId: BigInt(userId),
+        status: ClubUserStatus.ACTIVE,
+        club: { deletedAt: null },
+      },
+      select: {
+        authority: true,
+        joinedAt: true,
+        club: {
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+            clubUsers: {
+              where: { status: ClubUserStatus.ACTIVE },
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
+    });
+  }
+
+  findMyLikedClubs(userId: number) {
+    return this.prismaService.clubLike.findMany({
+      where: {
+        userId: BigInt(userId),
+        club: { deletedAt: null },
+      },
+      select: {
+        createdAt: true,
+        club: {
+          select: {
+            id: true,
+            name: true,
+            thumbnailUrl: true,
+            category: true,
+            introText: true,
+            clubUsers: {
+              where: { status: ClubUserStatus.ACTIVE },
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findActiveUserId(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+  }
+
+  createProfileVisitLog({
+    visitedBy,
+    visitedTo,
+  }: {
+    visitedBy: number;
+    visitedTo: number;
+  }) {
+    return this.prismaService.userWatchLog.create({
+      data: {
+        visitedBy: BigInt(visitedBy),
+        visitedTo: BigInt(visitedTo),
+      },
+    });
+  }
+
+  findActiveHeartSentByUser({
+    sentById,
+    sentToId,
+  }: {
+    sentById: number;
+    sentToId: number;
+  }) {
+    return this.prismaService.heart.findFirst({
+      where: {
+        sentById: BigInt(sentById),
+        sentToId: BigInt(sentToId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+  }
+
+  async findMyLatestProfileVisitors({
+    userId,
+    cursor,
+    take,
+  }: {
+    userId: number;
+    cursor: { visitedAt: string; logId: string } | null;
+    take: number;
+  }) {
+    const cursorCondition = cursor
+      ? Prisma.sql`
+          WHERE (
+            latest."visitedAt" < ${cursor.visitedAt}::timestamp
+            OR (
+              latest."visitedAt" = ${cursor.visitedAt}::timestamp
+              AND latest."logId" < ${BigInt(cursor.logId)}
+            )
+          )
+        `
+      : Prisma.empty;
+
+    const rows = await this.prismaService.$queryRaw<
+      Array<{
+        id: bigint;
+        nickname: string;
+        sex: Sex;
+        age: number;
+        introText: string;
+        profileImageUrl: string;
+        addressFullName: string | null;
+        addressSigunguName: string | null;
+        logId: bigint;
+        visitedAt: Date;
+        visitedAtCursor: string;
+      }>
+    >(Prisma.sql`
+      WITH latest AS (
+        SELECT DISTINCT ON (uwl."visitedBy")
+          uwl."id" AS "logId",
+          uwl."visitedBy",
+          uwl."visitedAt"
+        FROM "UserWatchLog" uwl
+        INNER JOIN "User" visitor ON visitor."id" = uwl."visitedBy"
+        WHERE uwl."visitedTo" = ${BigInt(userId)}
+          AND visitor."deletedAt" IS NULL
+          AND visitor."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
+        ORDER BY uwl."visitedBy", uwl."visitedAt" DESC, uwl."id" DESC
+      )
+      SELECT
+        visitor."id",
+        visitor."nickname",
+        visitor."sex",
+        visitor."age",
+        visitor."introText",
+        visitor."profileImageUrl",
+        address."fullName" AS "addressFullName",
+        address."sigunguName" AS "addressSigunguName",
+        latest."logId",
+        latest."visitedAt",
+        to_char(latest."visitedAt", 'YYYY-MM-DD HH24:MI:SS.US') AS "visitedAtCursor"
+      FROM latest
+      INNER JOIN "User" visitor ON visitor."id" = latest."visitedBy"
+      LEFT JOIN "Address" address ON address."code" = visitor."code"
+      ${cursorCondition}
+      ORDER BY latest."visitedAt" DESC, latest."logId" DESC
+      LIMIT ${take}
+    `);
+
+    return rows.map((row) => ({
+      logId: row.logId,
+      visitedAt: row.visitedAt,
+      visitedAtCursor: row.visitedAtCursor,
+      user: {
+        id: row.id,
+        nickname: row.nickname,
+        sex: row.sex,
+        age: row.age,
+        introText: row.introText,
+        profileImageUrl: row.profileImageUrl,
+        address:
+          row.addressFullName || row.addressSigunguName
+            ? {
+                fullName: row.addressFullName,
+                sigunguName: row.addressSigunguName,
+              }
+            : null,
+      },
+    }));
   }
 
   findAddressByCode(code: string) {

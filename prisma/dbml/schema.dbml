@@ -33,6 +33,7 @@ Table User {
   chatParticipations ChatParticipant [not null]
   userMarketingAgreement UserMarketingAgreement [not null]
   refreshTokens RefreshToken [not null]
+  localAuthAccounts LocalAuthAccount [not null]
   blocksInitiated Block [not null]
   blocksReceived Block [not null]
   reportsFiled Report [not null]
@@ -49,6 +50,17 @@ Table User {
   indexes {
     (provider, providerUserId) [unique]
   }
+}
+
+Table LocalAuthAccount {
+  id BigInt [pk, increment]
+  username String [unique, not null]
+  passwordHash String [not null]
+  userId BigInt [not null]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  user User [not null]
 }
 
 Table RefreshToken {
@@ -375,10 +387,12 @@ Table ClubUser {
   id BigInt [pk, increment]
   userId BigInt [not null]
   clubId BigInt [not null]
-  joinedAt DateTime [default: `now()`, not null]
+  requestedAt DateTime [default: `now()`, not null]
+  joinedAt DateTime
   leftAt DateTime
   authority ClubAuthority [not null, default: 'GENERAL']
   status ClubUserStatus [not null, default: 'PENDING']
+  joinMessage String [not null, default: '']
   user User [not null]
   club Club [not null]
   articlePhotos ArticlePhoto [not null]
@@ -510,6 +524,7 @@ Enum BlockStatus {
 
 Enum AuthProvider {
   KAKAO
+  LOCAL
 }
 
 Enum ChatMediaType {
@@ -529,6 +544,8 @@ Enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
@@ -551,6 +568,7 @@ Enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 Enum MeetingJoinPolicy {
@@ -598,6 +616,8 @@ Enum ClubCategory {
 }
 
 Ref: User.code > Address.code [delete: Set Null]
+
+Ref: LocalAuthAccount.userId > User.id [delete: Cascade]
 
 Ref: RefreshToken.userId > User.id [delete: Cascade]
 

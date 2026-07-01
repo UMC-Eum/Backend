@@ -40,6 +40,7 @@ enum BlockStatus {
 
 enum AuthProvider {
   KAKAO
+  LOCAL
 }
 
 enum ChatMediaType {
@@ -59,6 +60,8 @@ enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
@@ -81,6 +84,7 @@ enum ClubUserStatus {
   ACTIVE
   REJECTED
   KICKED
+  LEFT
 }
 
 enum MeetingJoinPolicy {
@@ -137,10 +141,10 @@ model User {
   nickname        String                @db.VarChar(20)
   updatedAt       DateTime              @updatedAt @db.Timestamp(6)
   deletedAt       DateTime?             @db.Timestamp(6)
-  idealVoiceUrl   String?               @db.VarChar(512)
-  introVoiceUrl   String                @db.VarChar(512)
+  idealVoiceUrl   String?               @db.Text
+  introVoiceUrl   String                @db.Text
   introText       String                @db.VarChar(255)
-  profileImageUrl String                @db.VarChar(512)
+  profileImageUrl String                @db.Text
   status          ActiveStatus          @default(ACTIVE)
   code            String?               @db.Char(10)
   provider        AuthProvider?
@@ -160,6 +164,7 @@ model User {
   chatParticipations     ChatParticipant[]
   userMarketingAgreement UserMarketingAgreement[]
   refreshTokens          RefreshToken[]
+  localAuthAccounts      LocalAuthAccount[]
   blocksInitiated        Block[]                  @relation("UserBlocksBy")
   blocksReceived         Block[]                  @relation("UserBlocks")
   reportsFiled           Report[]                 @relation("UserReportsBy")
@@ -181,6 +186,21 @@ model User {
   @@index([sex, status])
 }
 
+model LocalAuthAccount {
+  id           BigInt   @id @default(autoincrement()) @db.BigInt
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @db.VarChar(255)
+  userId       BigInt   @db.BigInt
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime @updatedAt @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+}
+
 model RefreshToken {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt
@@ -198,7 +218,7 @@ model RefreshToken {
 model UserPhoto {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt
-  url       String    @db.VarChar(512)
+  url       String    @db.Text
   deletedAt DateTime? @db.Timestamp(6)
   createdAt DateTime  @default(now()) @db.Timestamp(6)
 
@@ -420,7 +440,7 @@ model ChatMessage {
 model ChatMedia {
   id          BigInt        @id @default(autoincrement()) @db.BigInt
   messageId   BigInt        @db.BigInt
-  url         String?       @db.VarChar(512)
+  url         String?       @db.Text
   type        ChatMediaType @default(TEXT)
   text        String?       @db.VarChar(512)
   durationSec Int?
@@ -527,7 +547,7 @@ model ArticleLike {
 
 model ArticlePhoto {
   id         BigInt    @id @default(autoincrement()) @db.BigInt
-  photoUrl   String    @db.VarChar(512)
+  photoUrl   String    @db.Text
   createdAt  DateTime  @default(now()) @db.Timestamp(6)
   deletedAt  DateTime? @db.Timestamp(6)
   articleId  BigInt    @db.BigInt
@@ -543,7 +563,7 @@ model Club {
   id            BigInt                @id @default(autoincrement()) @db.BigInt
   hostId        BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
   name          String                @db.VarChar(50)
-  introVoiceUrl String?               @db.VarChar(512)
+  introVoiceUrl String?               @db.Text
   introText     String?               @db.VarChar(512)
   category      ClubCategory          @default(OTHERS)
   capacity      Int                   @db.Integer
@@ -553,7 +573,7 @@ model Club {
   code          String?               @db.Char(10)
   likes         Int                   @db.Integer
   vibeVector    Unsupported("vector")
-  thumbnailUrl  String?               @db.VarChar(512)
+  thumbnailUrl  String?               @db.Text
 
   user    User?    @relation(fields: [hostId], references: [id], onDelete: SetNull) // 호스트가 삭제돼도 클럽은 유지.
   address Address? @relation(fields: [code], references: [code], onDelete: SetNull) // 지역이 삭제돼도 클럽 유지.
@@ -571,13 +591,15 @@ model Club {
 }
 
 model ClubUser {
-  id        BigInt         @id @default(autoincrement()) @db.BigInt
-  userId    BigInt         @db.BigInt
-  clubId    BigInt         @db.BigInt
-  joinedAt  DateTime       @default(now()) @db.Timestamp(6)
-  leftAt    DateTime?      @db.Timestamp(6)
-  authority ClubAuthority  @default(GENERAL)
-  status    ClubUserStatus @default(PENDING)
+  id          BigInt         @id @default(autoincrement()) @db.BigInt
+  userId      BigInt         @db.BigInt
+  clubId      BigInt         @db.BigInt
+  requestedAt DateTime       @default(now()) @db.Timestamp(6)
+  joinedAt    DateTime?      @db.Timestamp(6)
+  leftAt      DateTime?      @db.Timestamp(6)
+  authority   ClubAuthority  @default(GENERAL)
+  status      ClubUserStatus @default(PENDING)
+  joinMessage String         @default("") @db.VarChar(300)
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저가 삭제되면 동호회 유저로 남겨둘 필요 없음
   club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽이 삭제되면 더이상 동호회 유저가 아님

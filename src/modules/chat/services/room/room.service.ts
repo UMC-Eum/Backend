@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../../club/repositories/club.repository';
 import { ChatGateway } from '../../gateways/chat.gateway';
-import { decodeCursor, encodeCursor } from '../../utils/cursor.util';
+import { decodeRoomCursor, encodeCursor } from '../../utils/cursor.util';
 import { buildMessagePreview } from '../../utils/message-preview.util';
 import { normalizeIdentity } from '../../utils/withdrawn.util';
 
@@ -234,10 +234,9 @@ export class RoomService {
     const me = BigInt(meUserId);
     const size = query.size ?? 20;
 
-    const cursor = query.cursor ? decodeCursor(query.cursor) : null;
+    const cursor = query.cursor ? decodeRoomCursor(query.cursor) : null;
     const cursorSortAt = cursor ? new Date(cursor.sortAt) : null;
-    const cursorRoomId =
-      cursor && 'roomId' in cursor ? BigInt(cursor.roomId) : null;
+    const cursorRoomId = cursor ? BigInt(cursor.roomId) : null;
 
     const myRoomIds = await this.participantRepo.getMyRoomIds(me);
     if (myRoomIds.length === 0) return { nextCursor: null, items: [] };

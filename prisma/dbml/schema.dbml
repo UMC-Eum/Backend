@@ -524,6 +524,7 @@ Enum BlockStatus {
 
 Enum AuthProvider {
   KAKAO
+  APPLE
   LOCAL
 }
 

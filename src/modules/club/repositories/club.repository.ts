@@ -158,6 +158,7 @@ export class ClubRepository {
   async findById(clubId: bigint): Promise<{
     id: bigint;
     hostId: bigint | null;
+    name: string;
     capacity: number;
     deletedAt: Date | null;
     introText: string | null;
@@ -167,6 +168,7 @@ export class ClubRepository {
       select: {
         id: true,
         hostId: true,
+        name: true,
         capacity: true,
         deletedAt: true,
         introText: true,

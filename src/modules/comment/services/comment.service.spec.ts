@@ -64,7 +64,11 @@ describe('CommentService', () => {
   });
 
   it('댓글을 작성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.createComment.mockResolvedValue({
@@ -103,7 +107,11 @@ describe('CommentService', () => {
   });
 
   it('게시글에 댓글을 작성하면 게시글 작성자에게 알림을 생성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({
       id: 1n,
       userId: 2n,
@@ -132,8 +140,8 @@ describe('CommentService', () => {
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       2,
       NotificationType.COMMENT,
-      '내 게시물에 댓글이 달렸어요.',
-      '댓글작성자님이 게시글작성자님의 게시물에 댓글을 남겼어요.',
+      '회원님의 게시물에 댓글이 달렸어요.',
+      '[동작구 뜨개질 모임]댓글작성자님이 회원님의 게시물에 댓글을 남겼어요.',
       1,
     );
   });
@@ -183,7 +191,11 @@ describe('CommentService', () => {
   });
 
   it('답글을 작성하면 부모 댓글 작성자에게 알림을 생성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findParentComment.mockResolvedValue({
@@ -214,8 +226,8 @@ describe('CommentService', () => {
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       2,
       NotificationType.COMMENT,
-      '내 댓글에 답글이 달렸어요.',
-      '자식작성자님이 부모작성자님의 댓글에 답글을 남겼어요.',
+      '회원님의 댓글에 답글이 달렸어요.',
+      '[동작구 뜨개질 모임]자식작성자님이 회원님의 댓글에 답글을 남겼어요.',
       1,
     );
   });

@@ -332,14 +332,13 @@ export class ArticleService {
     }
 
     const senderNickname = result.sender?.nickname ?? '알 수 없는 사용자';
-    const receiverNickname =
-      result.article.user?.nickname ?? '알 수 없는 사용자';
+    const clubName = result.article.club.name;
 
     await this.notificationService.createNotification(
       Number(authorId),
       NotificationType.ARTICLE,
-      '게시글에 좋아요가 눌렸어요.',
-      `${senderNickname}님이 ${receiverNickname}님의 게시물을 좋아합니다.`,
+      '회원님의 게시물에 좋아요가 눌렸어요.',
+      `[${clubName}]${senderNickname}님이 회원님의 게시물에 좋아요를 눌렀어요.`,
       senderId,
     );
   }

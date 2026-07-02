@@ -159,6 +159,23 @@ describe('MessageService', () => {
       expect(participantRepoMock.markRoomRead).toHaveBeenCalledTimes(1);
       expect(chatGatewayMock.emitRoomRead).toHaveBeenCalledTimes(1);
     });
+
+    it('should throw CLUB_FORBIDDEN_NOT_MEMBER for CLUB when membership was revoked', async () => {
+      (
+        participantRepoMock.getMyActiveParticipation as jest.Mock
+      ).mockResolvedValue({ joinedAt: new Date('2026-01-01T00:00:00.000Z') });
+      (roomRepoMock.getRoomTypeInfo as jest.Mock).mockResolvedValue({
+        type: 'CLUB',
+        clubId: BigInt(1),
+      });
+      (clubRepoMock.findActiveClubUser as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.markRoomRead(1, 10)).rejects.toMatchObject({
+        internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER',
+      });
+      expect(participantRepoMock.markRoomRead).not.toHaveBeenCalled();
+      expect(chatGatewayMock.emitRoomRead).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteMessage', () => {

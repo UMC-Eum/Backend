@@ -29,7 +29,7 @@ export class ClubChatService {
     const clubBigId = BigInt(clubId);
 
     const club = await this.clubRepo.findClubBasic(clubBigId);
-    if (!club || club.deletedAt) {
+    if (!club) {
       throw new AppException('CLUB_NOT_FOUND');
     }
 

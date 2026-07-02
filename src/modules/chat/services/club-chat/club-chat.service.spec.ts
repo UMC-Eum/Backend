@@ -48,12 +48,28 @@ describe('ClubChatService', () => {
     jest.clearAllMocks();
   });
 
-  it('should throw CLUB_NOT_FOUND when club missing or deleted', async () => {
+  it('should throw CLUB_NOT_FOUND when club does not exist', async () => {
     (clubRepoMock.findClubBasic as jest.Mock).mockResolvedValue(null);
 
     await expect(service.enterClubRoom(1, 7)).rejects.toMatchObject({
       internalCode: 'CLUB_NOT_FOUND',
     });
+  });
+
+  it('should throw CLUB_FORBIDDEN_NOT_MEMBER when club is soft-deleted', async () => {
+    (clubRepoMock.findClubBasic as jest.Mock).mockResolvedValue({
+      id: BigInt(7),
+      name: '클럽',
+      thumbnailUrl: null,
+      hostId: BigInt(9),
+      deletedAt: new Date('2026-02-10T00:00:00.000Z'),
+    });
+    (clubRepoMock.findActiveClubUser as jest.Mock).mockResolvedValue(null);
+
+    await expect(service.enterClubRoom(1, 7)).rejects.toMatchObject({
+      internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER',
+    });
+    expect(roomRepoMock.ensureClubRoom).not.toHaveBeenCalled();
   });
 
   it('should throw CLUB_FORBIDDEN_NOT_MEMBER when not an active member', async () => {

@@ -367,11 +367,23 @@ export class MessageService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (roomInfo?.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) {
+        throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+      }
+    }
+
     const readAt = new Date();
     await this.participantRepo.markRoomRead(roomId, me, readAt);
 
-    // 읽음 커서 broadcast 대상: DIRECT는 나+상대, CLUB은 활성 참여자 전원.
-    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
     let notifyUserIds: number[];
     if (roomInfo?.type === 'CLUB') {
       const ids =

@@ -67,6 +67,21 @@ export class ChatSocketService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    // TODO(EUM-29 follow-up): 클럽 leave/kick 시 ChatParticipant.endedAt cascade
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (roomInfo?.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) {
+        throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+      }
+    }
+
     return chatRoomId;
   }
 

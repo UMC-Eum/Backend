@@ -58,7 +58,7 @@ export class RoomRepository {
       where: {
         roomId: { in: roomIds },
         userId: target,
-        // endedAt 조건 제거 (상대가 나갔어도 방은 존재해야 함)
+        room: { type: 'DIRECT' },
       },
       select: { roomId: true },
     });
@@ -72,6 +72,7 @@ export class RoomRepository {
   ): Promise<bigint | null> {
     const room = await this.prisma.chatRoom.findFirst({
       where: {
+        type: 'DIRECT',
         AND: [
           { participants: { some: { userId: me } } },
           { participants: { some: { userId: target } } },

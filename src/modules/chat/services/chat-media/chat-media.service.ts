@@ -16,6 +16,8 @@ import type {
   CreateChatMediaPresignRes,
 } from '../../dtos/chat-media.dto';
 import { ParticipantRepository } from '../../repositories/participant.repository';
+import { RoomRepository } from '../../repositories/room.repository';
+import { ClubRepository } from '../../../club/repositories/club.repository';
 
 type ParsedS3Ref = {
   bucket: string;
@@ -200,6 +202,8 @@ export class ChatMediaService {
   constructor(
     private readonly configService: ConfigService,
     private readonly participantRepo: ParticipantRepository,
+    private readonly roomRepo: RoomRepository,
+    private readonly clubRepo: ClubRepository,
   ) {
     this.region = this.configService.get<string>(
       'AWS_REGION',
@@ -294,14 +298,28 @@ export class ChatMediaService {
     const ok = await this.participantRepo.isParticipant(me, roomId);
     if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
-    if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (!roomInfo) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
-      me,
-      peerUserId,
-    );
-    if (isBlocked) throw new AppException('CHAT_MESSAGE_BLOCKED');
+    if (roomInfo.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+    } else {
+      const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
+      if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+      const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+        me,
+        peerUserId,
+      );
+      if (isBlocked) throw new AppException('CHAT_MESSAGE_BLOCKED');
+    }
 
     if (!isAllowedContentType(dto.type, dto.contentType)) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {

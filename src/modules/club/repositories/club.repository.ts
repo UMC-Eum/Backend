@@ -607,8 +607,27 @@ export class ClubRepository {
         clubId,
         status: ClubUserStatus.ACTIVE,
         leftAt: null,
+        club: { deletedAt: null },
       },
       select: { id: true, authority: true },
     });
+  }
+
+  async findActiveMembershipClubIds(
+    userId: bigint,
+    clubIds: bigint[],
+  ): Promise<bigint[]> {
+    if (clubIds.length === 0) return [];
+    const rows = await this.prisma.clubUser.findMany({
+      where: {
+        userId,
+        clubId: { in: clubIds },
+        status: ClubUserStatus.ACTIVE,
+        leftAt: null,
+        club: { deletedAt: null },
+      },
+      select: { clubId: true },
+    });
+    return rows.map((r) => r.clubId);
   }
 }

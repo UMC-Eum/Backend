@@ -148,6 +148,7 @@ export class RoomService {
       return this.getClubRoomDetail(
         chatRoomId,
         roomId,
+        me,
         roomInfo.clubId,
         myPart.joinedAt,
       );
@@ -184,6 +185,7 @@ export class RoomService {
   private async getClubRoomDetail(
     chatRoomId: number,
     roomId: bigint,
+    me: bigint,
     clubId: bigint | null,
     joinedAt: Date,
   ): Promise<RoomDetailRes> {
@@ -191,6 +193,9 @@ export class RoomService {
 
     const club = await this.clubRepo.findClubBasic(clubId);
     if (!club) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+    const member = await this.clubRepo.findActiveClubUser(me, clubId);
+    if (!member) throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
 
     const participants =
       await this.participantRepo.getActiveParticipantsWithUser(roomId);
@@ -241,7 +246,26 @@ export class RoomService {
     const myRoomIds = await this.participantRepo.getMyRoomIds(me);
     if (myRoomIds.length === 0) return { nextCursor: null, items: [] };
 
-    const rooms = await this.roomRepo.getRoomsByIds(myRoomIds);
+    const allRooms = await this.roomRepo.getRoomsByIds(myRoomIds);
+    if (allRooms.length === 0) return { nextCursor: null, items: [] };
+
+    const myClubIds = [
+      ...new Set(
+        allRooms
+          .filter((r) => r.type === 'CLUB' && r.clubId != null)
+          .map((r) => r.clubId as bigint),
+      ),
+    ];
+    const activeClubIds = new Set(
+      (await this.clubRepo.findActiveMembershipClubIds(me, myClubIds)).map(
+        String,
+      ),
+    );
+    const rooms = allRooms.filter(
+      (r) =>
+        r.type !== 'CLUB' ||
+        (r.clubId != null && activeClubIds.has(String(r.clubId))),
+    );
     if (rooms.length === 0) return { nextCursor: null, items: [] };
 
     const roomIds = rooms.map((r) => r.id);

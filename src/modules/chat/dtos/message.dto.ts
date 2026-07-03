@@ -34,7 +34,7 @@ export class SendMessageDto {
   text?: string | null;
 
   @ApiPropertyOptional({
-    example: 's3://eum-chat-media/chat/101/1/1700000000000_uuid_photo.jpg',
+    example: 's3://eum-chat-staging/chat/101/1/1700000000000_uuid_photo.jpg',
     description:
       'TEXT를 제외한 타입일 때 필수. presign 응답의 mediaRef 또는 S3 객체 URL(https)을 전달합니다.',
   })

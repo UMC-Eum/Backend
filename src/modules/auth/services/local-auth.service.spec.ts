@@ -12,8 +12,15 @@ function createPasswordHash(password: string) {
 }
 
 describe('LocalAuthService', () => {
+  const configValues = {
+    JWT_ACCESS_SECRET: 'test-access-secret',
+    JWT_REFRESH_SECRET: 'test-refresh-secret',
+    JWT_ACCESS_EXPIRES_IN: '1h',
+    JWT_REFRESH_EXPIRES_IN: '14d',
+  };
   const configServiceMock = {
-    get: jest.fn((key: string, fallback?: string) => fallback),
+    get: jest.fn((key: keyof typeof configValues) => configValues[key]),
+    getOrThrow: jest.fn((key: keyof typeof configValues) => configValues[key]),
   };
   const jwtTokenServiceMock = {
     sign: jest.fn(),
@@ -70,7 +77,7 @@ describe('LocalAuthService', () => {
     ).toHaveBeenCalledWith('admin01');
     expect(jwtTokenServiceMock.sign).toHaveBeenCalledWith(
       { sub: 7, provider: 'local' },
-      'dev-access-secret',
+      'test-access-secret',
       '1h',
     );
     expect(authRepositoryMock.rotateRefreshToken).toHaveBeenCalled();

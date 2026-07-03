@@ -68,4 +68,17 @@ describe('ChatSocketService', () => {
       await expect(service.joinRoom(1, { chatRoomId: 10 })).resolves.toBe(10);
     });
   });
+
+  describe('sendMessage', () => {
+    it('should reject SYSTEM type from users', async () => {
+      await expect(
+        service.sendMessage({} as never, 1, {
+          chatRoomId: 10,
+          type: 'SYSTEM' as never,
+          text: 'x',
+        }),
+      ).rejects.toMatchObject({ internalCode: 'VALIDATION_INVALID_FORMAT' });
+      expect(participantRepoMock.isParticipant).not.toHaveBeenCalled();
+    });
+  });
 });

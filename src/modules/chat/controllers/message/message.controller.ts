@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
@@ -145,13 +146,13 @@ export class MessageController {
 
   @Patch('messages/:messageId')
   @ApiOperation({
-    summary: '메시지 삭제',
+    summary: '메시지 전송취소',
     description:
-      '특정 메시지를 삭제(soft delete) 처리합니다. 송신자/수신자만 가능하며, 성공 시 data는 null 입니다.',
+      '메시지를 전송취소(soft delete)합니다. 발신자만 가능하고, 상대가 읽기 전(미열람)에만 가능하며, 그룹(CLUB) 채팅은 미지원입니다. 성공 시 data는 null 입니다.',
   })
   @ApiParam({
     name: 'messageId',
-    description: '삭제할 메시지 ID',
+    description: '전송취소할 메시지 ID',
     example: 555,
   })
   @ApiOkResponse({
@@ -164,7 +165,10 @@ export class MessageController {
     description: '요청값이 유효하지 않음 (메시지 없음 등)',
   })
   @ApiForbiddenResponse({
-    description: '권한 없음 (송신자/수신자가 아님 / 참여자가 아님 / 차단 상태)',
+    description: '권한 없음 (발신자가 아님 / 참여자가 아님 / 차단 상태)',
+  })
+  @ApiConflictResponse({
+    description: '전송취소 불가 (이미 읽음 CHAT-005 / 그룹 채팅 CHAT-006)',
   })
   @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
   async deleteMessage(

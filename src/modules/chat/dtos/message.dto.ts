@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -13,15 +13,18 @@ import {
 
 import { ChatMediaType } from '@prisma/client';
 
+export const CHAT_SEND_TYPES = ['TEXT', 'AUDIO', 'PHOTO', 'VIDEO'] as const;
+export type ChatSendType = (typeof CHAT_SEND_TYPES)[number];
+
 export class SendMessageDto {
   @ApiProperty({
-    enum: ChatMediaType,
+    enum: CHAT_SEND_TYPES,
     example: 'AUDIO',
     description: '메시지 타입 (TEXT/AUDIO/PHOTO/VIDEO)',
   })
-  @IsEnum(ChatMediaType)
+  @IsIn(CHAT_SEND_TYPES)
   @IsNotEmpty()
-  type!: ChatMediaType;
+  type!: ChatSendType;
 
   @ApiPropertyOptional({
     example: null,

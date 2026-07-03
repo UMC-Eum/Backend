@@ -7,6 +7,7 @@ import { PrismaService } from '../../../../infra/prisma/prisma.service';
 import { ClubRepository } from '../../../club/repositories/club.repository';
 import { NotificationService } from '../../../notification/services/notification.service';
 import { buildMessagePreview } from '../../utils/message-preview.util';
+import { CHAT_SEND_TYPES, type ChatSendType } from '../../dtos/message.dto';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
@@ -30,10 +31,9 @@ export type SendMessageBody = {
   durationSec?: number | null;
 };
 
-function isChatMediaType(v: unknown): v is ChatMediaType {
+function isUserSendableChatMediaType(v: unknown): v is ChatSendType {
   return (
-    typeof v === 'string' &&
-    (Object.values(ChatMediaType) as string[]).includes(v)
+    typeof v === 'string' && (CHAT_SEND_TYPES as readonly string[]).includes(v)
   );
 }
 
@@ -98,7 +98,7 @@ export class ChatSocketService {
     );
 
     const type = body?.type;
-    if (!isChatMediaType(type)) {
+    if (!isUserSendableChatMediaType(type)) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
         message: '메시지 타입이 올바르지 않습니다.',
       });

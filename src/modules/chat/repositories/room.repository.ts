@@ -181,9 +181,17 @@ export class RoomRepository {
   async ensureClubRoom(clubId: bigint, hostId: bigint | null): Promise<bigint> {
     const existing = await this.prisma.chatRoom.findFirst({
       where: { clubId, type: 'CLUB' },
-      select: { id: true },
+      select: { id: true, status: true, endedAt: true },
     });
-    if (existing) return existing.id;
+    if (existing) {
+      if (existing.status !== 'ACTIVE' || existing.endedAt !== null) {
+        await this.prisma.chatRoom.update({
+          where: { id: existing.id },
+          data: { status: 'ACTIVE', endedAt: null },
+        });
+      }
+      return existing.id;
+    }
 
     try {
       const room = await this.prisma.chatRoom.create({

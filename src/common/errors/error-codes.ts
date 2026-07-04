@@ -302,6 +302,11 @@ export const ERROR_DEFINITIONS = {
     code: 'CLUB-015',
     message: '클럽 멤버만 참여할 수 있어요.',
   },
+  CLUB_RECENT_SEARCH_KEYWORD_REQUIRED: {
+    status: HttpStatus.BAD_REQUEST,
+    code: 'CLUB-016',
+    message: '삭제할 최근 검색어를 입력해 주세요.',
+  },
 
   // MEETING
   MEETING_VALIDATION_FAILED: {

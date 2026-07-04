@@ -107,6 +107,7 @@ describe('UserService', () => {
           authority: ClubAuthority.GENERAL,
           status: ClubUserStatus.PENDING,
           joinedAt: null,
+        },
       ],
     });
   });

@@ -124,6 +124,7 @@ export class UserService {
         authority: membership.authority,
         status: membership.status,
         joinedAt: membership.joinedAt?.toISOString() ?? null,
+      })),
     };
   }
 

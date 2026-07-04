@@ -153,15 +153,16 @@ export class UserRepository {
         return { user: createdUser, isNewUser: true };
       }
 
-      const updatedUser = await tx.user.update({
-        where: {
-          provider_providerUserId: {
-            provider: AuthProvider.APPLE,
-            providerUserId,
-          },
+      const where = {
+        provider_providerUserId: {
+          provider: AuthProvider.APPLE,
+          providerUserId,
         },
-        data: shouldUpdateEmail ? { email } : {},
-      });
+      } as const;
+
+      const updatedUser = shouldUpdateEmail
+        ? await tx.user.update({ where, data: { email } })
+        : await tx.user.findUniqueOrThrow({ where });
 
       return { user: updatedUser, isNewUser: false };
     });

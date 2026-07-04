@@ -1,4 +1,4 @@
-import { ClubAuthority, ClubCategory } from '@prisma/client';
+import { ClubAuthority, ClubCategory, ClubUserStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserClubItemDto {
@@ -28,6 +28,9 @@ export class UserClubItemDto {
 
   @ApiProperty({ enum: ClubAuthority, example: ClubAuthority.GENERAL })
   authority!: ClubAuthority;
+
+  @ApiProperty({ enum: ClubUserStatus, example: ClubUserStatus.PENDING })
+  status!: ClubUserStatus;
 
   @ApiProperty({ example: '2026-05-02T15:40:00.000Z' })
   joinedAt!: string;

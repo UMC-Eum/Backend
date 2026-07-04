@@ -177,6 +177,7 @@ model User {
   clubUsers              ClubUser[]
   clubLikes              ClubLike[]
   userReports            UserReport[]
+  recentSearchKeywords   RecentSearchKeyword[]
 
   @@unique([provider, providerUserId])
   @@index([status])
@@ -703,6 +704,18 @@ model UserReport {
 
   @@unique([reportId])
   @@index([reportedUserId])
+}
+
+model RecentSearchKeyword {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  userId    BigInt   @db.BigInt
+  keyword   String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, keyword])
+  @@index([userId, createdAt])
 }
 
 model ClubReport {

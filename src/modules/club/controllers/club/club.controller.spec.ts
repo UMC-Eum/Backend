@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClubAuthority, ClubCategory } from '@prisma/client';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
-import { ClubListSort } from '../../dtos/club.dto';
+import { ClubJoinPolicy, ClubListSort } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
 import { ClubController } from './club.controller';
 
@@ -9,6 +9,7 @@ describe('ClubController', () => {
   let controller: ClubController;
   const listClubs = jest.fn();
   const listTopHosts = jest.fn();
+  const listTodayRecommendedClubs = jest.fn();
   const getClubDetail = jest.fn();
   const likeClub = jest.fn();
   const unlikeClub = jest.fn();
@@ -19,6 +20,7 @@ describe('ClubController', () => {
   beforeEach(async () => {
     listClubs.mockReset();
     listTopHosts.mockReset();
+    listTodayRecommendedClubs.mockReset();
     getClubDetail.mockReset();
     likeClub.mockReset();
     unlikeClub.mockReset();
@@ -34,6 +36,7 @@ describe('ClubController', () => {
           useValue: {
             listClubs,
             listTopHosts,
+            listTodayRecommendedClubs,
             getClubDetail,
             likeClub,
             unlikeClub,
@@ -58,7 +61,7 @@ describe('ClubController', () => {
   it('클럽 목록 조회를 service에 위임한다', async () => {
     const query = {
       keyword: '등산',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       sort: ClubListSort.RECENT,
       limit: 10,
     };
@@ -74,16 +77,30 @@ describe('ClubController', () => {
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       introText: '목소리로 친해져요',
-      introVoice: 'https://cdn.example.com/voice/12.mp3',
       capacity: 30,
-      keywordIds: [1, 4, 7],
+      areaCode: '1168000000',
+      approvalRequired: false,
+      boardPublic: true,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
     };
     const response = {
       clubId: 12,
-      code: '1100000000',
+      code: '1168000000',
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      areaCode: '1168000000',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
+      approvalRequired: false,
+      boardPublic: true,
       memberCount: 1,
       host: {
         userId: 7,
@@ -106,11 +123,10 @@ describe('ClubController', () => {
     const response = {
       clubId: '12',
       name: '등산 러버즈 시즌3',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introText: '더 즐겁게 모여요',
       introVoice: null,
       capacity: 60,
-      keywords: ['등산'],
       updatedAt: '2026-05-01T20:25:00.000Z',
     };
     updateClub.mockResolvedValue(response);
@@ -150,21 +166,57 @@ describe('ClubController', () => {
     expect(listTopHosts).toHaveBeenCalledWith(10);
   });
 
+  it('오늘의 동호회 추천 조회를 service에 위임한다', async () => {
+    const response = {
+      items: [
+        {
+          clubId: '12',
+          name: '등산 러버즈',
+          category: ClubCategory.OTHERS,
+          introText: '등산으로 친해져요',
+          thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+          capacity: 30,
+          memberCount: 18,
+          likes: 142,
+          recommendationScore: 226,
+          host: {
+            userId: '7',
+            nickname: '보이스마스터',
+            profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+          },
+        },
+      ],
+    };
+    listTodayRecommendedClubs.mockResolvedValue(response);
+
+    await expect(
+      controller.listTodayRecommendedClubs({ limit: 10 }),
+    ).resolves.toBe(response);
+    expect(listTodayRecommendedClubs).toHaveBeenCalledWith(10);
+  });
+
   it('클럽 상세 조회를 service에 위임한다', async () => {
     const response = {
       clubId: '12',
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
-      introVoice: null,
+      category: ClubCategory.HOBBY,
       introText: '등산으로 친해져요',
       capacity: 30,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [
+        {
+          clubImageId: '101',
+          imageUrl: 'https://cdn.example.com/clubs/12/images/1.jpg',
+          sortOrder: 1,
+        },
+      ],
+      joinPolicy: ClubJoinPolicy.AUTO,
       memberCount: 18,
       likes: 142,
       isLiked: true,
       isJoined: true,
       myAuthority: ClubAuthority.HOST,
       host: null,
-      keywords: [],
       meetings: [],
       createdAt: '2026-03-01T00:00:00.000Z',
     };

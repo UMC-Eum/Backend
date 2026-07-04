@@ -1,15 +1,53 @@
-import { IsString, IsIn } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsDefined,
+  IsIn,
+  IsInt,
+  IsString,
+  Min,
+  ValidateIf,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export const FILE_PURPOSES = [
+  'PROFILE_INTRO_AUDIO',
+  'PROFILE_IMAGE',
+  'CLUB',
+] as const;
+export type FilePurpose = (typeof FILE_PURPOSES)[number];
+
 export class PresignFileDto {
-  @ApiProperty({ example: 'intro.m4a' })
+  @ApiProperty({
+    example: 'intro.m4a',
+    description: '업로드할 원본 파일명입니다.',
+  })
   @IsString()
   fileName: string;
 
-  @ApiProperty({ example: 'audio/mp4' })
+  @ApiProperty({
+    example: 'audio/mp4',
+    description: '업로드할 파일의 Content-Type입니다.',
+  })
   @IsString()
   contentType: string;
 
-  @ApiProperty({ enum: ['PROFILE_INTRO_AUDIO', 'PROFILE_IMAGE'] })
-  @IsIn(['PROFILE_INTRO_AUDIO', 'PROFILE_IMAGE'])
-  purpose: string;
+  @ApiProperty({
+    enum: FILE_PURPOSES,
+    example: 'CLUB',
+    description:
+      '파일 업로드 목적입니다. PROFILE_INTRO_AUDIO는 프로필 소개 음성, PROFILE_IMAGE는 프로필 이미지, CLUB은 클럽 이미지입니다.',
+  })
+  @IsIn(FILE_PURPOSES)
+  purpose: FilePurpose;
+
+  @ApiPropertyOptional({
+    example: 12,
+    description: "purpose가 'CLUB'일 때 필수입니다.",
+  })
+  @ValidateIf((dto: PresignFileDto) => dto.purpose === 'CLUB')
+  @IsDefined()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  clubId?: number;
 }

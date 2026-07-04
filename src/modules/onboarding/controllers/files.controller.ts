@@ -1,13 +1,19 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { FileUploadService } from '../services/files.service';
 import { PresignFileDto } from '../dtos/files.dto';
 import { AppException } from '../../../common/errors/app.exception';
 import { RequiredUserId } from 'src/modules/auth/decorators';
-import { ApiBody } from '@nestjs/swagger';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
-import { UseGuards } from '@nestjs/common';
 
+@ApiTags('Files')
 @ApiBearerAuth('access-token')
 @Controller('files')
 export class FilesController {
@@ -15,7 +21,66 @@ export class FilesController {
 
   @Post('presign')
   @UseGuards(AccessTokenGuard)
-  @ApiBody({ type: PresignFileDto })
+  @ApiOperation({
+    summary: '파일 업로드용 presigned URL 발급',
+    description:
+      "프로필 소개 음성, 프로필 이미지, 클럽 이미지 업로드용 S3 presigned URL을 발급합니다. purpose가 'CLUB'이면 clubId가 필수이며, 파일은 clubs/{clubId}/images 경로에 저장됩니다.",
+  })
+  @ApiBody({
+    type: PresignFileDto,
+    examples: {
+      profileIntroAudio: {
+        summary: '프로필 소개 음성 업로드',
+        value: {
+          fileName: 'intro.m4a',
+          contentType: 'audio/mp4',
+          purpose: 'PROFILE_INTRO_AUDIO',
+        },
+      },
+      profileImage: {
+        summary: '프로필 이미지 업로드',
+        value: {
+          fileName: 'profile.jpg',
+          contentType: 'image/jpeg',
+          purpose: 'PROFILE_IMAGE',
+        },
+      },
+      clubImage: {
+        summary: '클럽 이미지 업로드',
+        value: {
+          fileName: 'club-cover.jpg',
+          contentType: 'image/jpeg',
+          purpose: 'CLUB',
+          clubId: 12,
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'presigned URL 발급 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            data: {
+              uploadUrl:
+                'https://bucket.s3.ap-northeast-2.amazonaws.com/clubs/12/images/1783139000000_club-cover.jpg?...',
+              fileUrl:
+                'https://bucket.s3.ap-northeast-2.amazonaws.com/clubs/12/images/1783139000000_club-cover.jpg?...',
+              expiresAt: '2026-07-11T00:00:00.000Z',
+            },
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-07-04T00:00:00.000Z',
+          path: '/api/v1/files/presign',
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: '인증 실패 (액세스 토큰 필요)' })
   async getPresignedUrl(
     @RequiredUserId() userId: number,
     @Body() dto: PresignFileDto,

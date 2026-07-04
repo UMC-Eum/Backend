@@ -124,10 +124,11 @@ enum ChatRoomType {
 
 enum ClubCategory {
   SPORTS
-  LANGUAGE
+  HOBBY
+  CULTURE_ART
   VOLUNTEER
-  OUTDOOR
-  CULTURE
+  FOOD
+  STUDY
   OTHERS
 }
 
@@ -557,20 +558,22 @@ model ArticlePhoto {
 }
 
 model Club {
-  id            BigInt                @id @default(autoincrement()) @db.BigInt
-  hostId        BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
-  name          String                @db.VarChar(50)
-  introVoiceUrl String?               @db.Text
-  introText     String?               @db.VarChar(512)
-  category      ClubCategory          @default(OTHERS)
-  capacity      Int                   @db.Integer
-  createdAt     DateTime              @default(now()) @db.Timestamp(6)
-  updatedAt     DateTime?             @updatedAt @db.Timestamp(6)
-  deletedAt     DateTime?             @db.Timestamp(6)
-  code          String?               @db.Char(10)
-  likes         Int                   @db.Integer
-  vibeVector    Unsupported("vector")
-  thumbnailUrl  String?               @db.Text
+  id               BigInt                @id @default(autoincrement()) @db.BigInt
+  hostId           BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
+  name             String                @db.VarChar(50)
+  introVoiceUrl    String?               @db.Text
+  introText        String?               @db.VarChar(512)
+  category         ClubCategory          @default(OTHERS)
+  capacity         Int                   @db.Integer
+  createdAt        DateTime              @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime?             @updatedAt @db.Timestamp(6)
+  deletedAt        DateTime?             @db.Timestamp(6)
+  code             String?               @db.Char(10)
+  likes            Int                   @db.Integer
+  vibeVector       Unsupported("vector")
+  thumbnailUrl     String?               @db.Text
+  approvalRequired Boolean               @default(false)
+  boardPublic      Boolean               @default(true)
 
   user    User?    @relation(fields: [hostId], references: [id], onDelete: SetNull) // 호스트가 삭제돼도 클럽은 유지.
   address Address? @relation(fields: [code], references: [code], onDelete: SetNull) // 지역이 삭제돼도 클럽 유지.
@@ -580,11 +583,26 @@ model Club {
   clubUsers    ClubUser[]
   clubLikes    ClubLike[]
   meetings     Meeting[]
+  clubImages   ClubImage[]
   clubKeywords ClubKeyword[]
   clubReports  ClubReport[]
 
   @@index([category, createdAt])
   @@index([code, createdAt])
+}
+
+model ClubImage {
+  clubImageId BigInt    @id @default(autoincrement()) @db.BigInt
+  clubId      BigInt    @db.BigInt
+  imageUrl    String    @db.Text
+  sortOrder   Int       @db.Integer
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt   DateTime? @db.Timestamp(6)
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, sortOrder])
+  @@index([deletedAt])
 }
 
 model ClubUser {

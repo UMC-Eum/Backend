@@ -46,7 +46,7 @@ export const CLUB_DETAIL_SELECT = {
   hostId: true,
   name: true,
   category: true,
-  introVoiceUrl: true,
+  thumbnailUrl: true,
   introText: true,
   capacity: true,
   approvalRequired: true,
@@ -76,6 +76,17 @@ export const CLUB_DETAIL_SELECT = {
     },
     orderBy: {
       createdAt: 'desc',
+    },
+  },
+  clubImages: {
+    where: { deletedAt: null },
+    select: {
+      clubImageId: true,
+      imageUrl: true,
+      sortOrder: true,
+    },
+    orderBy: {
+      sortOrder: 'asc',
     },
   },
   _count: {

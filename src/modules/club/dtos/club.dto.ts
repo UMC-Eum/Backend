@@ -434,6 +434,20 @@ export class ClubDetailMeetingDto {
   time: string | null;
 }
 
+export class ClubDetailImageDto {
+  @ApiProperty({ description: '클럽 이미지 ID', example: '101' })
+  clubImageId: string;
+
+  @ApiProperty({
+    description: '클럽 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/images/1.jpg',
+  })
+  imageUrl: string;
+
+  @ApiProperty({ description: '이미지 정렬 순서', example: 1 })
+  sortOrder: number;
+}
+
 export class ClubDetailResponseDto {
   @ApiProperty({ description: '클럽 ID', example: '12' })
   clubId: string;
@@ -449,13 +463,6 @@ export class ClubDetailResponseDto {
   category: ClubCategory;
 
   @ApiProperty({
-    description: '클럽 소개 음성 URL',
-    example: 'https://cdn.example.com/voice/12.mp3',
-    nullable: true,
-  })
-  introVoice: string | null;
-
-  @ApiProperty({
     description: '클럽 소개',
     example: '등산으로 친해져요',
     nullable: true,
@@ -464,6 +471,16 @@ export class ClubDetailResponseDto {
 
   @ApiProperty({ description: '정원', example: 30 })
   capacity: number;
+
+  @ApiProperty({
+    description: '클럽 대표 썸네일 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+    nullable: true,
+  })
+  thumbnailUrl: string | null;
+
+  @ApiProperty({ type: [ClubDetailImageDto] })
+  clubImages: ClubDetailImageDto[];
 
   @ApiProperty({
     description: '가입 방식. AUTO는 자유 가입, APPROVAL은 승인 가입입니다.',

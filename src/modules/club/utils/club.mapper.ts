@@ -69,9 +69,14 @@ export function toClubDetailDto(
     clubId: row.id.toString(),
     name: row.name,
     category: row.category,
-    introVoice: row.introVoiceUrl,
     introText: row.introText,
     capacity: row.capacity,
+    thumbnailUrl: row.thumbnailUrl,
+    clubImages: row.clubImages.map((image) => ({
+      clubImageId: image.clubImageId.toString(),
+      imageUrl: image.imageUrl,
+      sortOrder: image.sortOrder,
+    })),
     joinPolicy: row.approvalRequired
       ? ClubJoinPolicy.APPROVAL
       : ClubJoinPolicy.AUTO,

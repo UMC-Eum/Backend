@@ -462,9 +462,21 @@ export class ClubController {
             clubId: '12',
             name: '등산 러버즈',
             category: 'HOBBY',
-            introVoice: 'https://cdn.example.com/voice/12.mp3',
             introText: '등산으로 친해져요',
             capacity: 30,
+            thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+            clubImages: [
+              {
+                clubImageId: '101',
+                imageUrl: 'https://cdn.example.com/clubs/12/images/1.jpg',
+                sortOrder: 1,
+              },
+              {
+                clubImageId: '102',
+                imageUrl: 'https://cdn.example.com/clubs/12/images/2.jpg',
+                sortOrder: 2,
+              },
+            ],
             joinPolicy: 'AUTO',
             memberCount: 18,
             likes: 142,

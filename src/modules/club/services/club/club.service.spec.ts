@@ -34,7 +34,7 @@ describe('ClubService', () => {
     id: 12n,
     hostId: 7n,
     name: '등산 러버즈',
-    category: ClubCategory.OUTDOOR,
+    category: ClubCategory.HOBBY,
     introVoiceUrl: 'https://cdn.example.com/voice/12.mp3',
     introText: '등산으로 친해져요',
     capacity: 30,
@@ -47,10 +47,6 @@ describe('ClubService', () => {
       deletedAt: null,
       status: ActiveStatus.ACTIVE,
     },
-    clubKeywords: [
-      { personality: { body: '야외' } },
-      { personality: { body: '등산' } },
-    ],
     meetings: [
       {
         id: 88n,
@@ -121,17 +117,16 @@ describe('ClubService', () => {
   });
 
   it('클럽 목록을 DTO로 변환하고 다음 커서를 반환한다', async () => {
-    findProfileById.mockResolvedValue({ address: { code: '1100000000' } });
+    findProfileById.mockResolvedValue({ address: { code: '1168000000' } });
     findManyForList.mockResolvedValue([
       {
         id: 12n,
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
-        category: ClubCategory.OUTDOOR,
+        category: ClubCategory.HOBBY,
         thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
         likes: 142,
         createdAt: new Date('2026-03-01T00:00:00.000Z'),
-        clubKeywords: [{ personality: { body: '등산' } }],
         _count: { clubUsers: 18 },
       },
       {
@@ -142,7 +137,6 @@ describe('ClubService', () => {
         thumbnailUrl: null,
         likes: 100,
         createdAt: new Date('2026-02-01T00:00:00.000Z'),
-        clubKeywords: [{ personality: { body: '러닝' } }],
         _count: { clubUsers: 9 },
       },
     ]);
@@ -156,7 +150,7 @@ describe('ClubService', () => {
     expect(findManyForList).toHaveBeenCalledWith({
       keyword: undefined,
       category: undefined,
-      code: '1100000000',
+      code: '1168000000',
       sort: ClubListSort.POPULAR,
       cursor: undefined,
       limit: 1,
@@ -166,11 +160,10 @@ describe('ClubService', () => {
         clubId: '12',
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
-        category: ClubCategory.OUTDOOR,
+        category: ClubCategory.HOBBY,
         thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
         likes: 142,
         memberCount: 18,
-        keywords: ['등산'],
         createdAt: '2026-03-01T00:00:00.000Z',
       },
     ]);
@@ -182,14 +175,16 @@ describe('ClubService', () => {
       id: 7n,
       nickname: '보이스마스터',
       profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
-      address: { code: '1100000000' },
+      address: { code: '1168000000' },
     });
     createClubWithHost.mockResolvedValue({
       id: 12n,
-      code: '1100000000',
+      code: '1168000000',
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      approvalRequired: false,
+      boardPublic: true,
       createdAt: new Date('2026-05-01T16:35:00.000Z'),
       user: {
         id: 7n,
@@ -208,17 +203,21 @@ describe('ClubService', () => {
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       introText: '목소리로 친해져요',
-      introVoice: 'https://cdn.example.com/voice/12.mp3',
       capacity: 30,
-      keywordIds: [1, 4, 7],
+      areaCode: '1168000000',
+      approvalRequired: false,
+      boardPublic: true,
     };
 
     await expect(service.createClub(7, dto)).resolves.toEqual({
       clubId: 12,
-      code: '1100000000',
+      code: '1168000000',
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      areaCode: '1168000000',
+      approvalRequired: false,
+      boardPublic: true,
       memberCount: 1,
       host: {
         userId: 7,
@@ -232,21 +231,17 @@ describe('ClubService', () => {
       name: dto.name,
       category: dto.category,
       introText: dto.introText,
-      introVoice: dto.introVoice,
       capacity: dto.capacity,
-      addressCode: '1100000000',
-      keywordIds: dto.keywordIds,
+      addressCode: dto.areaCode,
+      approvalRequired: dto.approvalRequired,
+      boardPublic: dto.boardPublic,
     });
     expect(analyzeClubVibe).toHaveBeenCalledWith({
       clubId: 12,
       transcript: dto.introText,
       analysis_type: 'profile',
     });
-    expect(applyClubAnalysis).toHaveBeenCalledWith(
-      12n,
-      ['목소리', '친목'],
-      [0.1, 0.2],
-    );
+    expect(applyClubAnalysis).toHaveBeenCalledWith(12n, [0.1, 0.2]);
     expect(deleteCreatedClub).not.toHaveBeenCalled();
   });
 
@@ -255,14 +250,16 @@ describe('ClubService', () => {
       id: 7n,
       nickname: '보이스마스터',
       profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
-      address: { code: '1100000000' },
+      address: { code: '1168000000' },
     });
     createClubWithHost.mockResolvedValue({
       id: 12n,
-      code: '1100000000',
+      code: '1168000000',
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      approvalRequired: false,
+      boardPublic: true,
       createdAt: new Date('2026-05-01T16:35:00.000Z'),
       user: {
         id: 7n,
@@ -280,9 +277,10 @@ describe('ClubService', () => {
         name: '보이스 러버즈',
         category: ClubCategory.OTHERS,
         introText: '목소리로 친해져요',
-        introVoice: 'https://cdn.example.com/voice/12.mp3',
         capacity: 30,
-        keywordIds: [1, 4, 7],
+        areaCode: '1168000000',
+        approvalRequired: false,
+        boardPublic: true,
       }),
     ).rejects.toBe(error);
     expect(deleteCreatedClub).toHaveBeenCalledWith(12n, 7n);
@@ -334,12 +332,11 @@ describe('ClubService', () => {
     updateClub.mockResolvedValue({
       id: 12n,
       name: '등산 러버즈 시즌3',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoiceUrl: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
       capacity: 30,
       updatedAt: new Date('2026-05-01T20:25:00.000Z'),
-      clubKeywords: [{ personality: { body: '등산' } }],
     });
 
     await expect(
@@ -347,17 +344,15 @@ describe('ClubService', () => {
     ).resolves.toEqual({
       clubId: '12',
       name: '등산 러버즈 시즌3',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoice: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
       capacity: 30,
-      keywords: ['등산'],
       updatedAt: '2026-05-01T20:25:00.000Z',
     });
     expect(updateClub).toHaveBeenCalledWith({
       clubId: 12n,
       data: { name: '등산 러버즈 시즌3' },
-      keywordIds: undefined,
     });
     expect(analyzeClubVibe).not.toHaveBeenCalled();
   });
@@ -376,12 +371,11 @@ describe('ClubService', () => {
     updateClub.mockResolvedValue({
       id: 12n,
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '더 즐겁게 모여요',
       capacity: 60,
       updatedAt: null,
-      clubKeywords: [],
     });
 
     await service.updateClub(7, 12, {
@@ -395,7 +389,6 @@ describe('ClubService', () => {
         introText: '더 즐겁게 모여요',
         capacity: 60,
       },
-      keywordIds: undefined,
       vibeVector: [0.3, -0.1],
     });
     expect(analyzeClubVibe).toHaveBeenCalledWith({
@@ -414,12 +407,11 @@ describe('ClubService', () => {
     updateClub.mockResolvedValue({
       id: 12n,
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '등산으로 친해져요',
       capacity: 30,
       updatedAt: null,
-      clubKeywords: [],
     });
 
     await service.updateClub(7, 12, { introVoice: null });
@@ -427,59 +419,6 @@ describe('ClubService', () => {
     expect(updateClub).toHaveBeenCalledWith({
       clubId: 12n,
       data: { introVoiceUrl: null },
-      keywordIds: undefined,
-    });
-  });
-
-  it('keywordIds 배열은 키워드 관계 교체 대상으로 전달한다', async () => {
-    findById.mockResolvedValue({
-      id: 12n,
-      hostId: 7n,
-      deletedAt: null,
-    });
-    updateClub.mockResolvedValue({
-      id: 12n,
-      name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
-      introVoiceUrl: null,
-      introText: '등산으로 친해져요',
-      capacity: 30,
-      updatedAt: null,
-      clubKeywords: [{ personality: { body: '등산' } }],
-    });
-
-    await service.updateClub(7, 12, { keywordIds: [1, 4, 7] });
-
-    expect(updateClub).toHaveBeenCalledWith({
-      clubId: 12n,
-      data: {},
-      keywordIds: [1n, 4n, 7n],
-    });
-  });
-
-  it('keywordIds 빈 배열은 키워드 전체 제거로 전달한다', async () => {
-    findById.mockResolvedValue({
-      id: 12n,
-      hostId: 7n,
-      deletedAt: null,
-    });
-    updateClub.mockResolvedValue({
-      id: 12n,
-      name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
-      introVoiceUrl: null,
-      introText: '등산으로 친해져요',
-      capacity: 30,
-      updatedAt: null,
-      clubKeywords: [],
-    });
-
-    await service.updateClub(7, 12, { keywordIds: [] });
-
-    expect(updateClub).toHaveBeenCalledWith({
-      clubId: 12n,
-      data: {},
-      keywordIds: [],
     });
   });
 
@@ -492,12 +431,11 @@ describe('ClubService', () => {
     updateClub.mockResolvedValue({
       id: 12n,
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '등산으로 친해져요',
       capacity: 30,
       updatedAt: null,
-      clubKeywords: [],
     });
 
     await service.updateClub(7, 12, {});
@@ -505,7 +443,6 @@ describe('ClubService', () => {
     expect(updateClub).toHaveBeenCalledWith({
       clubId: 12n,
       data: {},
-      keywordIds: undefined,
     });
   });
 
@@ -611,7 +548,7 @@ describe('ClubService', () => {
     expect(result).toEqual({
       clubId: '12',
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoice: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
       capacity: 30,
@@ -625,7 +562,6 @@ describe('ClubService', () => {
         nickname: '보이스마스터',
         profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
       },
-      keywords: ['야외', '등산'],
       meetings: [
         {
           meetingId: '88',

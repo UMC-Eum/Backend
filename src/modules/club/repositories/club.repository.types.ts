@@ -25,15 +25,6 @@ export const CLUB_LIST_SELECT = {
   thumbnailUrl: true,
   likes: true,
   createdAt: true,
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
   _count: {
     select: {
       clubUsers: {
@@ -67,15 +58,6 @@ export const CLUB_DETAIL_SELECT = {
       profileImageUrl: true,
       deletedAt: true,
       status: true,
-    },
-  },
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
     },
   },
   meetings: {
@@ -119,15 +101,6 @@ export const UPDATE_CLUB_SELECT = {
   introText: true,
   capacity: true,
   updatedAt: true,
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
 } satisfies Prisma.ClubSelect;
 
 export type UpdatedClubRow = Prisma.ClubGetPayload<{
@@ -137,7 +110,6 @@ export type UpdatedClubRow = Prisma.ClubGetPayload<{
 export interface UpdateClubRepositoryParams {
   clubId: bigint;
   data: Prisma.ClubUpdateInput;
-  keywordIds?: bigint[];
   vibeVector?: number[];
 }
 
@@ -160,10 +132,10 @@ export interface CreateClubRepositoryParams {
   name: string;
   category: ClubCategory;
   introText: string;
-  introVoice: string;
   capacity: number;
   addressCode: string | null;
-  keywordIds: number[];
+  approvalRequired: boolean;
+  boardPublic: boolean;
 }
 
 export interface CreatedClubRow {
@@ -172,6 +144,8 @@ export interface CreatedClubRow {
   name: string;
   category: ClubCategory;
   capacity: number;
+  approvalRequired: boolean;
+  boardPublic: boolean;
   createdAt: Date;
   user: {
     id: bigint;

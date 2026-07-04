@@ -34,18 +34,6 @@ export class ClubRepository {
   async createClubWithHost(
     params: CreateClubRepositoryParams,
   ): Promise<CreatedClubRow> {
-    const uniqueKeywordIds = this.toUniqueBigIntIds(params.keywordIds);
-
-    if (uniqueKeywordIds.length > 0) {
-      const keywordCount = await this.prisma.personality.count({
-        where: { id: { in: uniqueKeywordIds } },
-      });
-
-      if (keywordCount !== uniqueKeywordIds.length) {
-        throw new AppException('KEYWORD_NOT_FOUND');
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
         Prisma.sql`
@@ -58,17 +46,21 @@ export class ClubRepository {
             "capacity",
             "code",
             "likes",
+            "approvalRequired",
+            "boardPublic",
             "vibeVector"
           )
           VALUES (
             ${params.hostId},
             ${params.name},
-            ${params.introVoice},
+            ${null},
             ${params.introText},
             ${params.category}::"ClubCategory",
             ${params.capacity},
             ${params.addressCode},
             ${0},
+            ${params.approvalRequired},
+            ${params.boardPublic},
             '[0]'::vector
           )
           RETURNING "id"
@@ -89,16 +81,6 @@ export class ClubRepository {
         },
       });
 
-      if (uniqueKeywordIds.length > 0) {
-        await tx.clubKeyword.createMany({
-          data: uniqueKeywordIds.map((keywordId) => ({
-            clubId,
-            keywordId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
       return tx.club.findUniqueOrThrow({
         where: { id: clubId },
         select: this.createdClubSelect(),
@@ -106,44 +88,14 @@ export class ClubRepository {
     });
   }
 
-  async applyClubAnalysis(
-    clubId: bigint,
-    selectedKeywords: string[],
-    vibeVector: number[],
-  ): Promise<void> {
+  async applyClubAnalysis(clubId: bigint, vibeVector: number[]): Promise<void> {
     const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
-    const uniqueKeywords = Array.from(
-      new Set(
-        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
-      ),
-    );
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`
-        UPDATE "Club"
-        SET "vibeVector" = ${vibeVectorLiteral}::vector
-        WHERE "id" = ${clubId}
-      `;
-
-      const personalities = await Promise.all(
-        uniqueKeywords.map((keyword) =>
-          tx.personality.upsert({
-            where: { body: keyword },
-            update: {},
-            create: { body: keyword },
-            select: { id: true },
-          }),
-        ),
-      );
-
-      await tx.clubKeyword.createMany({
-        data: personalities.map(({ id }) => ({
-          clubId,
-          keywordId: id,
-        })),
-        skipDuplicates: true,
-      });
-    });
+    await this.prisma.$executeRaw`
+      UPDATE "Club"
+      SET "vibeVector" = ${vibeVectorLiteral}::vector
+      WHERE "id" = ${clubId}
+    `;
   }
 
   async deleteCreatedClub(clubId: bigint, hostId: bigint): Promise<void> {
@@ -188,40 +140,13 @@ export class ClubRepository {
   async updateClub(
     params: UpdateClubRepositoryParams,
   ): Promise<UpdatedClubRow> {
-    const keywordIds = params.keywordIds;
     const vibeVectorLiteral =
       params.vibeVector === undefined
         ? undefined
         : toPgVectorLiteral(params.vibeVector);
 
-    if (keywordIds !== undefined && keywordIds.length > 0) {
-      const keywordCount = await this.prisma.personality.count({
-        where: { id: { in: keywordIds } },
-      });
-
-      if (keywordCount !== keywordIds.length) {
-        throw new AppException('KEYWORD_NOT_FOUND');
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const hasClubData = Object.keys(params.data).length > 0;
-
-      if (keywordIds !== undefined) {
-        await tx.clubKeyword.deleteMany({
-          where: { clubId: params.clubId },
-        });
-
-        if (keywordIds.length > 0) {
-          await tx.clubKeyword.createMany({
-            data: keywordIds.map((keywordId) => ({
-              clubId: params.clubId,
-              keywordId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
 
       if (hasClubData) {
         await tx.club.update({
@@ -388,15 +313,6 @@ export class ClubRepository {
         OR: [
           { name: { contains: params.keyword } },
           { introText: { contains: params.keyword } },
-          {
-            clubKeywords: {
-              some: {
-                personality: {
-                  body: { contains: params.keyword },
-                },
-              },
-            },
-          },
         ],
       });
     }
@@ -534,6 +450,8 @@ export class ClubRepository {
       name: true,
       category: true,
       capacity: true,
+      approvalRequired: true,
+      boardPublic: true,
       createdAt: true,
       user: {
         select: {

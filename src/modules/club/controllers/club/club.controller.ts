@@ -66,10 +66,13 @@ export class ClubController {
         success: {
           data: {
             clubId: 12,
-            code: '주소 코드 호스트의 주소코드 반환',
+            code: '1168000000',
             name: '보이스 러버즈',
             category: 'OTHERS',
+            areaCode: '1168000000',
             capacity: 30,
+            approvalRequired: false,
+            boardPublic: true,
             memberCount: 1,
             host: {
               userId: 7,
@@ -112,7 +115,7 @@ export class ClubController {
     required: false,
     description: '카테고리 필터',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   @ApiQuery({
     name: 'sort',
@@ -145,7 +148,7 @@ export class ClubController {
                 clubId: '1',
                 name: '새벽 등산 모임',
                 introText: '함께 새벽 산행할 분들 모집해요.',
-                category: 'OUTDOOR',
+                category: 'HOBBY',
                 thumbnailUrl: 'https://cdn.example.com/clubs/1.jpg',
                 likes: 32,
                 memberCount: 12,
@@ -305,7 +308,7 @@ export class ClubController {
   @ApiOperation({
     summary: '클럽 정보 부분 수정',
     description:
-      '호스트가 클럽 정보를 부분 수정합니다. 요청 body에 포함된 필드만 변경하며, keywordIds를 생략하면 기존 키워드를 유지하고 빈 배열이면 전체 제거합니다.',
+      '호스트가 클럽 정보를 부분 수정합니다. 요청 body에 포함된 필드만 변경합니다.',
   })
   @ApiParam({
     name: 'clubId',
@@ -328,12 +331,6 @@ export class ClubController {
           introVoice: null,
         },
       },
-      replaceKeywords: {
-        summary: '키워드 교체',
-        value: {
-          keywordIds: [1, 4, 7],
-        },
-      },
     },
   })
   @ApiOkResponse({
@@ -345,11 +342,10 @@ export class ClubController {
           data: {
             clubId: '12',
             name: '등산 러버즈 시즌3',
-            category: 'OUTDOOR',
+            category: 'HOBBY',
             introText: '더 즐겁게 모여요',
             introVoice: null,
             capacity: 60,
-            keywords: ['야외', '등산', '친목'],
             updatedAt: '2026-05-01T20:25:00.000Z',
           },
         },
@@ -435,7 +431,7 @@ export class ClubController {
           data: {
             clubId: '12',
             name: '등산 러버즈',
-            category: 'OUTDOOR',
+            category: 'HOBBY',
             introVoice: 'https://cdn.example.com/voice/12.mp3',
             introText: '등산으로 친해져요',
             capacity: 30,
@@ -449,7 +445,6 @@ export class ClubController {
               nickname: '보이스마스터',
               profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
             },
-            keywords: ['야외', '등산', '친목'],
             meetings: [
               {
                 meetingId: '88',

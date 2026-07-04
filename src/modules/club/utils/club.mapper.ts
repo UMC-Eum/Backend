@@ -14,7 +14,6 @@ export function toClubListItemDto(row: ClubListRow): ClubListItemDto {
     thumbnailUrl: row.thumbnailUrl,
     likes: row.likes,
     memberCount: row._count.clubUsers,
-    keywords: row.clubKeywords.map((keyword) => keyword.personality.body),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -75,9 +74,6 @@ export function toClubDetailDto(
     isJoined: flags.isJoined,
     myAuthority: flags.myAuthority,
     host,
-    keywords: row.clubKeywords
-      .map((keyword) => keyword.personality.body)
-      .filter((body): body is string => Boolean(body)),
     meetings: row.meetings.map((meeting) => {
       return {
         meetingId: meeting.id.toString(),

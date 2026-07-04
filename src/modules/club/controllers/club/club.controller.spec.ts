@@ -58,7 +58,7 @@ describe('ClubController', () => {
   it('클럽 목록 조회를 service에 위임한다', async () => {
     const query = {
       keyword: '등산',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       sort: ClubListSort.RECENT,
       limit: 10,
     };
@@ -74,16 +74,20 @@ describe('ClubController', () => {
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       introText: '목소리로 친해져요',
-      introVoice: 'https://cdn.example.com/voice/12.mp3',
       capacity: 30,
-      keywordIds: [1, 4, 7],
+      areaCode: '1168000000',
+      approvalRequired: false,
+      boardPublic: true,
     };
     const response = {
       clubId: 12,
-      code: '1100000000',
+      code: '1168000000',
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      areaCode: '1168000000',
+      approvalRequired: false,
+      boardPublic: true,
       memberCount: 1,
       host: {
         userId: 7,
@@ -106,11 +110,10 @@ describe('ClubController', () => {
     const response = {
       clubId: '12',
       name: '등산 러버즈 시즌3',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introText: '더 즐겁게 모여요',
       introVoice: null,
       capacity: 60,
-      keywords: ['등산'],
       updatedAt: '2026-05-01T20:25:00.000Z',
     };
     updateClub.mockResolvedValue(response);
@@ -154,7 +157,7 @@ describe('ClubController', () => {
     const response = {
       clubId: '12',
       name: '등산 러버즈',
-      category: ClubCategory.OUTDOOR,
+      category: ClubCategory.HOBBY,
       introVoice: null,
       introText: '등산으로 친해져요',
       capacity: 30,
@@ -164,7 +167,6 @@ describe('ClubController', () => {
       isJoined: true,
       myAuthority: ClubAuthority.HOST,
       host: null,
-      keywords: [],
       meetings: [],
       createdAt: '2026-03-01T00:00:00.000Z',
     };

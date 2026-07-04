@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -25,6 +25,7 @@ export class CreateClubRequestDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
+    enumName: 'ClubCategory',
     example: ClubCategory.OTHERS,
   })
   @IsEnum(ClubCategory)
@@ -37,13 +38,6 @@ export class CreateClubRequestDto {
   @IsString()
   introText: string;
 
-  @ApiProperty({
-    description: '클럽 소개 음성 URL',
-    example: 'https://cdn.example.com/voice/12.mp3',
-  })
-  @IsString()
-  introVoice: string;
-
   @ApiProperty({ description: '정원', example: 30, minimum: 1 })
   @Type(() => Number)
   @IsInt()
@@ -51,14 +45,27 @@ export class CreateClubRequestDto {
   capacity: number;
 
   @ApiProperty({
-    description: '키워드 ID 목록',
-    example: [1, 4, 7],
-    type: [Number],
+    description: '동/읍/면 주소 코드',
+    example: '1168000000',
   })
-  @IsArray()
-  @Type(() => Number)
-  @IsInt({ each: true })
-  keywordIds: number[];
+  @IsString()
+  areaCode: string;
+
+  @ApiProperty({
+    description:
+      '가입 승인 필요 여부. true면 승인 가입, false면 자유 가입입니다.',
+    example: false,
+  })
+  @IsBoolean()
+  approvalRequired: boolean;
+
+  @ApiProperty({
+    description:
+      '게시판 공개 여부. true면 전체 공개, false면 회원에게만 공개입니다.',
+    example: true,
+  })
+  @IsBoolean()
+  boardPublic: boolean;
 }
 
 export class CreateClubHostDto {
@@ -80,7 +87,10 @@ export class CreateClubResponseDto {
   @ApiProperty({ description: '클럽 ID', example: 12 })
   clubId: number;
 
-  @ApiProperty({ description: '클럽 초대/식별 코드', example: 'CLB-AB12CD' })
+  @ApiProperty({
+    description: '동/읍/면 주소 코드. 기존 응답 호환을 위한 필드입니다.',
+    example: '1168000000',
+  })
   code: string;
 
   @ApiProperty({ description: '클럽 이름', example: '보이스 러버즈' })
@@ -89,12 +99,32 @@ export class CreateClubResponseDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
+    enumName: 'ClubCategory',
     example: ClubCategory.OTHERS,
   })
   category: ClubCategory;
 
   @ApiProperty({ description: '정원', example: 30 })
   capacity: number;
+
+  @ApiProperty({
+    description: '동/읍/면 주소 코드',
+    example: '1168000000',
+    nullable: true,
+  })
+  areaCode: string | null;
+
+  @ApiProperty({
+    description: '가입 승인 필요 여부',
+    example: false,
+  })
+  approvalRequired: boolean;
+
+  @ApiProperty({
+    description: '게시판 공개 여부',
+    example: true,
+  })
+  boardPublic: boolean;
 
   @ApiProperty({ description: '활성 멤버 수', example: 1 })
   memberCount: number;
@@ -145,24 +175,11 @@ export class UpdateClubRequestDto {
   @ApiPropertyOptional({
     description: '카테고리',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   @IsOptional()
   @IsEnum(ClubCategory)
   category?: ClubCategory;
-
-  @ApiPropertyOptional({
-    description:
-      '키워드 ID 목록. 빈 배열이면 전체 제거, 생략하면 기존 키워드를 유지합니다.',
-    example: [1, 4, 7],
-    type: [Number],
-  })
-  @IsOptional()
-  @IsArray()
-  @Type(() => Number)
-  @IsInt({ each: true })
-  @Min(1, { each: true })
-  keywordIds?: number[];
 }
 
 export class UpdateClubResponseDto {
@@ -175,7 +192,7 @@ export class UpdateClubResponseDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   category: ClubCategory;
 
@@ -195,12 +212,6 @@ export class UpdateClubResponseDto {
 
   @ApiProperty({ description: '정원', example: 60 })
   capacity: number;
-
-  @ApiProperty({
-    description: '클럽 키워드',
-    example: ['야외', '등산', '친목'],
-  })
-  keywords: string[];
 
   @ApiProperty({
     description: '수정 시각',
@@ -233,7 +244,7 @@ export class ListClubsQueryDto {
   @ApiPropertyOptional({
     description: '카테고리 필터',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   @IsOptional()
   @IsEnum(ClubCategory)
@@ -302,7 +313,7 @@ export class ClubListItemDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   category: ClubCategory;
 
@@ -318,12 +329,6 @@ export class ClubListItemDto {
 
   @ApiProperty({ description: '활성 멤버 수', example: 12 })
   memberCount: number;
-
-  @ApiProperty({
-    description: '클럽 키워드',
-    example: ['등산', '새벽산책'],
-  })
-  keywords: string[];
 
   @ApiProperty({
     description: '생성 시각',
@@ -388,7 +393,7 @@ export class ClubDetailResponseDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   category: ClubCategory;
 
@@ -431,12 +436,6 @@ export class ClubDetailResponseDto {
 
   @ApiProperty({ type: ClubDetailHostDto, nullable: true })
   host: ClubDetailHostDto | null;
-
-  @ApiProperty({
-    description: '클럽 키워드',
-    example: ['야외', '등산', '친목'],
-  })
-  keywords: string[];
 
   @ApiProperty({ type: [ClubDetailMeetingDto] })
   meetings: ClubDetailMeetingDto[];

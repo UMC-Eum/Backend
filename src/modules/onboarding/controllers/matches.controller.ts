@@ -119,7 +119,7 @@ export class MatchesController {
               {
                 clubId: '7',
                 name: '즉흥 여행 맛집 탐방',
-                category: 'CULTURE',
+                category: 'CULTURE_ART',
                 addressCode: '1159010800',
                 addressName: '서울특별시 동작구 대방동',
                 sidoCode: '11',
@@ -135,7 +135,7 @@ export class MatchesController {
               {
                 clubId: '5',
                 name: '영어 회화와 카페 투어',
-                category: 'LANGUAGE',
+                category: 'STUDY',
                 addressCode: '1159010600',
                 addressName: '서울특별시 동작구 동작동',
                 sidoCode: '11',

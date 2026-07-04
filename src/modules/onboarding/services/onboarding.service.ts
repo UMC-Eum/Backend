@@ -59,7 +59,6 @@ export class OnboardingService {
     await this.onboardingRepository.updateClubVibe(
       clubId,
       dto,
-      analysis.selectedKeywords,
       analysis.vibeVector,
     );
 

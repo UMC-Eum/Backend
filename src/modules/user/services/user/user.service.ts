@@ -123,8 +123,7 @@ export class UserService {
         memberCount: membership.club.clubUsers.length,
         authority: membership.authority,
         status: membership.status,
-        joinedAt: membership.joinedAt?.toISOString() ?? '',
-      })),
+        joinedAt: membership.joinedAt?.toISOString() ?? null,
     };
   }
 

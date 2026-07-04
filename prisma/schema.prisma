@@ -143,7 +143,7 @@ model User {
   deletedAt       DateTime?             @db.Timestamp(6)
   idealVoiceUrl   String?               @db.Text
   introVoiceUrl   String                @db.Text
-  introText       String                @db.VarChar(255)
+  introText       String                @db.Text
   profileImageUrl String                @db.Text
   status          ActiveStatus          @default(ACTIVE)
   code            String?               @db.Char(10)

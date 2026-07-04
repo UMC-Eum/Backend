@@ -362,15 +362,16 @@ export class UserRepository {
     });
   }
 
-  findMyActiveClubs(userId: number) {
+  findMyClubs(userId: number) {
     return this.prismaService.clubUser.findMany({
       where: {
         userId: BigInt(userId),
-        status: ClubUserStatus.ACTIVE,
+        status: { in: [ClubUserStatus.ACTIVE, ClubUserStatus.PENDING] },
         club: { deletedAt: null },
       },
       select: {
         authority: true,
+        status: true,
         joinedAt: true,
         club: {
           select: {
@@ -386,7 +387,7 @@ export class UserRepository {
           },
         },
       },
-      orderBy: { joinedAt: 'desc' },
+      orderBy: [{ joinedAt: 'desc' }, { requestedAt: 'desc' }],
     });
   }
 

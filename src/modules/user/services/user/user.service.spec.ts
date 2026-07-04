@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClubAuthority, ClubCategory, Sex } from '@prisma/client';
+import {
+  ClubAuthority,
+  ClubCategory,
+  ClubUserStatus,
+  Sex,
+} from '@prisma/client';
 import { UserService } from './user.service';
 import { UserRepository } from '../../repositories/user.repository';
 
@@ -12,7 +17,7 @@ describe('UserService', () => {
     findPersonalitiesByBodies: jest.fn(),
     findAllPersonalities: jest.fn(),
     findPublicProfileById: jest.fn(),
-    findMyActiveClubs: jest.fn(),
+    findMyClubs: jest.fn(),
     findMyLikedClubs: jest.fn(),
     findMyLatestProfileVisitors: jest.fn(),
     findActiveUserId: jest.fn(),
@@ -45,11 +50,12 @@ describe('UserService', () => {
     expect(service).toBeDefined();
   });
 
-  it('내 ACTIVE 동호회 목록을 반환한다', async () => {
+  it('내 ACTIVE/PENDING 동호회 목록을 반환한다', async () => {
     const joinedAt = new Date('2026-05-02T15:40:00.000Z');
-    repositoryMock.findMyActiveClubs.mockResolvedValue([
+    repositoryMock.findMyClubs.mockResolvedValue([
       {
         authority: ClubAuthority.HOST,
+        status: ClubUserStatus.ACTIVE,
         joinedAt,
         club: {
           id: 12n,
@@ -60,11 +66,24 @@ describe('UserService', () => {
           clubUsers: [{ id: 1n }, { id: 2n }],
         },
       },
+      {
+        authority: ClubAuthority.GENERAL,
+        status: ClubUserStatus.PENDING,
+        joinedAt: null,
+        club: {
+          id: 13n,
+          name: '승인 대기 동호회',
+          thumbnailUrl: null,
+          category: ClubCategory.OTHERS,
+          introText: null,
+          clubUsers: [{ id: 1n }],
+        },
+      },
     ]);
 
     const result = await service.getMyClubs(7);
 
-    expect(repositoryMock.findMyActiveClubs).toHaveBeenCalledWith(7);
+    expect(repositoryMock.findMyClubs).toHaveBeenCalledWith(7);
     expect(result).toEqual({
       items: [
         {
@@ -75,7 +94,19 @@ describe('UserService', () => {
           introText: '테스트용 동호회입니다.',
           memberCount: 2,
           authority: ClubAuthority.HOST,
+          status: ClubUserStatus.ACTIVE,
           joinedAt: joinedAt.toISOString(),
+        },
+        {
+          clubId: 13,
+          name: '승인 대기 동호회',
+          thumbnailUrl: null,
+          category: ClubCategory.OTHERS,
+          introText: null,
+          memberCount: 1,
+          authority: ClubAuthority.GENERAL,
+          status: ClubUserStatus.PENDING,
+          joinedAt: null,
         },
       ],
     });
@@ -85,7 +116,7 @@ describe('UserService', () => {
     await expect(service.getMyClubs(0)).rejects.toMatchObject({
       internalCode: 'AUTH_LOGIN_REQUIRED',
     });
-    expect(repositoryMock.findMyActiveClubs).not.toHaveBeenCalled();
+    expect(repositoryMock.findMyClubs).not.toHaveBeenCalled();
   });
 
   it('내가 찜한 동호회 목록을 반환한다', async () => {

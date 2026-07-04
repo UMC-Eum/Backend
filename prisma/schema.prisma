@@ -583,11 +583,26 @@ model Club {
   clubUsers    ClubUser[]
   clubLikes    ClubLike[]
   meetings     Meeting[]
+  clubImages   ClubImage[]
   clubKeywords ClubKeyword[]
   clubReports  ClubReport[]
 
   @@index([category, createdAt])
   @@index([code, createdAt])
+}
+
+model ClubImage {
+  clubImageId BigInt    @id @default(autoincrement()) @db.BigInt
+  clubId      BigInt    @db.BigInt
+  imageUrl    String    @db.Text
+  sortOrder   Int       @db.Integer
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt   DateTime? @db.Timestamp(6)
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, sortOrder])
+  @@index([deletedAt])
 }
 
 model ClubUser {

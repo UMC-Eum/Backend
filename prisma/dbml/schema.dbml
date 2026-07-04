@@ -371,6 +371,8 @@ Table Club {
   code String
   likes Int [not null]
   thumbnailUrl String
+  approvalRequired Boolean [not null, default: false]
+  boardPublic Boolean [not null, default: true]
   user User
   address Address
   chatRooms ChatRoom [not null]
@@ -378,8 +380,19 @@ Table Club {
   clubUsers ClubUser [not null]
   clubLikes ClubLike [not null]
   meetings Meeting [not null]
+  clubImages ClubImage [not null]
   clubKeywords ClubKeyword [not null]
   clubReports ClubReport [not null]
+}
+
+Table ClubImage {
+  clubImageId BigInt [pk, increment]
+  clubId BigInt [not null]
+  imageUrl String [not null]
+  sortOrder Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  club Club [not null]
 }
 
 Table ClubUser {
@@ -607,10 +620,11 @@ Enum ChatRoomType {
 
 Enum ClubCategory {
   SPORTS
-  LANGUAGE
+  HOBBY
+  CULTURE_ART
   VOLUNTEER
-  OUTDOOR
-  CULTURE
+  FOOD
+  STUDY
   OTHERS
 }
 
@@ -691,6 +705,8 @@ Ref: ArticlePhoto.clubUserId > ClubUser.id [delete: Set Null]
 Ref: Club.hostId > User.id [delete: Set Null]
 
 Ref: Club.code > Address.code [delete: Set Null]
+
+Ref: ClubImage.clubId > Club.id [delete: Cascade]
 
 Ref: ClubUser.userId > User.id [delete: Cascade]
 

@@ -24,7 +24,7 @@ export class FilesController {
   @ApiOperation({
     summary: '파일 업로드용 presigned URL 발급',
     description:
-      "프로필 소개 음성, 프로필 이미지, 클럽 이미지 업로드용 S3 presigned URL을 발급합니다. purpose가 'CLUB'이면 clubId가 필수이며, 파일은 clubs/{clubId}/images 경로에 저장됩니다.",
+      "프로필 소개 음성, 프로필 이미지, 클럽 이미지 업로드용 S3 presigned URL을 발급합니다. purpose가 'CLUB'이면 파일은 images/{userId}/club 경로에 저장됩니다.",
   })
   @ApiBody({
     type: PresignFileDto,
@@ -51,7 +51,6 @@ export class FilesController {
           fileName: 'club-cover.jpg',
           contentType: 'image/jpeg',
           purpose: 'CLUB',
-          clubId: 12,
         },
       },
     },
@@ -65,9 +64,9 @@ export class FilesController {
           data: {
             data: {
               uploadUrl:
-                'https://bucket.s3.ap-northeast-2.amazonaws.com/clubs/12/images/1783139000000_club-cover.jpg?...',
+                'https://bucket.s3.ap-northeast-2.amazonaws.com/images/42/club/1783139000000_club-cover.jpg?...',
               fileUrl:
-                'https://bucket.s3.ap-northeast-2.amazonaws.com/clubs/12/images/1783139000000_club-cover.jpg?...',
+                'https://bucket.s3.ap-northeast-2.amazonaws.com/images/42/club/1783139000000_club-cover.jpg?...',
               expiresAt: '2026-07-11T00:00:00.000Z',
             },
           },

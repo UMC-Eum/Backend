@@ -17,6 +17,11 @@ export enum ClubListSort {
   LIKES = 'LIKES',
 }
 
+export enum ClubJoinPolicy {
+  AUTO = 'AUTO',
+  APPROVAL = 'APPROVAL',
+}
+
 export class CreateClubRequestDto {
   @ApiProperty({ description: '클럽 이름', example: '보이스 러버즈' })
   @IsString()
@@ -413,6 +418,13 @@ export class ClubDetailResponseDto {
 
   @ApiProperty({ description: '정원', example: 30 })
   capacity: number;
+
+  @ApiProperty({
+    description: '가입 방식. AUTO는 자유 가입, APPROVAL은 승인 가입입니다.',
+    enum: ClubJoinPolicy,
+    example: ClubJoinPolicy.AUTO,
+  })
+  joinPolicy: ClubJoinPolicy;
 
   @ApiProperty({ description: '활성 멤버 수', example: 18 })
   memberCount: number;

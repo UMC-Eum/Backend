@@ -1,4 +1,8 @@
-import type { ClubDetailResponseDto, ClubListItemDto } from '../dtos/club.dto';
+import {
+  ClubJoinPolicy,
+  type ClubDetailResponseDto,
+  type ClubListItemDto,
+} from '../dtos/club.dto';
 import type {
   ClubDetailRow,
   ClubListRow,
@@ -68,6 +72,9 @@ export function toClubDetailDto(
     introVoice: row.introVoiceUrl,
     introText: row.introText,
     capacity: row.capacity,
+    joinPolicy: row.approvalRequired
+      ? ClubJoinPolicy.APPROVAL
+      : ClubJoinPolicy.AUTO,
     memberCount: row._count.clubUsers,
     likes: row.likes,
     isLiked: flags.isLiked,

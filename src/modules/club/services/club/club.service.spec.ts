@@ -8,7 +8,7 @@ import {
 import { ClubService } from './club.service';
 import { ClubRepository } from '../../repositories/club.repository';
 import { AppException } from '../../../../common/errors/app.exception';
-import { ClubListSort } from '../../dtos/club.dto';
+import { ClubJoinPolicy, ClubListSort } from '../../dtos/club.dto';
 import { UserRepository } from '../../../user/repositories/user.repository';
 import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.service';
 
@@ -38,6 +38,7 @@ describe('ClubService', () => {
     introVoiceUrl: 'https://cdn.example.com/voice/12.mp3',
     introText: '등산으로 친해져요',
     capacity: 30,
+    approvalRequired: false,
     likes: 142,
     createdAt: new Date('2026-03-01T00:00:00.000Z'),
     user: {
@@ -552,6 +553,7 @@ describe('ClubService', () => {
       introVoice: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
       capacity: 30,
+      joinPolicy: ClubJoinPolicy.AUTO,
       memberCount: 18,
       likes: 142,
       isLiked: false,
@@ -572,6 +574,19 @@ describe('ClubService', () => {
       ],
       createdAt: '2026-03-01T00:00:00.000Z',
     });
+  });
+
+  it('승인 가입 클럽이면 joinPolicy=APPROVAL을 반환한다', async () => {
+    findDetailById.mockResolvedValue({
+      ...baseClubRow,
+      approvalRequired: true,
+    });
+    findClubUserState.mockResolvedValue(null);
+    hasClubLike.mockResolvedValue(false);
+
+    const result = await service.getClubDetail(9, 12);
+
+    expect(result.joinPolicy).toBe(ClubJoinPolicy.APPROVAL);
   });
 
   it('호스트면 ClubUser 상태보다 HOST 권한을 우선한다', async () => {

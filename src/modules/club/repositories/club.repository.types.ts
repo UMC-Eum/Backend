@@ -49,6 +49,7 @@ export const CLUB_DETAIL_SELECT = {
   introVoiceUrl: true,
   introText: true,
   capacity: true,
+  approvalRequired: true,
   likes: true,
   createdAt: true,
   user: {

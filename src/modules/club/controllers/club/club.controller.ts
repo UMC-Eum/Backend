@@ -435,6 +435,7 @@ export class ClubController {
             introVoice: 'https://cdn.example.com/voice/12.mp3',
             introText: '등산으로 친해져요',
             capacity: 30,
+            joinPolicy: 'AUTO',
             memberCount: 18,
             likes: 142,
             isLiked: false,

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClubAuthority, ClubCategory } from '@prisma/client';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
-import { ClubListSort } from '../../dtos/club.dto';
+import { ClubJoinPolicy, ClubListSort } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
 import { ClubController } from './club.controller';
 
@@ -161,6 +161,7 @@ describe('ClubController', () => {
       introVoice: null,
       introText: '등산으로 친해져요',
       capacity: 30,
+      joinPolicy: ClubJoinPolicy.AUTO,
       memberCount: 18,
       likes: 142,
       isLiked: true,

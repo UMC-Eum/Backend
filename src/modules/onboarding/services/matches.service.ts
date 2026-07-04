@@ -15,11 +15,17 @@ export class MatchesService {
     return this.extractDataPayload(result);
   }
 
-  async getRecommendedClubs(userId: bigint, cursor?: string, size?: string) {
+  async getRecommendedClubs(
+    userId: bigint,
+    cursor?: string,
+    size?: string,
+    areaCode?: string,
+  ) {
     const result = await this.onboardingAiService.getRecommendedClubs(
       userId,
       cursor,
       size,
+      areaCode,
     );
     return this.extractDataPayload(result);
   }

@@ -107,6 +107,13 @@ export class MatchesController {
     description: '가져올 추천 클럽 수',
     example: 20,
   })
+  @ApiQuery({
+    name: 'areaCode',
+    required: false,
+    description:
+      '동/읍/면 주소 코드 필터. 전달하면 해당 지역 기준 추천 클럽을 조회합니다.',
+    example: '1168000000',
+  })
   @ApiOkResponse({
     description: '추천 클럽 조회 성공',
     type: RecommendedClubsResponseDto,
@@ -158,7 +165,7 @@ export class MatchesController {
         error: null,
         meta: {
           timestamp: '2026-06-25T06:22:47.240Z',
-          path: '/api/v1/matches/club/recommended',
+          path: '/api/v1/matches/club/recommended?areaCode=1168000000',
         },
       },
     },
@@ -167,12 +174,14 @@ export class MatchesController {
     @RequiredUserId() userId: number,
     @Query('cursor') cursor?: string,
     @Query('size') size?: string,
+    @Query('areaCode') areaCode?: string,
   ) {
     try {
       const result = await this.matchesService.getRecommendedClubs(
         BigInt(userId),
         cursor,
         size,
+        areaCode,
       );
       return result;
     } catch (error) {

@@ -17,6 +17,16 @@ export class UserClubItemDto {
   @ApiProperty({ enum: ClubCategory, example: ClubCategory.OTHERS })
   category!: ClubCategory;
 
+  @ApiProperty({ example: 30 })
+  capacity!: number;
+
+  @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  code!: string | null;
+
   @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',
     nullable: true,
@@ -59,6 +69,16 @@ export class UserLikedClubItemDto {
 
   @ApiProperty({ enum: ClubCategory, example: ClubCategory.OTHERS })
   category!: ClubCategory;
+
+  @ApiProperty({ example: 30 })
+  capacity!: number;
+
+  @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  code!: string | null;
 
   @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',

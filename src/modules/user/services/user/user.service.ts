@@ -111,7 +111,7 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const memberships = await this.userRepository.findMyActiveClubs(userId);
+    const memberships = await this.userRepository.findMyClubs(userId);
 
     return {
       items: memberships.map((membership) => ({
@@ -122,7 +122,8 @@ export class UserService {
         introText: membership.club.introText,
         memberCount: membership.club.clubUsers.length,
         authority: membership.authority,
-        joinedAt: membership.joinedAt?.toISOString() ?? '',
+        status: membership.status,
+        joinedAt: membership.joinedAt?.toISOString() ?? null,
       })),
     };
   }

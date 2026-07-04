@@ -57,7 +57,30 @@ export class ClubController {
     summary: '클럽 생성',
     description: '로그인한 사용자가 새 클럽을 생성하고 호스트가 됩니다.',
   })
-  @ApiBody({ type: CreateClubRequestDto })
+  @ApiBody({
+    type: CreateClubRequestDto,
+    examples: {
+      default: {
+        summary: '클럽 생성 요청',
+        value: {
+          name: '보이스 러버즈',
+          category: 'OTHERS',
+          introText: '목소리로 친해져요',
+          capacity: 30,
+          areaCode: '1168000000',
+          approvalRequired: false,
+          boardPublic: true,
+          thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+          imageUrls: [
+            'https://cdn.example.com/clubs/12/images/1.jpg',
+            'https://cdn.example.com/clubs/12/images/2.jpg',
+            'https://cdn.example.com/clubs/12/images/3.jpg',
+            'https://cdn.example.com/clubs/12/images/4.jpg',
+          ],
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({
     description: '클럽 생성 성공',
     schema: {
@@ -71,6 +94,13 @@ export class ClubController {
             category: 'OTHERS',
             areaCode: '1168000000',
             capacity: 30,
+            thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+            imageUrls: [
+              'https://cdn.example.com/clubs/12/images/1.jpg',
+              'https://cdn.example.com/clubs/12/images/2.jpg',
+              'https://cdn.example.com/clubs/12/images/3.jpg',
+              'https://cdn.example.com/clubs/12/images/4.jpg',
+            ],
             approvalRequired: false,
             boardPublic: true,
             memberCount: 1,

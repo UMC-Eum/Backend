@@ -1,11 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsBoolean,
   IsEnum,
   IsInt,
+  IsArray,
+  IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   Min,
 } from 'class-validator';
@@ -71,6 +75,31 @@ export class CreateClubRequestDto {
   })
   @IsBoolean()
   boardPublic: boolean;
+
+  @ApiProperty({
+    description: '클럽 대표 썸네일 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsUrl()
+  thumbnailUrl: string;
+
+  @ApiPropertyOptional({
+    description: '클럽 추가 이미지 URL 목록. 최대 4장까지 입력할 수 있습니다.',
+    example: [
+      'https://cdn.example.com/clubs/12/images/1.jpg',
+      'https://cdn.example.com/clubs/12/images/2.jpg',
+    ],
+    isArray: true,
+    maxItems: 4,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @IsUrl(undefined, { each: true })
+  imageUrls?: string[];
 }
 
 export class CreateClubHostDto {
@@ -118,6 +147,23 @@ export class CreateClubResponseDto {
     nullable: true,
   })
   areaCode: string | null;
+
+  @ApiProperty({
+    description: '클럽 대표 썸네일 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+    nullable: true,
+  })
+  thumbnailUrl: string | null;
+
+  @ApiProperty({
+    description: '클럽 추가 이미지 URL 목록',
+    example: [
+      'https://cdn.example.com/clubs/12/images/1.jpg',
+      'https://cdn.example.com/clubs/12/images/2.jpg',
+    ],
+    isArray: true,
+  })
+  imageUrls: string[];
 
   @ApiProperty({
     description: '가입 승인 필요 여부',

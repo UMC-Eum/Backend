@@ -184,6 +184,17 @@ describe('ClubService', () => {
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [
+        {
+          imageUrl: 'https://cdn.example.com/clubs/12/images/1.jpg',
+          sortOrder: 1,
+        },
+        {
+          imageUrl: 'https://cdn.example.com/clubs/12/images/2.jpg',
+          sortOrder: 2,
+        },
+      ],
       approvalRequired: false,
       boardPublic: true,
       createdAt: new Date('2026-05-01T16:35:00.000Z'),
@@ -208,6 +219,11 @@ describe('ClubService', () => {
       areaCode: '1168000000',
       approvalRequired: false,
       boardPublic: true,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
     };
 
     await expect(service.createClub(7, dto)).resolves.toEqual({
@@ -217,6 +233,11 @@ describe('ClubService', () => {
       category: ClubCategory.OTHERS,
       capacity: 30,
       areaCode: '1168000000',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
       approvalRequired: false,
       boardPublic: true,
       memberCount: 1,
@@ -236,6 +257,8 @@ describe('ClubService', () => {
       addressCode: dto.areaCode,
       approvalRequired: dto.approvalRequired,
       boardPublic: dto.boardPublic,
+      thumbnailUrl: dto.thumbnailUrl,
+      imageUrls: dto.imageUrls,
     });
     expect(analyzeClubVibe).toHaveBeenCalledWith({
       clubId: 12,
@@ -259,6 +282,8 @@ describe('ClubService', () => {
       name: '보이스 러버즈',
       category: ClubCategory.OTHERS,
       capacity: 30,
+      thumbnailUrl: null,
+      clubImages: [],
       approvalRequired: false,
       boardPublic: true,
       createdAt: new Date('2026-05-01T16:35:00.000Z'),
@@ -282,6 +307,7 @@ describe('ClubService', () => {
         areaCode: '1168000000',
         approvalRequired: false,
         boardPublic: true,
+        thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
       }),
     ).rejects.toBe(error);
     expect(deleteCreatedClub).toHaveBeenCalledWith(12n, 7n);

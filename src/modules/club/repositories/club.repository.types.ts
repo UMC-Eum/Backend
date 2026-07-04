@@ -137,6 +137,8 @@ export interface CreateClubRepositoryParams {
   addressCode: string | null;
   approvalRequired: boolean;
   boardPublic: boolean;
+  thumbnailUrl: string;
+  imageUrls?: string[];
 }
 
 export interface CreatedClubRow {
@@ -145,6 +147,7 @@ export interface CreatedClubRow {
   name: string;
   category: ClubCategory;
   capacity: number;
+  thumbnailUrl: string | null;
   approvalRequired: boolean;
   boardPublic: boolean;
   createdAt: Date;
@@ -156,6 +159,10 @@ export interface CreatedClubRow {
   _count: {
     clubUsers: number;
   };
+  clubImages: Array<{
+    imageUrl: string;
+    sortOrder: number;
+  }>;
 }
 
 export interface CreateClubLikeResult {

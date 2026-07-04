@@ -46,6 +46,7 @@ export class ClubRepository {
             "capacity",
             "code",
             "likes",
+            "thumbnailUrl",
             "approvalRequired",
             "boardPublic",
             "vibeVector"
@@ -59,6 +60,7 @@ export class ClubRepository {
             ${params.capacity},
             ${params.addressCode},
             ${0},
+            ${params.thumbnailUrl},
             ${params.approvalRequired},
             ${params.boardPublic},
             '[0]'::vector
@@ -70,6 +72,16 @@ export class ClubRepository {
       const clubId = insertedRows[0]?.id;
       if (!clubId) {
         throw new AppException('SERVER_TEMPORARY_ERROR');
+      }
+
+      if (params.imageUrls?.length) {
+        await tx.clubImage.createMany({
+          data: params.imageUrls.map((imageUrl, index) => ({
+            clubId,
+            imageUrl,
+            sortOrder: index + 1,
+          })),
+        });
       }
 
       await tx.clubUser.create({
@@ -450,6 +462,7 @@ export class ClubRepository {
       name: true,
       category: true,
       capacity: true,
+      thumbnailUrl: true,
       approvalRequired: true,
       boardPublic: true,
       createdAt: true,
@@ -468,6 +481,16 @@ export class ClubRepository {
               status: ClubUserStatus.ACTIVE,
             },
           },
+        },
+      },
+      clubImages: {
+        where: { deletedAt: null },
+        select: {
+          imageUrl: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
         },
       },
     } satisfies Prisma.ClubSelect;

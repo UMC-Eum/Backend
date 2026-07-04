@@ -50,6 +50,8 @@ export class ClubService {
       addressCode: dto.areaCode,
       approvalRequired: dto.approvalRequired,
       boardPublic: dto.boardPublic,
+      thumbnailUrl: dto.thumbnailUrl,
+      imageUrls: dto.imageUrls,
     });
 
     try {
@@ -75,6 +77,8 @@ export class ClubService {
       category: created.category,
       capacity: created.capacity,
       areaCode: created.code,
+      thumbnailUrl: created.thumbnailUrl,
+      imageUrls: created.clubImages.map((image) => image.imageUrl),
       approvalRequired: created.approvalRequired,
       boardPublic: created.boardPublic,
       memberCount: created._count.clubUsers,

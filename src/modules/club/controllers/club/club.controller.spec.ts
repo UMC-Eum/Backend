@@ -78,6 +78,11 @@ describe('ClubController', () => {
       areaCode: '1168000000',
       approvalRequired: false,
       boardPublic: true,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
     };
     const response = {
       clubId: 12,
@@ -86,6 +91,11 @@ describe('ClubController', () => {
       category: ClubCategory.OTHERS,
       capacity: 30,
       areaCode: '1168000000',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: [
+        'https://cdn.example.com/clubs/12/images/1.jpg',
+        'https://cdn.example.com/clubs/12/images/2.jpg',
+      ],
       approvalRequired: false,
       boardPublic: true,
       memberCount: 1,

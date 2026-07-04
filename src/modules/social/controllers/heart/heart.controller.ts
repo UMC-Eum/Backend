@@ -22,14 +22,13 @@ import {
 } from '@nestjs/swagger';
 import { HeartService } from '../../services/heart/heart.service';
 import {
+  CreateHeartRequestDto,
   HeartListPayload,
   HeartReceivedItem,
   HeartSentItem,
 } from '../../dtos/heart.dto';
 import { RequiredUserId } from '../../../auth/decorators';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
-import { AppException } from '../../../../common/errors/app.exception';
-import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
 import { BlockFilterInterceptor } from '../../../../common/interceptors/block-filter.interceptor';
 
 @ApiTags('Heart')
@@ -42,13 +41,7 @@ export class HeartController {
   @Post()
   @ApiOperation({ summary: '하트 보내기' })
   @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        targetUserId: { type: 'string', example: '24' },
-      },
-      required: ['targetUserId'],
-    },
+    type: CreateHeartRequestDto,
   })
   @ApiOkResponse({
     description: '하트 전송 결과',
@@ -63,17 +56,9 @@ export class HeartController {
   @ApiUnauthorizedResponse({ description: '로그인 필요' })
   public async postHeart(
     @RequiredUserId() userId: number,
-    @Body('targetUserId') targetUserId?: string,
+    @Body() dto: CreateHeartRequestDto,
   ) {
-    if (!targetUserId) {
-      throw new AppException('VALIDATION_INVALID_FORMAT', {
-        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
-        details: {
-          field: 'targetUserId',
-        },
-      });
-    }
-    return this.heartService.createHeart(String(userId), targetUserId);
+    return this.heartService.createHeart(String(userId), dto.targetUserId);
   }
 
   @Patch(':heartId')
@@ -110,7 +95,7 @@ export class HeartController {
             type: 'object',
             properties: {
               heartId: { type: 'number', example: 201 },
-              fromUserId: { type: 'number', example: 9 },
+              fromUserId: { type: 'number', nullable: true, example: 9 },
               createdAt: { type: 'string', format: 'date-time' },
               fromUser: {
                 type: 'object',
@@ -123,6 +108,8 @@ export class HeartController {
                   nickname: { type: 'string', example: '사용자123' },
                   age: { type: 'number', example: 25 },
                 },
+                description:
+                  '유저가 삭제되어 Heart.sentById가 null이면 nickname은 "삭제된 사용자", id는 0으로 반환됩니다.',
               },
             },
           },
@@ -164,7 +151,7 @@ export class HeartController {
             type: 'object',
             properties: {
               heartId: { type: 'number', example: 301 },
-              targetUserId: { type: 'number', example: 12 },
+              targetUserId: { type: 'number', nullable: true, example: 12 },
               createdAt: { type: 'string', format: 'date-time' },
               targetUser: {
                 type: 'object',
@@ -177,6 +164,8 @@ export class HeartController {
                   nickname: { type: 'string', example: '사용자456' },
                   age: { type: 'number', example: 27 },
                 },
+                description:
+                  '유저가 삭제되어 Heart.sentToId가 null이면 nickname은 "삭제된 사용자", id는 0으로 반환됩니다.',
               },
             },
           },

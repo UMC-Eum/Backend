@@ -1,3 +1,17 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, Matches } from 'class-validator';
+
+export class CreateHeartRequestDto {
+  @ApiProperty({
+    description: '하트를 받을 대상 유저 ID',
+    example: '24',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[1-9][0-9]*$/)
+  targetUserId: string;
+}
+
 export interface UserProfileInfo {
   id: number;
   nickname: string;
@@ -28,12 +42,12 @@ export interface HeartItemBase {
 }
 
 export interface HeartSentItem extends HeartItemBase {
-  targetUserId: number;
+  targetUserId: number | null;
   targetUser: UserProfileInfo;
 }
 
 export interface HeartReceivedItem extends HeartItemBase {
-  fromUserId: number;
+  fromUserId: number | null;
   fromUser: UserProfileInfo;
 }
 

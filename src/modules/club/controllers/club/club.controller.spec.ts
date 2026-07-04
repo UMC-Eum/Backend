@@ -3,6 +3,7 @@ import { ClubAuthority, ClubCategory } from '@prisma/client';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { ClubListSort } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
+import { RecentClubSearchService } from '../../services/club/recent-club-search.service';
 import { ClubController } from './club.controller';
 
 describe('ClubController', () => {
@@ -15,6 +16,7 @@ describe('ClubController', () => {
   const createClub = jest.fn();
   const updateClub = jest.fn();
   const deleteClub = jest.fn();
+  const addRecentSearch = jest.fn();
 
   beforeEach(async () => {
     listClubs.mockReset();
@@ -25,6 +27,7 @@ describe('ClubController', () => {
     createClub.mockReset();
     updateClub.mockReset();
     deleteClub.mockReset();
+    addRecentSearch.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClubController],
@@ -40,6 +43,12 @@ describe('ClubController', () => {
             createClub,
             updateClub,
             deleteClub,
+          },
+        },
+        {
+          provide: RecentClubSearchService,
+          useValue: {
+            addRecentSearch,
           },
         },
       ],
@@ -67,6 +76,46 @@ describe('ClubController', () => {
 
     await expect(controller.listClubs(7, query)).resolves.toBe(response);
     expect(listClubs).toHaveBeenCalledWith(7, query);
+    expect(addRecentSearch).toHaveBeenCalledWith(7, '등산');
+  });
+
+  it('keyword가 없으면 최근 검색어를 저장하지 않는다', async () => {
+    const query = {
+      sort: ClubListSort.RECENT,
+      limit: 10,
+    };
+    const response = { nextCursor: null, items: [] };
+    listClubs.mockResolvedValue(response);
+
+    await expect(controller.listClubs(7, query)).resolves.toBe(response);
+    expect(addRecentSearch).not.toHaveBeenCalled();
+  });
+
+  it('keyword가 빈 문자열이면 최근 검색어를 저장하지 않는다', async () => {
+    const query = {
+      keyword: '   ',
+      sort: ClubListSort.RECENT,
+      limit: 10,
+    };
+    const response = { nextCursor: null, items: [] };
+    listClubs.mockResolvedValue(response);
+
+    await expect(controller.listClubs(7, query)).resolves.toBe(response);
+    expect(addRecentSearch).not.toHaveBeenCalled();
+  });
+
+  it('최근 검색어 저장 실패가 클럽 목록 조회 실패로 전파되지 않는다', async () => {
+    const query = {
+      keyword: '등산',
+      sort: ClubListSort.RECENT,
+      limit: 10,
+    };
+    const response = { nextCursor: null, items: [] };
+    listClubs.mockResolvedValue(response);
+    addRecentSearch.mockRejectedValue(new Error('redis unavailable'));
+
+    await expect(controller.listClubs(7, query)).resolves.toBe(response);
+    expect(addRecentSearch).toHaveBeenCalledWith(7, '등산');
   });
 
   it('클럽 생성을 service에 위임한다', async () => {

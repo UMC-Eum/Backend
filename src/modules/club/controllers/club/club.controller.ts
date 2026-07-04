@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Patch,
   Post,
@@ -41,6 +42,7 @@ import {
   UpdateClubResponseDto,
 } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
+import { RecentClubSearchService } from '../../services/club/recent-club-search.service';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { RequiredUserId } from '../../../auth/decorators';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
@@ -48,7 +50,12 @@ import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-in
 @ApiTags('Club')
 @Controller('clubs')
 export class ClubController {
-  constructor(private readonly clubService: ClubService) {}
+  private readonly logger = new Logger(ClubController.name);
+
+  constructor(
+    private readonly clubService: ClubService,
+    private readonly recentClubSearchService: RecentClubSearchService,
+  ) {}
 
   @Post()
   @UseGuards(AccessTokenGuard)
@@ -168,7 +175,24 @@ export class ClubController {
     @RequiredUserId() userId: number,
     @Query() query: ListClubsQueryDto,
   ): Promise<ListClubsResponseDto> {
-    return this.clubService.listClubs(userId, query);
+    const result = await this.clubService.listClubs(userId, query);
+
+    if (query.keyword?.trim()) {
+      try {
+        await this.recentClubSearchService.addRecentSearch(
+          userId,
+          query.keyword,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : JSON.stringify(error);
+        this.logger.warn(
+          `Failed to save recent club search keyword: ${message}`,
+        );
+      }
+    }
+
+    return result;
   }
 
   @Get('top-hosts')

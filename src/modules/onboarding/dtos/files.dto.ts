@@ -1,13 +1,5 @@
-import { Type } from 'class-transformer';
-import {
-  IsDefined,
-  IsIn,
-  IsInt,
-  IsString,
-  Min,
-  ValidateIf,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export const FILE_PURPOSES = [
   'PROFILE_INTRO_AUDIO',
@@ -39,15 +31,4 @@ export class PresignFileDto {
   })
   @IsIn(FILE_PURPOSES)
   purpose: FilePurpose;
-
-  @ApiPropertyOptional({
-    example: 12,
-    description: "purpose가 'CLUB'일 때 필수입니다.",
-  })
-  @ValidateIf((dto: PresignFileDto) => dto.purpose === 'CLUB')
-  @IsDefined()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  clubId?: number;
 }

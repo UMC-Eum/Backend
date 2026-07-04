@@ -32,8 +32,11 @@ export class UserClubItemDto {
   @ApiProperty({ enum: ClubUserStatus, example: ClubUserStatus.PENDING })
   status!: ClubUserStatus;
 
-  @ApiProperty({ example: '2026-05-02T15:40:00.000Z' })
-  joinedAt!: string;
+  @ApiPropertyOptional({
+    example: '2026-05-02T15:40:00.000Z',
+    nullable: true,
+  })
+  joinedAt!: string | null;
 }
 
 export class UserClubsResponseDto {

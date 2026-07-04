@@ -9,6 +9,7 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTodayRecommendedClubsResponseDto,
   ListTopHostsResponseDto,
   UpdateClubRequestDto,
   UpdateClubResponseDto,
@@ -137,6 +138,31 @@ export class ClubService {
         profileImageUrl: row.profileImageUrl,
         clubCount: row.clubCount,
         totalLikes: row.totalLikes,
+      })),
+    };
+  }
+
+  async listTodayRecommendedClubs(
+    limit: number,
+  ): Promise<ListTodayRecommendedClubsResponseDto> {
+    const rows = await this.clubRepository.findTodayRecommendedClubs(limit);
+
+    return {
+      items: rows.map((row) => ({
+        clubId: row.clubId.toString(),
+        name: row.name,
+        category: row.category,
+        introText: row.introText,
+        thumbnailUrl: row.thumbnailUrl,
+        capacity: row.capacity,
+        memberCount: row.memberCount,
+        likes: row.likes,
+        recommendationScore: row.recommendationScore,
+        host: {
+          userId: row.hostId.toString(),
+          nickname: row.hostName,
+          profileImageUrl: row.hostProfileImageUrl,
+        },
       })),
     };
   }

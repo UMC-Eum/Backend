@@ -347,6 +347,22 @@ export class ListTopHostsQueryDto {
   limit: number = 10;
 }
 
+export class ListTodayRecommendedClubsQueryDto {
+  @ApiPropertyOptional({
+    description: '가져올 오늘의 추천 동호회 수 (기본 10, 최대 50)',
+    example: 10,
+    default: 10,
+    minimum: 1,
+    maximum: 50,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit: number = 10;
+}
+
 export class ClubListItemDto {
   @ApiProperty({ description: '클럽 ID', example: '1' })
   clubId: string;
@@ -592,4 +608,72 @@ export class HostListItemDto {
 export class ListTopHostsResponseDto {
   @ApiProperty({ type: [HostListItemDto] })
   hosts: HostListItemDto[];
+}
+
+export class TodayRecommendedClubHostDto {
+  @ApiProperty({ description: '호스트 사용자 ID', example: '7' })
+  userId: string;
+
+  @ApiProperty({ description: '호스트 닉네임', example: '보이스마스터' })
+  nickname: string;
+
+  @ApiProperty({
+    description: '호스트 프로필 이미지 URL',
+    example: 'https://cdn.example.com/profile/7.jpg',
+    nullable: true,
+  })
+  profileImageUrl: string | null;
+}
+
+export class TodayRecommendedClubItemDto {
+  @ApiProperty({ description: '클럽 ID', example: '12' })
+  clubId: string;
+
+  @ApiProperty({ description: '클럽 이름', example: '등산 러버즈' })
+  name: string;
+
+  @ApiProperty({
+    description: '카테고리',
+    enum: ClubCategory,
+    example: ClubCategory.OTHERS,
+  })
+  category: ClubCategory;
+
+  @ApiProperty({
+    description: '클럽 소개',
+    example: '등산으로 친해져요',
+    nullable: true,
+  })
+  introText: string | null;
+
+  @ApiProperty({
+    description: '클럽 대표 썸네일 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+    nullable: true,
+  })
+  thumbnailUrl: string | null;
+
+  @ApiProperty({ description: '정원', example: 30 })
+  capacity: number;
+
+  @ApiProperty({ description: '활성 멤버 수', example: 18 })
+  memberCount: number;
+
+  @ApiProperty({ description: '좋아요 수', example: 142 })
+  likes: number;
+
+  @ApiProperty({
+    description:
+      '오늘의 추천 점수. likes * 2 + memberCount * 3 + 최근 생성 보너스로 계산합니다.',
+    example: 226,
+  })
+  recommendationScore: number;
+
+  @ApiProperty({ type: TodayRecommendedClubHostDto })
+  host: TodayRecommendedClubHostDto;
+}
+
+export class ListTodayRecommendedClubsResponseDto {
+  @ApiProperty({ type: [TodayRecommendedClubItemDto] })
+  items: TodayRecommendedClubItemDto[];
 }

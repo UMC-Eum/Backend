@@ -133,6 +133,21 @@ export interface TopHostRow {
   totalLikes: number;
 }
 
+export interface TodayRecommendedClubRow {
+  clubId: bigint;
+  name: string;
+  category: ClubCategory;
+  introText: string | null;
+  thumbnailUrl: string | null;
+  capacity: number;
+  likes: number;
+  hostId: bigint;
+  hostName: string;
+  hostProfileImageUrl: string | null;
+  memberCount: number;
+  recommendationScore: number;
+}
+
 export interface ClubUserStateRow {
   authority: ClubAuthority;
   status: ClubUserStatus;

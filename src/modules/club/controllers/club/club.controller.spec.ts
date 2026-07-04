@@ -9,6 +9,7 @@ describe('ClubController', () => {
   let controller: ClubController;
   const listClubs = jest.fn();
   const listTopHosts = jest.fn();
+  const listTodayRecommendedClubs = jest.fn();
   const getClubDetail = jest.fn();
   const likeClub = jest.fn();
   const unlikeClub = jest.fn();
@@ -19,6 +20,7 @@ describe('ClubController', () => {
   beforeEach(async () => {
     listClubs.mockReset();
     listTopHosts.mockReset();
+    listTodayRecommendedClubs.mockReset();
     getClubDetail.mockReset();
     likeClub.mockReset();
     unlikeClub.mockReset();
@@ -34,6 +36,7 @@ describe('ClubController', () => {
           useValue: {
             listClubs,
             listTopHosts,
+            listTodayRecommendedClubs,
             getClubDetail,
             likeClub,
             unlikeClub,
@@ -161,6 +164,35 @@ describe('ClubController', () => {
       response,
     );
     expect(listTopHosts).toHaveBeenCalledWith(10);
+  });
+
+  it('오늘의 동호회 추천 조회를 service에 위임한다', async () => {
+    const response = {
+      items: [
+        {
+          clubId: '12',
+          name: '등산 러버즈',
+          category: ClubCategory.OTHERS,
+          introText: '등산으로 친해져요',
+          thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+          capacity: 30,
+          memberCount: 18,
+          likes: 142,
+          recommendationScore: 226,
+          host: {
+            userId: '7',
+            nickname: '보이스마스터',
+            profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+          },
+        },
+      ],
+    };
+    listTodayRecommendedClubs.mockResolvedValue(response);
+
+    await expect(
+      controller.listTodayRecommendedClubs({ limit: 10 }),
+    ).resolves.toBe(response);
+    expect(listTodayRecommendedClubs).toHaveBeenCalledWith(10);
   });
 
   it('클럽 상세 조회를 service에 위임한다', async () => {

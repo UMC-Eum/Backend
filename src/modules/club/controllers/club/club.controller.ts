@@ -35,6 +35,8 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTodayRecommendedClubsQueryDto,
+  ListTodayRecommendedClubsResponseDto,
   ListTopHostsQueryDto,
   ListTopHostsResponseDto,
   UpdateClubRequestDto,
@@ -202,6 +204,59 @@ export class ClubController {
     @Query() query: ListClubsQueryDto,
   ): Promise<ListClubsResponseDto> {
     return this.clubService.listClubs(userId, query);
+  }
+
+  @Get('today-recommended')
+  @ApiOperation({
+    summary: '오늘의 동호회 추천 조회',
+    description:
+      '좋아요, 활성 멤버 수, 최근 생성 보너스를 합산한 MVP 점수 기준으로 오늘의 추천 동호회를 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '가져올 추천 동호회 수',
+    example: 10,
+  })
+  @ApiOkResponse({
+    description: '조회 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            items: [
+              {
+                clubId: '12',
+                name: '등산 러버즈',
+                category: 'HOBBY',
+                introText: '등산으로 친해져요',
+                thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+                capacity: 30,
+                memberCount: 18,
+                likes: 142,
+                recommendationScore: 226,
+                host: {
+                  userId: '7',
+                  nickname: '보이스마스터',
+                  profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+                },
+              },
+            ],
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-21T00:00:00.000Z',
+          path: '/api/v1/clubs/today-recommended?limit=10',
+        },
+      },
+    },
+  })
+  listTodayRecommendedClubs(
+    @Query() query: ListTodayRecommendedClubsQueryDto,
+  ): Promise<ListTodayRecommendedClubsResponseDto> {
+    return this.clubService.listTodayRecommendedClubs(query.limit);
   }
 
   @Get('top-hosts')

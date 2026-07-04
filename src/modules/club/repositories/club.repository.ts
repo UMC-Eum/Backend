@@ -22,6 +22,7 @@ import {
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
   type SoftDeletedClubRow,
+  type TodayRecommendedClubRow,
   type TopHostRow,
   type UpdateClubRepositoryParams,
   type UpdatedClubRow,
@@ -453,6 +454,55 @@ export class ClubRepository {
         },
       ];
     });
+  }
+
+  async findTodayRecommendedClubs(
+    limit: number,
+  ): Promise<TodayRecommendedClubRow[]> {
+    return this.prisma.$queryRaw<TodayRecommendedClubRow[]>(Prisma.sql`
+      SELECT
+        c."id" AS "clubId",
+        c."name",
+        c."category"::text AS "category",
+        c."introText",
+        c."thumbnailUrl",
+        c."capacity",
+        c."likes",
+        u."id" AS "hostId",
+        u."nickname" AS "hostName",
+        u."profileImageUrl" AS "hostProfileImageUrl",
+        COALESCE(active_members."memberCount", 0)::int AS "memberCount",
+        (
+          c."likes" * 2
+          + COALESCE(active_members."memberCount", 0) * 3
+          + CASE
+              WHEN c."createdAt" >= NOW() - INTERVAL '7 days' THEN 30
+              WHEN c."createdAt" >= NOW() - INTERVAL '30 days' THEN 10
+              ELSE 0
+            END
+        )::int AS "recommendationScore"
+      FROM "Club" c
+      JOIN "User" u ON u."id" = c."hostId"
+      LEFT JOIN (
+        SELECT "clubId", COUNT(*)::int AS "memberCount"
+        FROM "ClubUser"
+        WHERE "leftAt" IS NULL
+          AND "status" = ${ClubUserStatus.ACTIVE}::"ClubUserStatus"
+        GROUP BY "clubId"
+      ) active_members ON active_members."clubId" = c."id"
+      WHERE c."deletedAt" IS NULL
+        AND c."hostId" IS NOT NULL
+        AND u."deletedAt" IS NULL
+        AND u."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
+        AND COALESCE(active_members."memberCount", 0) < c."capacity"
+      ORDER BY
+        "recommendationScore" DESC,
+        c."likes" DESC,
+        "memberCount" DESC,
+        c."createdAt" DESC,
+        c."id" DESC
+      LIMIT ${limit}
+    `);
   }
 
   private createdClubSelect() {

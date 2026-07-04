@@ -16,6 +16,7 @@ describe('ClubService', () => {
   let service: ClubService;
   const findManyForList = jest.fn();
   const findTopHosts = jest.fn();
+  const findTodayRecommendedClubs = jest.fn();
   const findDetailById = jest.fn();
   const findClubUserState = jest.fn();
   const hasClubLike = jest.fn();
@@ -76,6 +77,7 @@ describe('ClubService', () => {
   beforeEach(async () => {
     findManyForList.mockReset();
     findTopHosts.mockReset();
+    findTodayRecommendedClubs.mockReset();
     findDetailById.mockReset();
     findClubUserState.mockReset();
     hasClubLike.mockReset();
@@ -98,6 +100,7 @@ describe('ClubService', () => {
           useValue: {
             findManyForList,
             findTopHosts,
+            findTodayRecommendedClubs,
             findDetailById,
             findClubUserState,
             hasClubLike,
@@ -360,6 +363,47 @@ describe('ClubService', () => {
       ],
     });
     expect(findTopHosts).toHaveBeenCalledWith(10);
+  });
+
+  it('오늘의 동호회 추천 목록을 DTO로 변환한다', async () => {
+    findTodayRecommendedClubs.mockResolvedValue([
+      {
+        clubId: 12n,
+        name: '등산 러버즈',
+        category: ClubCategory.OTHERS,
+        introText: '등산으로 친해져요',
+        thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+        capacity: 30,
+        likes: 142,
+        hostId: 7n,
+        hostName: '보이스마스터',
+        hostProfileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+        memberCount: 18,
+        recommendationScore: 226,
+      },
+    ]);
+
+    await expect(service.listTodayRecommendedClubs(10)).resolves.toEqual({
+      items: [
+        {
+          clubId: '12',
+          name: '등산 러버즈',
+          category: ClubCategory.OTHERS,
+          introText: '등산으로 친해져요',
+          thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+          capacity: 30,
+          memberCount: 18,
+          likes: 142,
+          recommendationScore: 226,
+          host: {
+            userId: '7',
+            nickname: '보이스마스터',
+            profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+          },
+        },
+      ],
+    });
+    expect(findTodayRecommendedClubs).toHaveBeenCalledWith(10);
   });
 
   it('호스트가 name만 수정하면 업데이트 결과를 반환한다', async () => {

@@ -175,10 +175,15 @@ export class AppleAuthController {
   }
 
   private extractStateCookie(req: Request): string | undefined {
-    const cookies = (req as Request & { cookies?: Record<string, string> })
-      .cookies;
+    const cookies = (req as Request & { cookies?: unknown }).cookies;
 
-    return cookies?.[APPLE_AUTH_STATE_COOKIE];
+    if (!cookies || typeof cookies !== 'object') {
+      return undefined;
+    }
+
+    const state = (cookies as Record<string, unknown>)[APPLE_AUTH_STATE_COOKIE];
+
+    return typeof state === 'string' ? state : undefined;
   }
 
   private assertValidState(

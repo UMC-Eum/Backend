@@ -345,6 +345,35 @@ export class ListClubsResponseDto {
   items: ClubListItemDto[];
 }
 
+export class RecentClubSearchesResponseDto {
+  @ApiProperty({
+    description: '최근 동호회 검색어 목록',
+    example: ['축구', '러닝', '스터디'],
+    type: [String],
+  })
+  keywords: string[];
+}
+
+export class DeleteRecentClubSearchQueryDto {
+  @ApiPropertyOptional({
+    description: '삭제할 최근 검색어',
+    example: '축구',
+  })
+  @IsOptional()
+  @IsString()
+  keyword?: string;
+}
+
+export class DeleteRecentClubSearchResponseDto {
+  @ApiProperty({ description: '삭제된 최근 검색어', example: '축구' })
+  deletedKeyword: string;
+}
+
+export class ClearRecentClubSearchesResponseDto {
+  @ApiProperty({ description: '전체 삭제 여부', example: true })
+  deleted: boolean;
+}
+
 export class ClubDetailHostDto {
   @ApiProperty({ description: '호스트 사용자 ID', example: '7' })
   userId: string;

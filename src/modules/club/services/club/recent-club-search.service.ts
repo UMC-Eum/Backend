@@ -1,15 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type Redis from 'ioredis';
+import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../../common/errors/app.exception';
-import { REDIS_CLIENT } from '../../../../infra/redis/redis.module';
+import { PrismaService } from '../../../../infra/prisma/prisma.service';
 
-const RECENT_CLUB_SEARCH_PREFIX = 'recent-search:club:user';
-const RECENT_CLUB_SEARCH_MAX_COUNT = 10;
-const RECENT_CLUB_SEARCH_TTL_SECONDS = 60 * 60 * 24 * 30;
+const RECENT_CLUB_SEARCH_MAX_COUNT = 30;
 
 @Injectable()
 export class RecentClubSearchService {
-  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async addRecentSearch(
     userId: bigint | number | string,
@@ -20,23 +17,44 @@ export class RecentClubSearchService {
       return;
     }
 
-    const key = this.getKey(userId);
+    const userKey = BigInt(userId);
 
-    await this.redis
-      .multi()
-      .zadd(key, Date.now(), normalizedKeyword)
-      .zremrangebyrank(key, 0, -RECENT_CLUB_SEARCH_MAX_COUNT - 1)
-      .expire(key, RECENT_CLUB_SEARCH_TTL_SECONDS)
-      .exec();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.recentSearchKeyword.createMany({
+        data: {
+          userId: userKey,
+          keyword: normalizedKeyword,
+        },
+        skipDuplicates: true,
+      });
+
+      const staleSearches = await tx.recentSearchKeyword.findMany({
+        where: { userId: userKey },
+        select: { id: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: RECENT_CLUB_SEARCH_MAX_COUNT,
+      });
+
+      if (staleSearches.length > 0) {
+        await tx.recentSearchKeyword.deleteMany({
+          where: {
+            id: { in: staleSearches.map((search) => search.id) },
+          },
+        });
+      }
+    });
   }
 
   async getRecentSearches(userId: bigint | number | string): Promise<string[]> {
     try {
-      return await this.redis.zrevrange(
-        this.getKey(userId),
-        0,
-        RECENT_CLUB_SEARCH_MAX_COUNT - 1,
-      );
+      const searches = await this.prisma.recentSearchKeyword.findMany({
+        where: { userId: BigInt(userId) },
+        select: { keyword: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: RECENT_CLUB_SEARCH_MAX_COUNT,
+      });
+
+      return searches.map((search) => search.keyword);
     } catch (error) {
       throw new AppException('SERVER_TEMPORARY_ERROR', { details: error });
     }
@@ -52,7 +70,12 @@ export class RecentClubSearchService {
     }
 
     try {
-      await this.redis.zrem(this.getKey(userId), normalizedKeyword);
+      await this.prisma.recentSearchKeyword.deleteMany({
+        where: {
+          userId: BigInt(userId),
+          keyword: normalizedKeyword,
+        },
+      });
     } catch (error) {
       throw new AppException('SERVER_TEMPORARY_ERROR', { details: error });
     }
@@ -60,13 +83,11 @@ export class RecentClubSearchService {
 
   async clearRecentSearches(userId: bigint | number | string): Promise<void> {
     try {
-      await this.redis.del(this.getKey(userId));
+      await this.prisma.recentSearchKeyword.deleteMany({
+        where: { userId: BigInt(userId) },
+      });
     } catch (error) {
       throw new AppException('SERVER_TEMPORARY_ERROR', { details: error });
     }
-  }
-
-  private getKey(userId: bigint | number | string): string {
-    return `${RECENT_CLUB_SEARCH_PREFIX}:${userId}`;
   }
 }

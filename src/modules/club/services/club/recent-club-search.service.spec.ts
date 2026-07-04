@@ -1,52 +1,49 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppException } from '../../../../common/errors/app.exception';
-import { REDIS_CLIENT } from '../../../../infra/redis/redis.module';
+import { PrismaService } from '../../../../infra/prisma/prisma.service';
 import { RecentClubSearchService } from './recent-club-search.service';
 
 describe('RecentClubSearchService', () => {
   let service: RecentClubSearchService;
-  const zadd = jest.fn();
-  const zremrangebyrank = jest.fn();
-  const expire = jest.fn();
-  const exec = jest.fn();
-  const multi = jest.fn();
-  const zrevrange = jest.fn();
-  const zrem = jest.fn();
-  const del = jest.fn();
+  const createMany = jest.fn();
+  const findMany = jest.fn();
+  const deleteMany = jest.fn();
+  const transaction = jest.fn();
+  type TransactionCallback = (tx: {
+    recentSearchKeyword: {
+      createMany: typeof createMany;
+      findMany: typeof findMany;
+      deleteMany: typeof deleteMany;
+    };
+  }) => Promise<unknown>;
 
   beforeEach(async () => {
-    zadd.mockReset();
-    zremrangebyrank.mockReset();
-    expire.mockReset();
-    exec.mockReset();
-    multi.mockReset();
-    zrevrange.mockReset();
-    zrem.mockReset();
-    del.mockReset();
+    createMany.mockReset();
+    findMany.mockReset();
+    deleteMany.mockReset();
+    transaction.mockReset();
 
-    const chain = {
-      zadd,
-      zremrangebyrank,
-      expire,
-      exec,
-    };
-
-    zadd.mockReturnValue(chain);
-    zremrangebyrank.mockReturnValue(chain);
-    expire.mockReturnValue(chain);
-    exec.mockResolvedValue([]);
-    multi.mockReturnValue(chain);
+    transaction.mockImplementation((callback: TransactionCallback) =>
+      callback({
+        recentSearchKeyword: {
+          createMany,
+          findMany,
+          deleteMany,
+        },
+      }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RecentClubSearchService,
         {
-          provide: REDIS_CLIENT,
+          provide: PrismaService,
           useValue: {
-            multi,
-            zrevrange,
-            zrem,
-            del,
+            $transaction: transaction,
+            recentSearchKeyword: {
+              findMany,
+              deleteMany,
+            },
           },
         },
       ],
@@ -55,82 +52,86 @@ describe('RecentClubSearchService', () => {
     service = module.get<RecentClubSearchService>(RecentClubSearchService);
   });
 
-  it('최근 검색어 저장 시 Redis Sorted Set 명령을 실행한다', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(1783060000000);
+  it('최근 검색어 저장 시 중복을 건너뛰고 30개 초과분을 정리한다', async () => {
+    findMany.mockResolvedValue([{ id: 1n }, { id: 2n }]);
+    deleteMany.mockResolvedValue({ count: 2 });
 
     await service.addRecentSearch(12, ' 축구 ');
 
-    expect(multi).toHaveBeenCalledTimes(1);
-    expect(zadd).toHaveBeenCalledWith(
-      'recent-search:club:user:12',
-      1783060000000,
-      '축구',
-    );
-    expect(zremrangebyrank).toHaveBeenCalledWith(
-      'recent-search:club:user:12',
-      0,
-      -11,
-    );
-    expect(expire).toHaveBeenCalledWith(
-      'recent-search:club:user:12',
-      60 * 60 * 24 * 30,
-    );
-    expect(exec).toHaveBeenCalledTimes(1);
+    expect(createMany).toHaveBeenCalledWith({
+      data: {
+        userId: 12n,
+        keyword: '축구',
+      },
+      skipDuplicates: true,
+    });
+    expect(findMany).toHaveBeenCalledWith({
+      where: { userId: 12n },
+      select: { id: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: 30,
+    });
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: [1n, 2n] },
+      },
+    });
   });
 
-  it('같은 keyword 저장도 동일 member의 score 갱신 흐름을 사용한다', async () => {
-    await service.addRecentSearch(12, '러닝');
+  it('30개 초과 검색어가 없으면 삭제하지 않는다', async () => {
+    findMany.mockResolvedValue([]);
+
     await service.addRecentSearch(12, '러닝');
 
-    expect(zadd).toHaveBeenCalledTimes(2);
-    expect(zadd).toHaveBeenNthCalledWith(
-      1,
-      'recent-search:club:user:12',
-      expect.any(Number),
-      '러닝',
-    );
-    expect(zadd).toHaveBeenNthCalledWith(
-      2,
-      'recent-search:club:user:12',
-      expect.any(Number),
-      '러닝',
-    );
+    expect(deleteMany).not.toHaveBeenCalled();
   });
 
   it('빈 keyword는 저장하지 않는다', async () => {
     await service.addRecentSearch(12, '   ');
 
-    expect(multi).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('최근 검색어를 최신순으로 조회한다', async () => {
-    zrevrange.mockResolvedValue(['축구', '러닝']);
+    findMany.mockResolvedValue([{ keyword: '축구' }, { keyword: '러닝' }]);
 
     await expect(service.getRecentSearches(12)).resolves.toEqual([
       '축구',
       '러닝',
     ]);
-    expect(zrevrange).toHaveBeenCalledWith('recent-search:club:user:12', 0, 9);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { userId: 12n },
+      select: { keyword: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 30,
+    });
   });
 
-  it('단건 삭제 시 Redis ZREM을 호출한다', async () => {
-    zrem.mockResolvedValue(1);
+  it('단건 삭제 시 keyword를 trim 처리해서 삭제한다', async () => {
+    deleteMany.mockResolvedValue({ count: 1 });
 
     await service.deleteRecentSearch(12, ' 축구 ');
 
-    expect(zrem).toHaveBeenCalledWith('recent-search:club:user:12', '축구');
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 12n,
+        keyword: '축구',
+      },
+    });
   });
 
-  it('전체 삭제 시 Redis DEL을 호출한다', async () => {
-    del.mockResolvedValue(1);
+  it('전체 삭제 시 해당 유저 검색어를 모두 삭제한다', async () => {
+    deleteMany.mockResolvedValue({ count: 3 });
 
     await service.clearRecentSearches(12);
 
-    expect(del).toHaveBeenCalledWith('recent-search:club:user:12');
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { userId: 12n },
+    });
   });
 
-  it('조회 Redis 실패는 프로젝트 예외로 변환한다', async () => {
-    zrevrange.mockRejectedValue(new Error('redis unavailable'));
+  it('조회 DB 실패는 프로젝트 예외로 변환한다', async () => {
+    findMany.mockRejectedValue(new Error('db unavailable'));
 
     await expect(service.getRecentSearches(12)).rejects.toMatchObject({
       internalCode: 'SERVER_TEMPORARY_ERROR',

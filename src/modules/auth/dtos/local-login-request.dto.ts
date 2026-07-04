@@ -8,7 +8,11 @@ export class LocalLoginRequestDto {
   @MaxLength(50)
   username!: string;
 
-  @ApiProperty({ example: 'password123' })
+  @ApiProperty({
+    example: '********',
+    format: 'password',
+    writeOnly: true,
+  })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)

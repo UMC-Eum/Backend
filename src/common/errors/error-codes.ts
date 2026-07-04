@@ -56,6 +56,17 @@ export const ERROR_DEFINITIONS = {
     code: 'AUTH-008',
     message: '신고 누적으로 로그인이 제한되었습니다. 고객센터에 문의해 주세요.',
   },
+  AUTH_APPLE_TOKEN_INVALID: {
+    status: HttpStatus.UNAUTHORIZED,
+    code: 'AUTH-009',
+    message: '애플 인증 정보가 유효하지 않습니다. 다시 로그인해 주세요.',
+  },
+  AUTH_APPLE_TOKEN_EXCHANGE_FAILED: {
+    status: HttpStatus.BAD_GATEWAY,
+    code: 'AUTH-010',
+    message:
+      '애플 인증 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
 
   // VALID
   VALIDATION_INVALID_FORMAT: {

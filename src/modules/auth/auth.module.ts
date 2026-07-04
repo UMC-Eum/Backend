@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthLogoutController } from './controllers/auth-logout.controller';
 import { AuthTokenController } from './controllers/auth-token.controller';
+import { AppleAuthController } from './controllers/apple-auth.controller';
 import { KakaoAuthController } from './controllers/kakao-auth.controller';
 import { LocalAuthController } from './controllers/local-auth.controller';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { AuthTokenService } from './services/auth-token.service';
 import { JwtTokenService } from './services/jwt-token.service';
+import { AppleAuthService } from './services/apple-auth.service';
 import { KakaoAuthService } from './services/kakao-auth.service';
 import { LocalAuthService } from './services/local-auth.service';
 import { AuthRepository } from './repositories/auth.repository';
@@ -15,12 +17,14 @@ import { UserRepository } from '../user/repositories/user.repository';
 @Module({
   imports: [PrismaModule],
   controllers: [
+    AppleAuthController,
     KakaoAuthController,
     LocalAuthController,
     AuthTokenController,
     AuthLogoutController,
   ],
   providers: [
+    AppleAuthService,
     KakaoAuthService,
     LocalAuthService,
     AuthTokenService,

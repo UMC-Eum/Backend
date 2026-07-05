@@ -1,29 +1,32 @@
 import { Injectable } from '@nestjs/common';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PresignFileDto } from '../dtos/files.dto';
-import * as process from 'process';
+import { ConfigService } from '@nestjs/config';
+import { S3ObjectUrlService } from '../../../common/s3/s3-object-url.service';
 
 @Injectable()
 export class FileUploadService {
-  private s3: S3Client;
-  private bucket: string;
+  private readonly s3: S3Client;
+  private readonly bucket: string;
+  private readonly putExpiresSec = 300;
 
-  constructor() {
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly s3ObjectUrlService: S3ObjectUrlService,
+  ) {
+    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>(
+      'AWS_SECRET_ACCESS_KEY',
+    );
 
     this.s3 = new S3Client({
-      region: process.env.AWS_REGION,
+      region: this.configService.get<string>('AWS_REGION'),
       ...(accessKeyId && secretAccessKey
         ? { credentials: { accessKeyId, secretAccessKey } }
         : {}),
     });
-    this.bucket = process.env.AWS_S3_BUCKET!;
+    this.bucket = this.configService.getOrThrow<string>('AWS_S3_BUCKET');
   }
 
   async generatePresignedUrl(userId: number, dto: PresignFileDto) {
@@ -46,23 +49,14 @@ export class FileUploadService {
     });
 
     const uploadUrl = await getSignedUrl(this.s3, putCommand, {
-      expiresIn: 300,
-    });
-
-    // 다운로드용 Presigned URL (GET)
-    const getCommand = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-    });
-
-    const downloadUrl = await getSignedUrl(this.s3, getCommand, {
-      expiresIn: 3600 * 24 * 7,
+      expiresIn: this.putExpiresSec,
     });
 
     return {
       uploadUrl,
-      fileUrl: downloadUrl,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      fileRef: this.s3ObjectUrlService.buildStoredRef(key, this.bucket),
+      key,
+      expiresAt: new Date(Date.now() + this.putExpiresSec * 1000).toISOString(),
     };
   }
 }

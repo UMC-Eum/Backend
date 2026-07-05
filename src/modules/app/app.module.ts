@@ -16,6 +16,7 @@ import { ClubModule } from '../club/club.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
 import { ArticleModule } from '../article/article.module';
 import { CommentModule } from '../comment/comment.module';
+import { S3ObjectUrlModule } from 'src/common/s3/s3-object-url.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CommentModule } from '../comment/comment.module';
         return parsed.data;
       },
     }),
+    S3ObjectUrlModule,
     HealthModule,
     PrismaModule,
     WebsocketCommonModule,

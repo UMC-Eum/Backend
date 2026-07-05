@@ -23,6 +23,7 @@ describe('CommentService', () => {
   };
   const clubRepository = {
     findById: jest.fn(),
+    findBoardReadSettings: jest.fn(),
     findActiveClubUser: jest.fn(),
   };
   const notificationService = {
@@ -286,7 +287,11 @@ describe('CommentService', () => {
   });
 
   it('댓글 목록을 조회한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
@@ -349,8 +354,49 @@ describe('CommentService', () => {
     });
   });
 
+  it('게시판이 공개 상태면 인증된 비회원도 댓글 목록을 조회한다', async () => {
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: true,
+    });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.countComments.mockResolvedValue(1);
+    repository.findCommentsWithReplies.mockResolvedValue([
+      {
+        id: 555n,
+        articleId: 1n,
+        parentCommentId: null,
+        depth: 0,
+        contents: '공개 댓글',
+        userId: 2n,
+        createdAt: new Date('2026-05-01T15:20:00.000Z'),
+        user: {
+          id: 2n,
+          nickname: '보이스마스터',
+          profileImageUrl: 'https://cdn.example.com/profile/2.jpg',
+          clubUsers: [{ authority: ClubAuthority.GENERAL }],
+        },
+        replies: [],
+      },
+    ]);
+
+    const result = await service.listComments(userId, clubId, articleId, {});
+
+    expect(clubRepository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(result.comments[0]).toMatchObject({
+      commentId: 555,
+      isMine: false,
+      contents: '공개 댓글',
+    });
+  });
+
   it('limit보다 결과가 많으면 nextCursor와 hasMore를 내려준다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
@@ -399,7 +445,11 @@ describe('CommentService', () => {
   });
 
   it('클럽 멤버가 아니면 댓글 목록 조회가 거부된다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue(null);
 

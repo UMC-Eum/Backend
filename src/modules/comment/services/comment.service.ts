@@ -224,7 +224,26 @@ export class CommentService {
     clubId: number,
     articleId: number,
   ) {
-    await this.validateArticleExists(clubId, articleId);
+    const club = await this.clubRepository.findBoardReadSettings(
+      BigInt(clubId),
+    );
+
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    const article = await this.commentRepository.findArticleByClubId(
+      BigInt(clubId),
+      BigInt(articleId),
+    );
+
+    if (!article) {
+      throw new AppException('ARTICLE_NOT_FOUND');
+    }
+
+    if (club.boardPublic) {
+      return;
+    }
 
     const clubUser = await this.clubRepository.findActiveClubUser(
       BigInt(userId),

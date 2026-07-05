@@ -159,6 +159,21 @@ export class ClubRepository {
     });
   }
 
+  async findBoardReadSettings(clubId: bigint): Promise<{
+    id: bigint;
+    deletedAt: Date | null;
+    boardPublic: boolean;
+  } | null> {
+    return this.prisma.club.findUnique({
+      where: { id: clubId },
+      select: {
+        id: true,
+        deletedAt: true,
+        boardPublic: true,
+      },
+    });
+  }
+
   // 채팅방 목록 표시용 배치 조회.
   async findClubBriefsByIds(
     clubIds: bigint[],

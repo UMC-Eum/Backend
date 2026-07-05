@@ -44,6 +44,18 @@ const REPORT_COUNT = DUMMY_COUNT * 2;
 const ADDRESS_CHUNK_SIZE = 5_000;
 const now = new Date('2026-01-10T09:00:00.000Z');
 
+const S3_SEED_BUCKET =
+  process.env.S3_SEED_BUCKET?.trim() || 'eum-voice-staging';
+
+function s3Uri(...parts: Array<string | number | bigint>) {
+  const key = parts
+    .map((part) => String(part).replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean)
+    .join('/');
+
+  return `s3://${S3_SEED_BUCKET}/${key}`;
+}
+
 function requiredEnv(name: string) {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -202,9 +214,9 @@ async function insertUsers() {
       ${daysFromSeed(index)},
       ${`seed-user-${index + 1}`},
       ${daysFromSeed(index)},
-      ${`https://cdn.example.com/voice/intro/seed-user-${index + 1}.m4a`},
+      ${s3Uri('voice', 'intro', `seed-user-${index + 1}.m4a`)},
       ${`seed intro text ${index + 1}`},
-      ${`https://cdn.example.com/images/profile/seed-user-${index + 1}.jpg`},
+      ${s3Uri('images', id, 'profile', `seed-user-${index + 1}.jpg`)},
       ${'ACTIVE'}::"ActiveStatus",
       ${index < 5 ? '1111010100' : '1111010200'},
       ${'KAKAO'}::"AuthProvider",
@@ -234,14 +246,16 @@ async function insertClubs() {
     'STUDY',
     'OTHERS',
   ];
+
   const rows = Array.from({ length: DUMMY_COUNT }, (_, index) => {
     const id = BigInt(index + 1);
+    const hostId = BigInt(index + 1);
 
     return Prisma.sql`(
       ${id},
-      ${BigInt(index + 1)},
+      ${hostId},
       ${`Seed Club ${index + 1}`},
-      ${`https://cdn.example.com/voice/club/seed-club-${index + 1}.m4a`},
+      ${s3Uri('voice', 'club', id, `seed-club-${index + 1}.m4a`)},
       ${`seed club intro ${index + 1}`},
       ${categories[index % categories.length]}::"ClubCategory",
       ${20 + index},
@@ -250,7 +264,7 @@ async function insertClubs() {
       ${index < 5 ? '1111010100' : '1111010200'},
       ${index * 2},
       ${vectorLiteral(index + 20)}::vector,
-      ${`https://cdn.example.com/images/club/seed-club-${index + 1}.jpg`}
+      ${s3Uri('images', id, 'club', `seed-club-${index + 1}.jpg`)}
     )`;
   });
 
@@ -302,7 +316,12 @@ async function insertDummyData() {
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
       userId: BigInt(index + 1),
-      url: `https://cdn.example.com/images/user-photo/seed-${index + 1}.jpg`,
+      url: s3Uri(
+        'images',
+        BigInt(index + 1),
+        'user-photo',
+        `seed-${index + 1}.jpg`,
+      ),
       createdAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
@@ -505,6 +524,7 @@ async function insertDummyData() {
   await prisma.meeting.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
       const type = RECURRENCE_TYPES[index % RECURRENCE_TYPES.length];
+
       return {
         id: BigInt(index + 1),
         name: `Seed Meeting ${index + 1}`,
@@ -580,7 +600,12 @@ async function insertDummyData() {
   await prisma.articlePhoto.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
-      photoUrl: `https://cdn.example.com/images/article/seed-${index + 1}.jpg`,
+      photoUrl: s3Uri(
+        'images',
+        BigInt(index + 1),
+        'article',
+        `seed-${index + 1}.jpg`,
+      ),
       createdAt: daysFromSeed(index),
       articleId: BigInt(index + 1),
       clubUserId: BigInt(index + 1),

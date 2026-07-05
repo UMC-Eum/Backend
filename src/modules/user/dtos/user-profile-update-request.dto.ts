@@ -6,7 +6,6 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUrl,
   IsInt,
   Min,
   Max,
@@ -69,11 +68,13 @@ export class UserProfileUpdateRequestDto {
 
   @ApiPropertyOptional({ example: 'https://cdn.example.com/files/intro.m4a' })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   introAudioUrl?: string;
 
-  @ApiPropertyOptional({ example: 'https://cdn.example.com/files/profile.jpg' })
+  @ApiPropertyOptional({
+    example: 's3://eum-voice-staging/images/42/profile.jpg',
+  })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   profileImageUrl?: string;
 }

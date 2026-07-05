@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArticleCategory } from '@prisma/client';
-import { IsString, IsEnum, IsArray, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsEnum, IsArray, IsOptional } from 'class-validator';
 
 export class CreateArticleDto {
   @ApiProperty({ example: '이번 주 정모 후기 공유합니다!' })
@@ -17,13 +17,13 @@ export class CreateArticleDto {
 
   @ApiPropertyOptional({
     example: [
-      'https://cdn.example.com/articles/abc123.jpg',
-      'https://cdn.example.com/articles/def456.jpg',
+      's3://eum-voice-staging/images/42/article/abc123.jpg',
+      's3://eum-voice-staging/images/42/article/def456.jpg',
     ],
     type: [String],
   })
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsString({ each: true })
   photoUrls?: string[];
 }

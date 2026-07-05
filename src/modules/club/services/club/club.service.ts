@@ -24,6 +24,7 @@ import { toClubDetailDto, toClubListItemDto } from '../../utils/club.mapper';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserRepository } from '../../../user/repositories/user.repository';
 import { OnboardingAiService } from '../../../onboarding/services/onboarding-ai.service';
+import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
 
 @Injectable()
 export class ClubService {
@@ -51,8 +52,10 @@ export class ClubService {
       addressCode: dto.areaCode,
       approvalRequired: dto.approvalRequired,
       boardPublic: dto.boardPublic,
-      thumbnailUrl: dto.thumbnailUrl,
-      imageUrls: dto.imageUrls,
+      thumbnailUrl: normalizeS3ObjectRef(dto.thumbnailUrl),
+      imageUrls: dto.imageUrls?.map((imageUrl) =>
+        normalizeS3ObjectRef(imageUrl),
+      ),
     });
 
     try {
@@ -324,7 +327,10 @@ export class ClubService {
 
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.introText !== undefined) data.introText = dto.introText;
-    if (dto.introVoice !== undefined) data.introVoiceUrl = dto.introVoice;
+    if (dto.introVoice !== undefined) {
+      data.introVoiceUrl =
+        dto.introVoice === null ? null : normalizeS3ObjectRef(dto.introVoice);
+    }
     if (dto.capacity !== undefined) data.capacity = dto.capacity;
     if (dto.category !== undefined) data.category = dto.category;
 

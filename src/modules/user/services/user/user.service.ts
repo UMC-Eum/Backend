@@ -12,6 +12,7 @@ import {
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
+import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
 
 type ProfileVisitorsCursor = {
   visitedAt: string;
@@ -333,11 +334,13 @@ export class UserService {
     }
 
     if (payload.introAudioUrl !== undefined) {
-      updateData.introVoiceUrl = payload.introAudioUrl;
+      updateData.introVoiceUrl = normalizeS3ObjectRef(payload.introAudioUrl);
     }
 
     if (payload.profileImageUrl !== undefined) {
-      updateData.profileImageUrl = payload.profileImageUrl;
+      updateData.profileImageUrl = normalizeS3ObjectRef(
+        payload.profileImageUrl,
+      );
     }
 
     if (Object.keys(updateData).length > 0) {

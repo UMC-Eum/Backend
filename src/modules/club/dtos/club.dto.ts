@@ -9,7 +9,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Max,
   Min,
 } from 'class-validator';
@@ -77,19 +76,19 @@ export class CreateClubRequestDto {
   boardPublic: boolean;
 
   @ApiProperty({
-    description: '클럽 대표 썸네일 이미지 URL',
-    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+    description: '클럽 대표 썸네일 이미지 S3 참조',
+    example: 's3://eum-voice-staging/images/42/club/thumbnail.jpg',
   })
   @IsString()
   @IsNotEmpty()
-  @IsUrl()
   thumbnailUrl: string;
 
   @ApiPropertyOptional({
-    description: '클럽 추가 이미지 URL 목록. 최대 4장까지 입력할 수 있습니다.',
+    description:
+      '클럽 추가 이미지 S3 참조 목록. 최대 4장까지 입력할 수 있습니다.',
     example: [
-      'https://cdn.example.com/clubs/12/images/1.jpg',
-      'https://cdn.example.com/clubs/12/images/2.jpg',
+      's3://eum-voice-staging/images/42/club/1.jpg',
+      's3://eum-voice-staging/images/42/club/2.jpg',
     ],
     isArray: true,
     maxItems: 4,
@@ -98,7 +97,6 @@ export class CreateClubRequestDto {
   @IsArray()
   @ArrayMaxSize(4)
   @IsString({ each: true })
-  @IsUrl(undefined, { each: true })
   imageUrls?: string[];
 }
 

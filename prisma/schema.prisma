@@ -68,6 +68,11 @@ enum NotificationType {
   UPDATE
 }
 
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
 enum ArticleCategory {
   NOTICE
   REVIEW
@@ -162,6 +167,7 @@ model User {
   personalities          UserPersonality[]
   notifications          Notification[]           @relation("sentTo")
   notificationsFrom      Notification[]           @relation("sentBy")
+  pushDeviceTokens       PushDeviceToken[]
   chatRooms              ChatRoom[]
   chatParticipations     ChatParticipant[]
   userMarketingAgreement UserMarketingAgreement[]
@@ -386,6 +392,24 @@ model Notification {
   @@index([userId, isRead])
   @@index([createdAt])
   @@index([sentById])
+}
+
+model PushDeviceToken {
+  id          BigInt       @id @default(autoincrement()) @db.BigInt
+  userId      BigInt       @db.BigInt
+  token       String       @unique @db.VarChar(512)
+  platform    PushPlatform
+  deviceId    String?      @db.VarChar(128)
+  appVersion  String?      @db.VarChar(32)
+  lastSeenAt  DateTime     @default(now()) @db.Timestamp(6)
+  revokedAt   DateTime?    @db.Timestamp(6)
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
 }
 
 model ChatRoom {

@@ -46,6 +46,9 @@ export const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1).default('dev-refresh-secret'),
   JWT_ACCESS_EXPIRES_IN: z.string().min(1).default('1h'),
   JWT_REFRESH_EXPIRES_IN: z.string().min(1).default('14d'),
+  FIREBASE_PROJECT_ID: z.string().min(1).optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

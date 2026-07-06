@@ -380,6 +380,8 @@ export class UserRepository {
             name: true,
             thumbnailUrl: true,
             category: true,
+            capacity: true,
+            code: true,
             introText: true,
             clubUsers: {
               where: { status: ClubUserStatus.ACTIVE },
@@ -406,6 +408,8 @@ export class UserRepository {
             name: true,
             thumbnailUrl: true,
             category: true,
+            capacity: true,
+            code: true,
             introText: true,
             clubUsers: {
               where: { status: ClubUserStatus.ACTIVE },

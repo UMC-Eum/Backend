@@ -11,8 +11,16 @@ export const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   AWS_S3_BUCKET: z.string().min(1),
   CHAT_MEDIA_BUCKET: z.string().min(1),
-  MEDIA_PUT_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive(),
-  MEDIA_GET_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive(),
+  MEDIA_PUT_PRESIGN_EXPIRES_SEC: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(300),
+  MEDIA_GET_PRESIGN_EXPIRES_SEC: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60),
   FASTAPI_BASE_URL: z.string().url(),
   FASTAPI_TIMEOUT_MS: z.coerce.number().int().positive(),
   S3_GET_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive().optional(),

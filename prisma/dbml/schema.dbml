@@ -47,6 +47,7 @@ Table User {
   clubUsers ClubUser [not null]
   clubLikes ClubLike [not null]
   userReports UserReport [not null]
+  recentSearchKeywords RecentSearchKeyword [not null]
 
   indexes {
     (provider, providerUserId) [unique]
@@ -520,6 +521,18 @@ Table UserReport {
   user User
 }
 
+Table RecentSearchKeyword {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  keyword String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  user User [not null]
+
+  indexes {
+    (userId, keyword) [unique]
+  }
+}
+
 Table ClubReport {
   id BigInt [pk, increment]
   reportId BigInt [unique, not null]
@@ -757,6 +770,8 @@ Ref: ClubKeyword.keywordId > Personality.id [delete: Cascade]
 Ref: UserReport.reportId - Report.id [delete: Cascade]
 
 Ref: UserReport.reportedUserId > User.id [delete: Set Null]
+
+Ref: RecentSearchKeyword.userId > User.id [delete: Cascade]
 
 Ref: ClubReport.reportId - Report.id [delete: Cascade]
 

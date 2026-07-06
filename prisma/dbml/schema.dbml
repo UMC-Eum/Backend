@@ -224,7 +224,7 @@ Table ChatRoom {
   endedAt DateTime
   status ChatRoomStatus [not null, default: 'ACTIVE']
   type ChatRoomType [not null, default: 'DIRECT']
-  clubId BigInt
+  clubId BigInt [unique]
   participants ChatParticipant [not null]
   user User
   club Club
@@ -236,7 +236,8 @@ Table ChatParticipant {
   userId BigInt
   roomId BigInt [not null]
   endedAt DateTime
-  role ClubAuthority [not null, default: 'HOST']
+  role ClubAuthority [not null, default: 'GENERAL']
+  lastReadAt DateTime
   room ChatRoom [not null]
   user User
   chatMessages ChatMessage [not null]
@@ -545,6 +546,7 @@ Enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM
 }
 
 Enum ChatRoomStatus {

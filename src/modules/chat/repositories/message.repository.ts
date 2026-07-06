@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
-import type { ChatMediaType, Prisma } from '@prisma/client';
+import type { ActiveStatus, ChatMediaType, Prisma } from '@prisma/client';
 
 export type LastMessageSummary = {
   sentAt: Date;
@@ -12,11 +12,15 @@ export type LastMessageSummary = {
 
 // 옛 schema의 sentById/sentToId/roomId는 ChatMessage에서 사라지고 participantId 하나로 통합됨.
 // service 레이어 호환을 위해 repository에서 participant join 결과를 평탄화해 옛 shape으로 반환.
+// 그룹(CLUB)에서 메시지별 발신자 신원을 그리기 위해 sender 정보도 함께 평탄화한다.
 export type MessageWithMedia = {
   id: bigint;
   sentAt: Date;
   readAt: Date | null;
   sentById: bigint;
+  senderNickname: string | null;
+  senderProfileImageUrl: string | null;
+  senderStatus: ActiveStatus | null;
   chatMedia: Array<{
     type: ChatMediaType;
     text: string | null;
@@ -33,41 +37,45 @@ export type MessageDetail = {
   sentById: bigint;
   sentToId: bigint;
   roomId: bigint;
+  roomType: 'DIRECT' | 'CLUB';
 };
+
+// 유효 읽음 커서 = max(lastReadAt ?? joinedAt, joinedAt).
+// 재입장(joinedAt 갱신) 후 과거 lastReadAt가 joinedAt보다 이르면 joinedAt을 기준선으로 사용.
+export function effectiveReadCursor(
+  rs: { joinedAt: Date; lastReadAt: Date | null } | undefined,
+): Date {
+  if (!rs) return new Date(0);
+  if (!rs.lastReadAt) return rs.joinedAt;
+  return rs.lastReadAt > rs.joinedAt ? rs.lastReadAt : rs.joinedAt;
+}
 
 @Injectable()
 export class MessageRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // TODO(chat-participant): 옛 sentToId: me 의미는 "내가 받은 메시지". 새 구조에선 "방의 다른 참여자가 보낸 메시지"로
-  // 풀어냄 (participant.userId !== me). 1:1 채팅에선 동치이나 그룹 채팅 도입 시 의미 재검토 필요.
-  async countUnreadByRoomIds(
+  // 참여자별 읽음 커서 기반 unread (DIRECT/CLUB 공통).
+  // unread(나) = 발신자≠나 & 미삭제 & 비SYSTEM & sentAt > max(내 lastReadAt ?? joinedAt, joinedAt).
+  async countUnreadByCursor(
     roomIds: bigint[],
     me: bigint,
-    minSentAtByRoom: Map<bigint, Date> | null = null,
+    readStateByRoom: Map<bigint, { joinedAt: Date; lastReadAt: Date | null }>,
   ): Promise<Map<bigint, number>> {
     if (roomIds.length === 0) return new Map<bigint, number>();
 
     const where: Prisma.ChatMessageWhereInput = {
-      participant: { roomId: { in: roomIds }, userId: { not: me } },
-      readAt: null,
       deletedAt: null,
+      participant: { userId: { not: me } },
+      NOT: { chatMedia: { some: { type: 'SYSTEM' } } },
+      OR: roomIds.map((roomId) => {
+        const rs = readStateByRoom.get(roomId);
+        const cursor = effectiveReadCursor(rs);
+        return { participant: { roomId }, sentAt: { gt: cursor } };
+      }),
     };
 
-    if (minSentAtByRoom) {
-      where.OR = roomIds.map((roomId) => {
-        const minSentAt = minSentAtByRoom.get(roomId);
-        if (!minSentAt) return { participant: { roomId } };
-
-        return {
-          participant: { roomId },
-          sentAt: { gte: minSentAt },
-        };
-      });
-    }
-
-    // TODO(perf): groupBy를 직접 관계 필드로 못 해서 findMany + 후처리.
-    // 메시지 개수가 많아지면 raw SQL ($queryRaw)로 최적화 검토.
+    // groupBy의 by에 관계 필드를 직접 줄 수 없어 findMany + 후처리.
+    // TODO(EUM-29 후속 최적화): 메시지가 많아지면 raw SQL($queryRaw)로 전환 검토.
     const rows = await this.prisma.chatMessage.findMany({
       where,
       select: { participant: { select: { roomId: true } } },
@@ -85,7 +93,7 @@ export class MessageRepository {
   async getLastSentAtByRoomIds(roomIds: bigint[]): Promise<Map<bigint, Date>> {
     if (roomIds.length === 0) return new Map<bigint, Date>();
 
-    // TODO(perf): findMany + 후처리로 처리 (groupBy의 by에 관계 필드 직접 못 줌).
+    // groupBy의 by에 관계 필드를 직접 줄 수 없어 findMany + 후처리. (TODO(EUM-29 후속 최적화): raw SQL 검토)
     const rows = await this.prisma.chatMessage.findMany({
       where: {
         participant: { roomId: { in: roomIds } },
@@ -168,7 +176,14 @@ export class MessageRepository {
         id: true,
         sentAt: true,
         readAt: true,
-        participant: { select: { userId: true } },
+        participant: {
+          select: {
+            userId: true,
+            user: {
+              select: { nickname: true, profileImageUrl: true, status: true },
+            },
+          },
+        },
         chatMedia: {
           select: {
             type: true,
@@ -180,30 +195,30 @@ export class MessageRepository {
       },
     });
 
-    // TODO(schema-nullable): participant.userId가 nullable (탈퇴 유저). 옛 shape의 sentById는 bigint NOT NULL이라
-    // 임시로 0n으로 fallback. UI에서 "삭제된 사용자" 메시지 처리 도입 시 옵셔널 타입으로 변경 필요.
+    // participant.userId가 null인 경우(hard delete)만 0n fallback. soft-delete 탈퇴 유저는 userId가 유지되며
+    // 응답 단계에서 isWithdrawn으로 '탈퇴한 사용자' 표시를 처리한다. (withdrawn.util)
     return rows.map((r) => ({
       id: r.id,
       sentAt: r.sentAt,
       readAt: r.readAt,
       sentById: r.participant.userId ?? 0n,
+      senderNickname: r.participant.user?.nickname ?? null,
+      senderProfileImageUrl: r.participant.user?.profileImageUrl ?? null,
+      senderStatus: r.participant.user?.status ?? null,
       chatMedia: r.chatMedia,
     }));
   }
 
-  // TODO(chat-participant): createMessage 흐름 변경 — 옛 (roomId, sentById, sentToId)를 받아 메시지에 직접 저장하던
-  // 방식 → 새 구조는 participantId 하나만 저장. (roomId, sentById=me)로 participant를 lookup하여 participantId를 얻고
-  // ChatMessage.create에는 participantId만 전달. peerUserId는 더 이상 메시지에 직접 저장 안 됨 (room의 다른 participant로 추론).
+  // (roomId, me)로 발신자 participant를 lookup해 participantId를 얻고, ChatMessage에는 participantId만 저장.
+  // 수신자(peer)는 메시지에 직접 저장하지 않고 room의 다른 participant로 추론한다.
   async createMessage(
     roomId: bigint,
     me: bigint,
-    _peerUserId: bigint, // TODO(chat-participant): 더 이상 사용 안 함. signature 정리는 follow-up PR
     type: ChatMediaType,
     text: string | null,
     storedMediaRef: string | null,
     durationSec: number | null,
   ) {
-    void _peerUserId;
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
       const participant = await tx.chatParticipant.findUniqueOrThrow({
@@ -233,8 +248,8 @@ export class MessageRepository {
     });
   }
 
-  // TODO(business): findMessageById는 me 인자가 없어서 sentToId를 정확히 산정할 수 없음.
-  // 1:1 채팅 가정 하에 "같은 방의 다른 participant.userId"로 추론. 그룹 채팅 도입 시 me 인자 추가 + 다중 수신자 모델 재설계 필요.
+  // me 인자가 없어 sentToId를 1:1 가정("같은 방의 다른 participant.userId")으로 추론한다.
+  // TODO(EUM-29 그룹 채팅): me 인자 추가 + 다중 수신자 모델로 재설계 필요.
   async findMessageById(messageId: bigint): Promise<MessageDetail | null> {
     const m = await this.prisma.chatMessage.findUnique({
       where: { id: messageId },
@@ -249,6 +264,7 @@ export class MessageRepository {
             roomId: true,
             room: {
               select: {
+                type: true,
                 participants: {
                   select: { userId: true },
                 },
@@ -267,7 +283,7 @@ export class MessageRepository {
       m.participant.room.participants.find((p) => p.userId !== senderId)
         ?.userId ?? null;
 
-    // TODO(schema-nullable): participant/peer userId가 nullable (탈퇴 유저). 옛 shape은 bigint NOT NULL이라 0n fallback.
+    // participant/peer userId가 null인 경우(hard delete)만 0n fallback. 탈퇴 표시는 응답 단계의 isWithdrawn에서 처리.
     return {
       id: m.id,
       sentAt: m.sentAt,
@@ -276,34 +292,30 @@ export class MessageRepository {
       sentById: senderId ?? 0n,
       sentToId: peer ?? 0n,
       roomId: m.participant.roomId,
+      roomType: m.participant.room.type,
     };
   }
 
-  // TODO(business): 옛 sentToId: me 조건 = "내가 받은 메시지를 읽음으로 표시". 새 구조에선
-  // "발신자가 me가 아닌 메시지"로 풀어냄. service 레이어에서 isParticipant 가드로 방 검증을 이미 하므로 안전.
-  async markAsRead(messageId: bigint, me: bigint, readAt: Date) {
-    const updated = await this.prisma.chatMessage.updateMany({
-      where: {
-        id: messageId,
-        participant: { userId: { not: me } },
-        readAt: null,
-        deletedAt: null,
-      },
-      data: { readAt },
+  // SYSTEM(입장/퇴장 공지) 메시지 생성. 주체(participantId)는 입장/퇴장한 본인.
+  async createSystemMessage(
+    participantId: bigint,
+    text: string,
+  ): Promise<{ id: bigint; sentAt: Date }> {
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const msg = await tx.chatMessage.create({
+        data: { participantId, sentAt: now },
+        select: { id: true, sentAt: true },
+      });
+      await tx.chatMedia.create({
+        data: { messageId: msg.id, type: 'SYSTEM', text },
+      });
+      return msg;
     });
-
-    return updated.count > 0;
   }
 
-  // TODO(business): 옛 OR: [{sentById: me}, {sentToId: me}] = "발신자/수신자 둘 다 삭제 가능".
-  // 새 구조에선 participant.userId: me로 단순화 → 본인이 보낸 메시지만 삭제 가능.
-  // ⚠️ 알려진 회귀 (Codex P1): 수신자가 deleteMessage를 호출하면
-  //   1) MessageService.deleteMessage의 auth check (sentById !== me && sentToId !== me)는 통과
-  //   2) 본 repo의 updateMany는 0 rows 반환 (participant.userId !== me이므로)
-  //   3) service의 `if (!updated) return;`에서 silent void return
-  //   4) API는 200 OK 응답하지만 메시지는 그대로 남음 → 사용자 경험상 무반응 삭제
-  // 정책 결정 후 (a) where를 participant.room.participants 경유로 확장해 수신자도 허용, 또는
-  // (b) service에서 updated=0일 때 명시적 에러 throw — 둘 중 하나로 follow-up 필요.
+  // 전송취소: 발신자 본인의 미삭제 메시지를 soft delete.
+  // "수신자가 읽었는지"는 읽음 커서로 service에서 판단(읽었으면 호출 전에 차단).
   async deleteMessage(messageId: bigint, me: bigint, deletedAt: Date) {
     const updated = await this.prisma.chatMessage.updateMany({
       where: {

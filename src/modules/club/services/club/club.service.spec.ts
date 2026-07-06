@@ -137,24 +137,32 @@ describe('ClubService', () => {
     findManyForList.mockResolvedValue([
       {
         id: 12n,
-        hostId: 7n,
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,
         thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
         likes: 142,
         createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        user: {
+          nickname: '보이스마스터',
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
         _count: { clubUsers: 18 },
       },
       {
         id: 11n,
-        hostId: 8n,
         name: '러닝 클럽',
         introText: null,
         category: ClubCategory.SPORTS,
         thumbnailUrl: null,
         likes: 100,
         createdAt: new Date('2026-02-01T00:00:00.000Z'),
+        user: {
+          nickname: '러너',
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
         _count: { clubUsers: 9 },
       },
     ]);
@@ -176,7 +184,7 @@ describe('ClubService', () => {
     expect(result.items).toEqual([
       {
         clubId: '12',
-        hostId: '7',
+        hostNickname: '보이스마스터',
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,

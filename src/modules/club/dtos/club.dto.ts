@@ -366,11 +366,11 @@ export class ClubListItemDto {
   clubId: string;
 
   @ApiProperty({
-    description: '호스트 사용자 ID',
-    example: '7',
+    description: '호스트 닉네임',
+    example: '보이스마스터',
     nullable: true,
   })
-  hostId: string | null;
+  hostNickname: string | null;
 
   @ApiProperty({ description: '클럽 이름', example: '새벽 등산 모임' })
   name: string;

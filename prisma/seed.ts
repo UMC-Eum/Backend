@@ -69,6 +69,14 @@ function requiredEnv(name: string) {
   return value;
 }
 
+function isProductionSeedAllowed() {
+  return (
+    process.env.ALLOW_PRODUCTION_SEED === 'true' ||
+    process.argv.includes('--force') ||
+    process.argv.includes('--allow-production')
+  );
+}
+
 function dataPath(fileName: string) {
   return path.join(DATA_DIR, fileName);
 }
@@ -107,8 +115,10 @@ function createLocalPasswordHash(password: string, username: string) {
 }
 
 async function resetDatabase() {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Refusing to reset database while NODE_ENV=production');
+  if (process.env.NODE_ENV === 'production' && !isProductionSeedAllowed()) {
+    throw new Error(
+      'Refusing to reset database while NODE_ENV=production. Set ALLOW_PRODUCTION_SEED=true or pass --force/--allow-production if you really intend to seed production.',
+    );
   }
 
   await prisma.$executeRawUnsafe(`

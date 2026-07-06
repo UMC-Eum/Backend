@@ -60,6 +60,14 @@ describe('UserActivityService', () => {
     expect(repositoryMock.updateLastActiveAt).toHaveBeenCalledTimes(2);
   });
 
+  it('clears activity throttle for a disconnected user', async () => {
+    await service.recordActivity(7);
+    service.clearActivityThrottle(7);
+    await service.recordActivity(7);
+
+    expect(repositoryMock.updateLastActiveAt).toHaveBeenCalledTimes(2);
+  });
+
   it('returns active users in viewer area and excludes the viewer', async () => {
     repositoryMock.findActiveUserAreaById.mockResolvedValue({
       address: { sidoCode: '11', sigunguCode: '680' },

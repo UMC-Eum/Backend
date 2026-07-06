@@ -8,6 +8,8 @@ type PresenceEntry = {
 
 @Injectable()
 export class InMemoryPresenceStore implements PresenceStore {
+  // TODO(active-users): 현재 인메모리 presence는 단일 서버 프로세스에서만 정확하다.
+  // ECS task를 여러 개로 늘리기 전 Redis 기반 PresenceStore와 TTL 기반 presence로 교체한다.
   private readonly presenceByUserId = new Map<number, PresenceEntry>();
 
   onConnect(userId: number, socketId: string): void {

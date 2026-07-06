@@ -144,6 +144,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (typeof userId === 'number') {
       this.presenceStore.onDisconnect(userId, client.id);
+      if (this.presenceStore.getLastSeenAt(userId) === null) {
+        this.userActivityService.clearActivityThrottle(userId);
+      }
     }
 
     this.logger.log(
@@ -154,6 +157,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @UseGuards(WsUserGuard)
   @SubscribeMessage('ping')
   onPing(@ConnectedSocket() client: AuthedSocket) {
+    // TODO(active-users): 클라이언트는 앱 foreground 동안 이 ping을 주기적으로 보내야 한다.
+    // foreground/background heartbeat 정책과 ping 주기는 프론트/앱 레포에서 관리한다.
     const userId = client.data.userId as number;
     this.presenceStore.touch(userId);
     void this.recordUserActivity(userId);

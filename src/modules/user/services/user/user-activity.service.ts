@@ -11,6 +11,8 @@ import {
 import { ActiveUsersResponseDto } from '../../dtos/user-active-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 
+// TODO(active-users): 현재 활동중 window는 클라이언트 heartbeat 주기와 UX 요구에 맞춰 조정될 수 있다.
+// 튜닝이 필요해지면 환경변수화한다.
 export const ACTIVE_USER_WINDOW_MS = 2 * 60 * 1000;
 export const LAST_ACTIVE_PERSIST_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -35,6 +37,8 @@ export class UserActivityService {
   async recordActivity(userId: number, activeAt = new Date()): Promise<void> {
     if (!userId) return;
 
+    // TODO(active-users): lastActiveAt은 현재 활동중 판정 기준이 아니라 최근 활동 기록용이다.
+    // heartbeat마다 DB에 쓰지 말고 throttle을 유지한다. 트래픽 증가 시 Redis/queue/batch write를 검토한다.
     const activeAtMs = activeAt.getTime();
     const lastPersistedAtMs =
       this.lastPersistedActivityByUserId.get(userId) ?? 0;
@@ -50,6 +54,10 @@ export class UserActivityService {
       this.lastPersistedActivityByUserId.delete(userId);
       throw e;
     }
+  }
+
+  clearActivityThrottle(userId: number): void {
+    this.lastPersistedActivityByUserId.delete(userId);
   }
 
   async getActiveUsers(
@@ -84,6 +92,9 @@ export class UserActivityService {
     const activeUsers = this.presenceStore
       .getActiveUsers(ACTIVE_USER_WINDOW_MS)
       .filter((user) => user.userId !== viewerUserId);
+
+    // TODO(active-users): 현재 구현은 전체 active user id를 DB IN 쿼리에 넘긴 뒤 메모리에서 페이지를 자른다.
+    // 온라인 유저 증가 전 DB-side pagination/LIMIT 구조로 전환한다.
     const activeByUserId = new Map(
       activeUsers.map((user) => [user.userId, user.lastActiveAt]),
     );
@@ -111,6 +122,8 @@ export class UserActivityService {
         };
       })
       .filter((user): user is NonNullable<typeof user> => user !== null)
+      // TODO(active-users): lastActiveAt은 ping마다 움직이는 정렬키라 cursor 페이지 간 유실/중복이 생길 수 있다.
+      // 확장 시 userId 같은 불변키 또는 snapshot cursor 기준 페이지네이션으로 재설계한다.
       .sort((a, b) => {
         const timeDiff = b.lastActiveAt.getTime() - a.lastActiveAt.getTime();
         if (timeDiff !== 0) return timeDiff;

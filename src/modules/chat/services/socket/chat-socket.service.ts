@@ -225,7 +225,11 @@ export class ChatSocketService {
       text: type === 'TEXT' ? (body.text ?? null) : null,
     });
 
-    return { ok: true, messageId: Number(message.id) };
+    return {
+      ok: true,
+      messageId: Number(message.id),
+      sentAt: message.sentAt.toISOString(),
+    };
   }
 
   private async notifyNewMessage(

@@ -407,6 +407,7 @@ describe('UserService', () => {
         },
       ],
       hasSentHeart: true,
+      sentHeartId: 101,
       profileImageUrl: 'https://example.com/profile.png',
     });
   });
@@ -431,6 +432,7 @@ describe('UserService', () => {
 
     expect(result.userId).toBe(7);
     expect(result.hasSentHeart).toBe(false);
+    expect(result.sentHeartId).toBeNull();
     expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
   });
 

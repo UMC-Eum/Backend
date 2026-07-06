@@ -94,10 +94,7 @@ export class WsAuthService {
       return null;
     }
 
-    const secret = this.configService.get<string>(
-      'JWT_ACCESS_SECRET',
-      'dev-access-secret',
-    );
+    const secret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
 
     let subId: bigint | null = null;
 

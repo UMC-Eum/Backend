@@ -49,10 +49,7 @@ export class AccessTokenGuard implements CanActivate {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const secret = this.configService.get<string>(
-      'JWT_ACCESS_SECRET',
-      'dev-access-secret',
-    );
+    const secret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
     const payload = this.jwtTokenService.verify(token, secret);
 
     const userRecord = await this.prismaService.user.findFirst({

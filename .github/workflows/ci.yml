@@ -42,8 +42,25 @@ jobs:
 
     env:
       NODE_ENV: test
+      PORT: 3000
+      LOG_LEVEL: info
+      CORS_ORIGIN: http://localhost:3000
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/eum_dev
       REDIS_URL: redis://127.0.0.1:6379
+      AWS_REGION: ap-northeast-2
+      AWS_S3_BUCKET: eum-voice-test
+      CHAT_MEDIA_BUCKET: eum-chat-test
+      MEDIA_PUT_PRESIGN_EXPIRES_SEC: 300
+      MEDIA_GET_PRESIGN_EXPIRES_SEC: 3600
+      FASTAPI_BASE_URL: http://fastapi.eum.local:8000
+      FASTAPI_TIMEOUT_MS: 10000
+      FASTAPI_HEALTH_URL: http://fastapi.eum.local:8000/health
+      KAKAO_CLIENT_ID: test-kakao-client-id
+      KAKAO_CLIENT_SECRET: test-kakao-client-secret
+      JWT_ACCESS_SECRET: test-access-secret
+      JWT_REFRESH_SECRET: test-refresh-secret
+      JWT_ACCESS_EXPIRES_IN: 1h
+      JWT_REFRESH_EXPIRES_IN: 14d
 
     steps:
       - name: Checkout

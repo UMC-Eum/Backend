@@ -211,16 +211,11 @@ export class ChatMediaService {
     );
     this.s3 = new S3Client({ region: this.region });
 
-    this.chatBucket = this.configService.get<string>(
-      'CHAT_MEDIA_BUCKET',
-      'eum-chat-media',
-    );
+    this.chatBucket =
+      this.configService.getOrThrow<string>('CHAT_MEDIA_BUCKET');
 
     // 기존 프로필 음성 업로드 버킷까지 허용(기존 데이터/재사용을 위해)
-    this.voiceBucket = this.configService.get<string>(
-      'VOICE_UPLOAD_BUCKET',
-      'eum-voice-upload',
-    );
+    this.voiceBucket = this.configService.getOrThrow<string>('AWS_S3_BUCKET');
 
     this.putExpiresSec = this.configService.get<number>(
       'MEDIA_PUT_PRESIGN_EXPIRES_SEC',

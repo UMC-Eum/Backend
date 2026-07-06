@@ -28,9 +28,8 @@ export function buildRefreshTokenCookieOptions(
       isProduction ? 'true' : 'false',
     ) === 'true';
   const secure = sameSite === 'none' ? true : secureConfig;
-  const refreshExpiresIn = configService.get<string>(
+  const refreshExpiresIn = configService.getOrThrow<string>(
     'JWT_REFRESH_EXPIRES_IN',
-    '14d',
   );
   const refreshLifetimeSeconds = parseExpiresInSeconds(refreshExpiresIn);
   const maxAge = refreshLifetimeSeconds * 1000;

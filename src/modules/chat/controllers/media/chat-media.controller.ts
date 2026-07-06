@@ -61,7 +61,7 @@ export class ChatMediaController {
       example: successExample('/api/v1/chats/rooms/101/media/presign', {
         uploadUrl:
           'https://bucket.s3.ap-northeast-2.amazonaws.com/chat/101/1/....',
-        mediaRef: 's3://eum-chat-media/chat/101/1/....',
+        mediaRef: 's3://eum-chat-staging/chat/101/1/....',
         key: 'chat/101/1/....',
         expiresAt: '2026-02-10T00:05:00.000Z',
         requiredHeaders: { 'Content-Type': 'image/jpeg' },

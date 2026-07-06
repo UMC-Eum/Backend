@@ -9,8 +9,22 @@ import { ClubRepository } from '../../../club/repositories/club.repository';
 describe('ChatMediaService', () => {
   let service: ChatMediaService;
 
+  const configValues: Record<string, unknown> = {
+    CHAT_MEDIA_BUCKET: 'chat-media-bucket',
+    AWS_S3_BUCKET: 'voice-bucket',
+  };
+
   const configServiceMock = {
     get: jest.fn((_key: string, def?: unknown) => def),
+    getOrThrow: jest.fn((key: string) => {
+      const value = configValues[key];
+
+      if (value === undefined) {
+        throw new Error(`Missing config: ${key}`);
+      }
+
+      return value;
+    }),
   };
 
   const participantRepoMock: Partial<ParticipantRepository> = {

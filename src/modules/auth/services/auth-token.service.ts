@@ -17,10 +17,8 @@ export class AuthTokenService {
   ) {}
 
   async refreshTokens(refreshToken: string) {
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     const payload = this.jwtTokenService.verify(refreshToken, refreshSecret);
     await this.assertRefreshTokenActive(refreshToken, payload.sub);
     const tokenPayload: AuthTokenPayload = {
@@ -28,19 +26,17 @@ export class AuthTokenService {
       provider: payload.provider,
     };
 
-    const accessExpiresIn = this.configService.get<string>(
+    const accessExpiresIn = this.configService.getOrThrow<string>(
       'JWT_ACCESS_EXPIRES_IN',
-      '1h',
     ) as SignOptions['expiresIn'];
     const accessToken = this.jwtTokenService.sign(
       tokenPayload,
-      this.configService.get<string>('JWT_ACCESS_SECRET', 'dev-access-secret'),
+      this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       accessExpiresIn,
     );
 
-    const refreshExpiresIn = this.configService.get<string>(
+    const refreshExpiresIn = this.configService.getOrThrow<string>(
       'JWT_REFRESH_EXPIRES_IN',
-      '14d',
     ) as SignOptions['expiresIn'];
     const nextRefreshToken = this.jwtTokenService.sign(
       tokenPayload,
@@ -63,10 +59,8 @@ export class AuthTokenService {
   }
 
   async logout(refreshToken: string): Promise<void> {
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
 
     this.jwtTokenService.verify(refreshToken, refreshSecret);
     await this.revokeRefreshToken(refreshToken);
@@ -103,10 +97,8 @@ export class AuthTokenService {
   }
 
   private async storeRefreshToken(refreshToken: string, userId: number) {
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     const payload = this.jwtTokenService.verify(refreshToken, refreshSecret);
     const expiresAt = new Date(payload.exp * 1000);
 

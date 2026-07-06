@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PresenceStore } from './presence.token';
+import type { ActivePresenceUser, PresenceStore } from './presence.token';
 
 type PresenceEntry = {
   socketIds: Set<string>;
@@ -44,17 +44,21 @@ export class InMemoryPresenceStore implements PresenceStore {
     existing.lastSeenAtMs = Date.now();
   }
 
-  getActiveUserIds(withinMs?: number): number[] {
+  getActiveUsers(withinMs?: number): ActivePresenceUser[] {
     const now = Date.now();
-    const ids: number[] = [];
+    const users: ActivePresenceUser[] = [];
 
     for (const [userId, entry] of this.presenceByUserId.entries()) {
       if (withinMs && now - entry.lastSeenAtMs > withinMs) continue;
       if (entry.socketIds.size === 0) continue;
-      ids.push(userId);
+      users.push({ userId, lastActiveAt: new Date(entry.lastSeenAtMs) });
     }
 
-    return ids;
+    return users;
+  }
+
+  getActiveUserIds(withinMs?: number): number[] {
+    return this.getActiveUsers(withinMs).map((user) => user.userId);
   }
 
   getLastSeenAt(userId: number): Date | null {

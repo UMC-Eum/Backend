@@ -4,6 +4,7 @@ import { PrismaModule } from '../../infra/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ClubModule } from '../club/club.module';
+import { UserModule } from '../user/user.module';
 
 import { MessageController } from './controllers/message/message.controller';
 import { ChatMediaController } from './controllers/media/chat-media.controller';
@@ -23,7 +24,13 @@ import { ClubChatService } from './services/club-chat/club-chat.service';
 import { ChatGateway } from './gateways/chat.gateway';
 
 @Module({
-  imports: [PrismaModule, AuthModule, NotificationModule, ClubModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    NotificationModule,
+    ClubModule,
+    UserModule,
+  ],
   controllers: [
     RoomController,
     MessageController,

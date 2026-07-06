@@ -9,6 +9,7 @@ Table User {
   email String [unique, not null]
   sex Sex [not null, default: 'M']
   createdAt DateTime [default: `now()`, not null]
+  lastActiveAt DateTime
   nickname String [not null]
   updatedAt DateTime [not null]
   deletedAt DateTime

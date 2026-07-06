@@ -33,6 +33,7 @@ import {
   type JoinRoomBody,
   type SendMessageBody,
 } from '../services/socket/chat-socket.service';
+import { UserActivityService } from '../../user/services/user/user-activity.service';
 
 type SocketData = { userId?: number };
 
@@ -57,6 +58,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(PRESENCE_STORE)
     private readonly presenceStore: PresenceStore,
     private readonly chatSocketService: ChatSocketService,
+    private readonly userActivityService: UserActivityService,
   ) {}
 
   @WebSocketServer()
@@ -128,6 +130,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       this.presenceStore.onConnect(userId, client.id);
+      void this.recordUserActivity(userId);
 
       this.logger.log(`connected: socket=${client.id} userId=${userId}`);
     } catch (e) {
@@ -153,6 +156,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   onPing(@ConnectedSocket() client: AuthedSocket) {
     const userId = client.data.userId as number;
     this.presenceStore.touch(userId);
+    void this.recordUserActivity(userId);
 
     return {
       ok: true,
@@ -169,6 +173,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const userId = client.data.userId as number;
     this.presenceStore.touch(userId);
+    void this.recordUserActivity(userId);
 
     const chatRoomId = await this.chatSocketService.joinRoom(userId, body);
 
@@ -186,7 +191,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const userId = client.data.userId as number;
     this.presenceStore.touch(userId);
+    void this.recordUserActivity(userId);
 
     return this.chatSocketService.sendMessage(this.server, userId, body);
+  }
+
+  private async recordUserActivity(userId: number): Promise<void> {
+    try {
+      await this.userActivityService.recordActivity(userId);
+    } catch (e) {
+      this.logger.warn(
+        `record user activity failed userId=${userId}: ${String(e)}`,
+      );
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from './user.controller';
 import { UserService } from '../../services/user/user.service';
+import { UserActivityService } from '../../services/user/user-activity.service';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 
 describe('UserController', () => {
@@ -14,6 +15,12 @@ describe('UserController', () => {
           provide: UserService,
           useValue: {
             getMe: jest.fn(),
+          },
+        },
+        {
+          provide: UserActivityService,
+          useValue: {
+            getActiveUsers: jest.fn(),
           },
         },
       ],

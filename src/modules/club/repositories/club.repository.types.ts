@@ -19,6 +19,7 @@ export interface ListClubsRepositoryParams {
 
 export const CLUB_LIST_SELECT = {
   id: true,
+  hostId: true,
   name: true,
   introText: true,
   category: true,

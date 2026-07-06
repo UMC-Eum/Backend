@@ -137,6 +137,7 @@ describe('ClubService', () => {
     findManyForList.mockResolvedValue([
       {
         id: 12n,
+        hostId: 7n,
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,
@@ -147,6 +148,7 @@ describe('ClubService', () => {
       },
       {
         id: 11n,
+        hostId: 8n,
         name: '러닝 클럽',
         introText: null,
         category: ClubCategory.SPORTS,
@@ -174,6 +176,7 @@ describe('ClubService', () => {
     expect(result.items).toEqual([
       {
         clubId: '12',
+        hostId: '7',
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,

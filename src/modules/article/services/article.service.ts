@@ -23,6 +23,7 @@ import { ListArticlesQueryDto } from '../dtos/list-articles-query.dto';
 import { AppException } from '../../../common/errors/app.exception';
 import { UpdateArticleDto } from '../dtos/update-article.dto';
 import { NotificationService } from '../../notification/services/notification.service';
+import { normalizeS3ObjectRef } from '../../../common/s3/s3-object-url.service';
 
 type ArticleEntity = Awaited<ReturnType<ArticleRepository['createArticle']>>;
 
@@ -108,7 +109,9 @@ export class ArticleService {
       createArticleDto.title,
       createArticleDto.contents,
       createArticleDto.category,
-      createArticleDto.photoUrls,
+      createArticleDto.photoUrls?.map((photoUrl) =>
+        normalizeS3ObjectRef(photoUrl),
+      ),
     );
 
     return this.toArticleDto(result);
@@ -141,11 +144,18 @@ export class ArticleService {
     articleId: number,
     updateArticleDto: UpdateArticleDto,
   ): Promise<UpdateArticleResponseDto> {
+    const normalizedDto: UpdateArticleDto = {
+      ...updateArticleDto,
+      photoUrls: updateArticleDto.photoUrls?.map((photoUrl) =>
+        normalizeS3ObjectRef(photoUrl),
+      ),
+    };
+
     const result = await this.articleRepository.updateArticle(
       userId,
       clubId,
       articleId,
-      updateArticleDto,
+      normalizedDto,
     );
 
     if (result.status === 'not_found') {

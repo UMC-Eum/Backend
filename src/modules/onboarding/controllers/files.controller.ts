@@ -1,20 +1,23 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { FileUploadService } from '../services/files.service';
-import { PresignFileDto } from '../dtos/files.dto';
+import { PresignFileDto, PresignFileResponseDto } from '../dtos/files.dto';
 import { AppException } from '../../../common/errors/app.exception';
 import { RequiredUserId } from 'src/modules/auth/decorators';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { AccessTokenGuard } from 'src/modules/auth/guards/access-token.guard';
 
 @ApiTags('Files')
 @ApiBearerAuth('access-token')
+@ApiExtraModels(PresignFileResponseDto)
 @Controller('files')
 export class FilesController {
   constructor(private readonly fileUploadService: FileUploadService) {}
@@ -24,7 +27,7 @@ export class FilesController {
   @ApiOperation({
     summary: '파일 업로드용 presigned URL 발급',
     description:
-      "프로필 소개 음성, 프로필 이미지, 클럽 이미지 업로드용 S3 presigned URL을 발급합니다. purpose가 'CLUB'이면 파일은 images/{userId}/club 경로에 저장됩니다.",
+      "프로필 소개 음성, 프로필 이미지, 클럽 이미지 업로드용 S3 presigned URL을 발급합니다. uploadUrl은 PUT 업로드에만 사용하고, 저장 API에는 fileRef를 전달해야 합니다. purpose가 'CLUB'이면 파일은 images/{userId}/club 경로에 저장됩니다.",
   })
   @ApiBody({
     type: PresignFileDto,
@@ -58,6 +61,25 @@ export class FilesController {
   @ApiOkResponse({
     description: 'presigned URL 발급 성공',
     schema: {
+      properties: {
+        resultType: { example: 'SUCCESS' },
+        success: {
+          properties: {
+            data: {
+              properties: {
+                data: { $ref: getSchemaPath(PresignFileResponseDto) },
+              },
+            },
+          },
+        },
+        error: { example: null },
+        meta: {
+          properties: {
+            timestamp: { example: '2026-07-04T00:00:00.000Z' },
+            path: { example: '/api/v1/files/presign' },
+          },
+        },
+      },
       example: {
         resultType: 'SUCCESS',
         success: {
@@ -65,9 +87,10 @@ export class FilesController {
             data: {
               uploadUrl:
                 'https://bucket.s3.ap-northeast-2.amazonaws.com/images/42/club/1783139000000_club-cover.jpg?...',
-              fileUrl:
-                'https://bucket.s3.ap-northeast-2.amazonaws.com/images/42/club/1783139000000_club-cover.jpg?...',
-              expiresAt: '2026-07-11T00:00:00.000Z',
+              fileRef:
+                's3://bucket/images/42/club/1783139000000_club-cover.jpg',
+              key: 'images/42/club/1783139000000_club-cover.jpg',
+              expiresAt: '2026-07-04T00:05:00.000Z',
             },
           },
         },
@@ -83,7 +106,7 @@ export class FilesController {
   async getPresignedUrl(
     @RequiredUserId() userId: number,
     @Body() dto: PresignFileDto,
-  ) {
+  ): Promise<{ data: PresignFileResponseDto }> {
     try {
       const result = await this.fileUploadService.generatePresignedUrl(
         userId,

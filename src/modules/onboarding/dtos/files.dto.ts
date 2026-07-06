@@ -32,3 +32,32 @@ export class PresignFileDto {
   @IsIn(FILE_PURPOSES)
   purpose: FilePurpose;
 }
+
+export class PresignFileResponseDto {
+  @ApiProperty({
+    example:
+      'https://bucket.s3.ap-northeast-2.amazonaws.com/images/42/club/1783139000000_club-cover.jpg?...',
+    description:
+      'S3 PUT 업로드에만 사용하는 presigned URL입니다. 저장 API에 전달하지 않습니다.',
+  })
+  uploadUrl: string;
+
+  @ApiProperty({
+    example: 's3://bucket/images/42/club/1783139000000_club-cover.jpg',
+    description:
+      'DB 저장용 S3 객체 참조입니다. 프로필/클럽/게시글 저장 API에는 이 값을 전달합니다.',
+  })
+  fileRef: string;
+
+  @ApiProperty({
+    example: 'images/42/club/1783139000000_club-cover.jpg',
+    description: 'S3 object key입니다.',
+  })
+  key: string;
+
+  @ApiProperty({
+    example: '2026-07-04T00:05:00.000Z',
+    description: 'uploadUrl 만료 시각입니다.',
+  })
+  expiresAt: string;
+}

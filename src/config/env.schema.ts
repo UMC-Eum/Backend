@@ -14,6 +14,7 @@ export const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
   AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   AWS_S3_BUCKET: z.string().min(1),
+  S3_GET_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive().optional(),
   FASTAPI_BASE_URL: z.string().url().default('http://fastapi.eum.local:8000'),
   FASTAPI_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
   FASTAPI_PROFILE_ANALYSIS_PATH: z

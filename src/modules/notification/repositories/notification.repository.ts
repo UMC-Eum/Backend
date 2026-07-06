@@ -95,8 +95,11 @@ export class NotificationRepository {
         type: NotificationType.HEART,
       },
       orderBy: { id: 'desc' },
-      take: take + 1,
-      cursor: cursor ? { id: BigInt(cursor) } : undefined,
+      take,
+      ...(cursor && {
+        cursor: { id: BigInt(cursor) },
+        skip: 1,
+      }),
 
       include: {
         sentBy: {

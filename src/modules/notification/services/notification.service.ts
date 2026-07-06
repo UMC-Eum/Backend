@@ -87,7 +87,7 @@ export class NotificationService {
       const nextCursor = hasNext ? items[items.length - 1].id : null;
       return {
         nextCursor: nextCursor !== null ? Number(nextCursor) : null,
-        items: result.map(NotificationWithSenderResponseDto.from),
+        items: items.map(NotificationWithSenderResponseDto.from),
       };
     }
     const result = await this.notificationRepository.findNotificationByFilter(

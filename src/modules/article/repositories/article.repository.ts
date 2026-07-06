@@ -120,6 +120,21 @@ export class ArticleRepository {
     return club !== null;
   }
 
+  async findClubReadSettings(
+    clubId: number,
+  ): Promise<{ id: bigint; boardPublic: boolean } | null> {
+    return this.prisma.club.findFirst({
+      where: {
+        id: BigInt(clubId),
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        boardPublic: true,
+      },
+    });
+  }
+
   async existsActiveClubUser(userId: number, clubId: number): Promise<boolean> {
     const clubUser = await this.prisma.clubUser.findFirst({
       where: {

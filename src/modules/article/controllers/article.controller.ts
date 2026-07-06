@@ -69,10 +69,11 @@ export class ArticleController {
   @Get()
   @UseGuards(AccessTokenGuard)
   findArticles(
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Query() query: ListArticlesQueryDto,
   ) {
-    return this.articleService.findClubArticles(clubId, query);
+    return this.articleService.findClubArticles(userId, clubId, query);
   }
 
   @ApiOperation({ summary: '동호회 사진 모음 조회' })
@@ -98,10 +99,11 @@ export class ArticleController {
   @Get('archive')
   @UseGuards(AccessTokenGuard)
   findArchive(
+    @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
     @Query() query: ListArticlesQueryDto,
   ) {
-    return this.articleService.findArchivePhotos(clubId, query);
+    return this.articleService.findArchivePhotos(userId, clubId, query);
   }
 
   @ApiOperation({ summary: '동호회 게시글 상세 조회' })

@@ -35,10 +35,11 @@ export class ArticleService {
   ) {}
 
   async findClubArticles(
+    userId: number,
     clubId: number,
     query: ListArticlesQueryDto,
   ): Promise<ListArticlesResponseDto> {
-    await this.ensureClubExists(clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArticlesByClub(clubId, {
@@ -122,8 +123,7 @@ export class ArticleService {
     clubId: number,
     articleId: number,
   ): Promise<ArticleDetailDto> {
-    await this.ensureClubExists(clubId);
-    await this.ensureClubMember(userId, clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const result = await this.articleRepository.findArticleDetail(
       userId,
@@ -283,6 +283,23 @@ export class ArticleService {
     if (!exists) {
       throw new AppException('CLUB_NOT_FOUND');
     }
+  }
+
+  private async ensureClubReadable(
+    userId: number,
+    clubId: number,
+  ): Promise<void> {
+    const club = await this.articleRepository.findClubReadSettings(clubId);
+
+    if (!club) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    if (club.boardPublic) {
+      return;
+    }
+
+    await this.ensureClubMember(userId, clubId);
   }
 
   private async ensureClubMember(
@@ -471,6 +488,7 @@ export class ArticleService {
   }
 
   async findArchivePhotos(
+    userId: number,
     clubId: number,
     query: ListArticlesQueryDto,
   ): Promise<{
@@ -483,7 +501,7 @@ export class ArticleService {
     nextCursor: string | null;
     hasMore: boolean;
   }> {
-    await this.ensureClubExists(clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArchivePhotos(clubId, {

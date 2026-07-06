@@ -1,10 +1,14 @@
-import { Prisma, Notification, NotificationType } from '@prisma/client';
+import { Notification, NotificationType } from '@prisma/client';
 import { IsString, IsBoolean, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-type NotificationWithSender = Prisma.NotificationGetPayload<{
-  include: { sentBy: true };
-}>;
+type NotificationWithSender = Notification & {
+  sentBy: {
+    id: bigint;
+    nickname: string;
+    profileImageUrl: string;
+  } | null;
+};
 
 export class NotificationSenderDto {
   @ApiProperty({ example: '3' })
@@ -19,6 +23,21 @@ export class NotificationSenderDto {
   @IsString()
   profileImageUrl: string;
 }
+
+export class NotificationTargetDto {
+  @ApiPropertyOptional({ example: '1' })
+  @IsString()
+  clubId?: string;
+
+  @ApiPropertyOptional({ example: '10' })
+  @IsString()
+  articleId?: string;
+
+  @ApiPropertyOptional({ example: '555' })
+  @IsString()
+  commentId?: string;
+}
+
 export class NotificationResponseDto {
   @ApiProperty({ description: '알림 고유 ID', example: '1' })
   @IsString()
@@ -44,8 +63,13 @@ export class NotificationResponseDto {
   })
   @IsString()
   body: string;
+  @ApiPropertyOptional({ type: NotificationTargetDto })
+  target?: NotificationTargetDto;
 
-  static from(entity: Notification): NotificationResponseDto {
+  static from(
+    entity: Notification,
+    target?: NotificationTargetDto,
+  ): NotificationResponseDto {
     return {
       notificationId: entity.id.toString(),
       type: entity.type,
@@ -53,6 +77,7 @@ export class NotificationResponseDto {
       body: entity.body,
       isRead: entity.isRead,
       createdAt: entity.createdAt.toISOString(),
+      ...(target && { target }),
     };
   }
 }
@@ -85,10 +110,13 @@ export class NotificationWithSenderResponseDto {
 
   @ApiPropertyOptional({ type: NotificationSenderDto })
   sender?: NotificationSenderDto;
+  @ApiPropertyOptional({ type: NotificationTargetDto })
+  target?: NotificationTargetDto;
 
   static from(
     this: void,
     entity: NotificationWithSender,
+    target?: NotificationTargetDto,
   ): NotificationWithSenderResponseDto {
     return {
       notificationId: entity.id.toString(),
@@ -97,6 +125,7 @@ export class NotificationWithSenderResponseDto {
       body: entity.body,
       isRead: entity.isRead,
       createdAt: entity.createdAt.toISOString(),
+      ...(target && { target }),
       sender: entity.sentBy
         ? {
             id: entity.sentBy.id.toString(),

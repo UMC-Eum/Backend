@@ -84,6 +84,7 @@ export type LikeArticleResult =
         likes: number;
         userId: bigint | null;
         user: { nickname: string } | null;
+        club: { name: string };
       };
       sender: { nickname: string } | null;
       created: boolean;
@@ -581,6 +582,11 @@ export class ArticleRepository {
               nickname: true,
             },
           },
+          club: {
+            select: {
+              name: true,
+            },
+          },
         },
       });
 
@@ -635,6 +641,11 @@ export class ArticleRepository {
           user: {
             select: {
               nickname: true,
+            },
+          },
+          club: {
+            select: {
+              name: true,
             },
           },
         },

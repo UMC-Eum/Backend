@@ -116,6 +116,71 @@ export class NotificationController {
     );
   }
 
+  @ApiOperation({ summary: '동호회 알림 목록 조회' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: '페이지네이션 커서(base64url)',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    description: '한 페이지당 보여줄 알림 개수',
+    example: 20,
+  })
+  @ApiResponse({
+    description: '동호회 알림 목록 조회 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            nextCursor: 'eyJpZCI6IjEifQ',
+            items: [
+              {
+                notificationId: '1',
+                type: 'COMMENT',
+                title: '회원님의 게시물에 댓글이 달렸어요.',
+                body: '[동작구 뜨개질 모임]야옹이님이 회원님의 게시물에 댓글을 남겼어요.',
+                isRead: false,
+                createdAt: '2025-12-30T04:00:00.000Z',
+                sender: {
+                  id: '5',
+                  nickname: '야옹이',
+                  profileImageUrl:
+                    'https://cdn.example.com/images/profile/u05.jpg',
+                },
+                target: {
+                  clubId: '1',
+                  articleId: '10',
+                  commentId: '555',
+                },
+              },
+            ],
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2025-12-30T04:10:00.000Z',
+          path: '/api/v1/notifications/clubs',
+        },
+      },
+    },
+  })
+  @Get('clubs')
+  @UseGuards(AccessTokenGuard)
+  findClubNotifications(
+    @RequiredUserId() userId: number,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.notificationService.findClubNotifications(
+      userId,
+      cursor,
+      size ? Number(size) : 20,
+    );
+  }
+
   @ApiOperation({ summary: '마음 알림 목록 조회' })
   @ApiQuery({
     name: 'cursor',

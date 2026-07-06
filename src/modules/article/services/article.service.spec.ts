@@ -180,6 +180,7 @@ describe('ArticleService', () => {
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });
@@ -190,8 +191,8 @@ describe('ArticleService', () => {
       expect(notificationServiceMock.createNotification).toHaveBeenCalledWith(
         20,
         NotificationType.ARTICLE,
-        '게시글에 좋아요가 눌렸어요.',
-        '보낸사람님이 받는사람님의 게시물을 좋아합니다.',
+        '회원님의 게시물에 좋아요가 눌렸어요.',
+        '[한강 라이딩 동호회]보낸사람님이 회원님의 게시물에 좋아요를 눌렀어요.',
         11,
       );
     });
@@ -207,6 +208,7 @@ describe('ArticleService', () => {
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });
@@ -221,6 +223,7 @@ describe('ArticleService', () => {
           likes: 4,
           userId: BigInt(11),
           user: { nickname: '보낸사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });

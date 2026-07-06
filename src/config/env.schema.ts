@@ -15,6 +15,7 @@ export const envSchema = z.object({
   MEDIA_GET_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive(),
   FASTAPI_BASE_URL: z.string().url(),
   FASTAPI_TIMEOUT_MS: z.coerce.number().int().positive(),
+  S3_GET_PRESIGN_EXPIRES_SEC: z.coerce.number().int().positive().optional(),
   FASTAPI_PROFILE_ANALYSIS_PATH: z
     .string()
     .min(1)
@@ -46,6 +47,9 @@ export const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(1),
   JWT_ACCESS_EXPIRES_IN: z.string().min(1),
   JWT_REFRESH_EXPIRES_IN: z.string().min(1),
+  FIREBASE_PROJECT_ID: z.string().min(1).optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

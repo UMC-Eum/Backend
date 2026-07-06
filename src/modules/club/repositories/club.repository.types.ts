@@ -25,15 +25,6 @@ export const CLUB_LIST_SELECT = {
   thumbnailUrl: true,
   likes: true,
   createdAt: true,
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
   _count: {
     select: {
       clubUsers: {
@@ -55,9 +46,10 @@ export const CLUB_DETAIL_SELECT = {
   hostId: true,
   name: true,
   category: true,
-  introVoiceUrl: true,
+  thumbnailUrl: true,
   introText: true,
   capacity: true,
+  approvalRequired: true,
   likes: true,
   createdAt: true,
   user: {
@@ -67,15 +59,6 @@ export const CLUB_DETAIL_SELECT = {
       profileImageUrl: true,
       deletedAt: true,
       status: true,
-    },
-  },
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
     },
   },
   meetings: {
@@ -93,6 +76,17 @@ export const CLUB_DETAIL_SELECT = {
     },
     orderBy: {
       createdAt: 'desc',
+    },
+  },
+  clubImages: {
+    where: { deletedAt: null },
+    select: {
+      clubImageId: true,
+      imageUrl: true,
+      sortOrder: true,
+    },
+    orderBy: {
+      sortOrder: 'asc',
     },
   },
   _count: {
@@ -119,15 +113,6 @@ export const UPDATE_CLUB_SELECT = {
   introText: true,
   capacity: true,
   updatedAt: true,
-  clubKeywords: {
-    select: {
-      personality: {
-        select: {
-          body: true,
-        },
-      },
-    },
-  },
 } satisfies Prisma.ClubSelect;
 
 export type UpdatedClubRow = Prisma.ClubGetPayload<{
@@ -137,7 +122,6 @@ export type UpdatedClubRow = Prisma.ClubGetPayload<{
 export interface UpdateClubRepositoryParams {
   clubId: bigint;
   data: Prisma.ClubUpdateInput;
-  keywordIds?: bigint[];
   vibeVector?: number[];
 }
 
@@ -147,6 +131,21 @@ export interface TopHostRow {
   profileImageUrl: string | null;
   clubCount: number;
   totalLikes: number;
+}
+
+export interface TodayRecommendedClubRow {
+  clubId: bigint;
+  name: string;
+  category: ClubCategory;
+  introText: string | null;
+  thumbnailUrl: string | null;
+  capacity: number;
+  likes: number;
+  hostId: bigint;
+  hostName: string;
+  hostProfileImageUrl: string | null;
+  memberCount: number;
+  recommendationScore: number;
 }
 
 export interface ClubUserStateRow {
@@ -160,10 +159,12 @@ export interface CreateClubRepositoryParams {
   name: string;
   category: ClubCategory;
   introText: string;
-  introVoice: string;
   capacity: number;
   addressCode: string | null;
-  keywordIds: number[];
+  approvalRequired: boolean;
+  boardPublic: boolean;
+  thumbnailUrl: string;
+  imageUrls?: string[];
 }
 
 export interface CreatedClubRow {
@@ -172,6 +173,9 @@ export interface CreatedClubRow {
   name: string;
   category: ClubCategory;
   capacity: number;
+  thumbnailUrl: string | null;
+  approvalRequired: boolean;
+  boardPublic: boolean;
   createdAt: Date;
   user: {
     id: bigint;
@@ -181,6 +185,10 @@ export interface CreatedClubRow {
   _count: {
     clubUsers: number;
   };
+  clubImages: Array<{
+    imageUrl: string;
+    sortOrder: number;
+  }>;
 }
 
 export interface CreateClubLikeResult {

@@ -12,6 +12,7 @@ import {
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
+import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
 
 type ProfileVisitorsCursor = {
   visitedAt: string;
@@ -111,7 +112,7 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const memberships = await this.userRepository.findMyActiveClubs(userId);
+    const memberships = await this.userRepository.findMyClubs(userId);
 
     return {
       items: memberships.map((membership) => ({
@@ -119,10 +120,13 @@ export class UserService {
         name: membership.club.name,
         thumbnailUrl: membership.club.thumbnailUrl,
         category: membership.club.category,
+        capacity: membership.club.capacity,
+        code: membership.club.code,
         introText: membership.club.introText,
         memberCount: membership.club.clubUsers.length,
         authority: membership.authority,
-        joinedAt: membership.joinedAt?.toISOString() ?? '',
+        status: membership.status,
+        joinedAt: membership.joinedAt?.toISOString() ?? null,
       })),
     };
   }
@@ -140,6 +144,8 @@ export class UserService {
         name: like.club.name,
         thumbnailUrl: like.club.thumbnailUrl,
         category: like.club.category,
+        capacity: like.club.capacity,
+        code: like.club.code,
         introText: like.club.introText,
         memberCount: like.club.clubUsers.length,
         likedAt: like.createdAt.toISOString(),
@@ -332,11 +338,13 @@ export class UserService {
     }
 
     if (payload.introAudioUrl !== undefined) {
-      updateData.introVoiceUrl = payload.introAudioUrl;
+      updateData.introVoiceUrl = normalizeS3ObjectRef(payload.introAudioUrl);
     }
 
     if (payload.profileImageUrl !== undefined) {
-      updateData.profileImageUrl = payload.profileImageUrl;
+      updateData.profileImageUrl = normalizeS3ObjectRef(
+        payload.profileImageUrl,
+      );
     }
 
     if (Object.keys(updateData).length > 0) {

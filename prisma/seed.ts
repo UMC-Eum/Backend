@@ -1,4 +1,9 @@
-import { DayOfWeek, Prisma, PrismaClient, RecurrenceType } from '@prisma/client';
+import {
+  DayOfWeek,
+  Prisma,
+  PrismaClient,
+  RecurrenceType,
+} from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { scryptSync } from 'crypto';
 import { parse } from 'csv-parse/sync';
@@ -38,6 +43,22 @@ const DUMMY_COUNT = 10;
 const REPORT_COUNT = DUMMY_COUNT * 2;
 const ADDRESS_CHUNK_SIZE = 5_000;
 const now = new Date('2026-01-10T09:00:00.000Z');
+
+const S3_SEED_BUCKET =
+  process.env.S3_SEED_BUCKET?.trim() || 'eum-voice-staging';
+
+function s3Uri(...parts: Array<string | number | bigint>) {
+  const key = parts
+    .map((part) => String(part).replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean)
+    .join('/');
+
+  return `s3://${S3_SEED_BUCKET}/${key}`;
+}
+// 그룹 채팅 테스트용: 이 클럽에 여러 명을 ACTIVE 멤버로 넣는다.
+// host(user 1 = admin01)는 기존 clubUser로 이미 등록돼 있고, 아래 유저들을 추가한다.
+const GROUP_CHAT_CLUB_ID = 1;
+const GROUP_CHAT_MEMBER_USER_IDS = [2, 3, 4]; // admin02~admin04
 
 function requiredEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -94,7 +115,6 @@ async function resetDatabase() {
     TRUNCATE TABLE
       "ClubReport",
       "UserReport",
-      "ClubKeyword",
       "MeetingMember",
       "Meeting",
       "ClubLike",
@@ -198,9 +218,9 @@ async function insertUsers() {
       ${daysFromSeed(index)},
       ${`seed-user-${index + 1}`},
       ${daysFromSeed(index)},
-      ${`https://cdn.example.com/voice/intro/seed-user-${index + 1}.m4a`},
+      ${s3Uri('voice', 'intro', `seed-user-${index + 1}.m4a`)},
       ${`seed intro text ${index + 1}`},
-      ${`https://cdn.example.com/images/profile/seed-user-${index + 1}.jpg`},
+      ${s3Uri('images', id, 'profile', `seed-user-${index + 1}.jpg`)},
       ${'ACTIVE'}::"ActiveStatus",
       ${index < 5 ? '1111010100' : '1111010200'},
       ${'KAKAO'}::"AuthProvider",
@@ -223,20 +243,23 @@ async function insertUsers() {
 async function insertClubs() {
   const categories = [
     'SPORTS',
-    'LANGUAGE',
+    'HOBBY',
+    'CULTURE_ART',
     'VOLUNTEER',
-    'OUTDOOR',
-    'CULTURE',
+    'FOOD',
+    'STUDY',
     'OTHERS',
   ];
+
   const rows = Array.from({ length: DUMMY_COUNT }, (_, index) => {
     const id = BigInt(index + 1);
+    const hostId = BigInt(index + 1);
 
     return Prisma.sql`(
       ${id},
-      ${BigInt(index + 1)},
+      ${hostId},
       ${`Seed Club ${index + 1}`},
-      ${`https://cdn.example.com/voice/club/seed-club-${index + 1}.m4a`},
+      ${s3Uri('voice', 'club', id, `seed-club-${index + 1}.m4a`)},
       ${`seed club intro ${index + 1}`},
       ${categories[index % categories.length]}::"ClubCategory",
       ${20 + index},
@@ -245,7 +268,7 @@ async function insertClubs() {
       ${index < 5 ? '1111010100' : '1111010200'},
       ${index * 2},
       ${vectorLiteral(index + 20)}::vector,
-      ${`https://cdn.example.com/images/club/seed-club-${index + 1}.jpg`}
+      ${s3Uri('images', id, 'club', `seed-club-${index + 1}.jpg`)}
     )`;
   });
 
@@ -297,7 +320,12 @@ async function insertDummyData() {
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
       userId: BigInt(index + 1),
-      url: `https://cdn.example.com/images/user-photo/seed-${index + 1}.jpg`,
+      url: s3Uri(
+        'images',
+        BigInt(index + 1),
+        'user-photo',
+        `seed-${index + 1}.jpg`,
+      ),
       createdAt: daysFromSeed(index),
     })),
     skipDuplicates: true,
@@ -458,6 +486,19 @@ async function insertDummyData() {
     skipDuplicates: true,
   });
 
+  // 그룹 채팅 테스트용: GROUP_CHAT_CLUB_ID 클럽에 host 외 유저들을 ACTIVE GENERAL로 추가
+  await prisma.clubUser.createMany({
+    data: GROUP_CHAT_MEMBER_USER_IDS.map((userId, i) => ({
+      id: BigInt(DUMMY_COUNT + i + 1),
+      userId: BigInt(userId),
+      clubId: BigInt(GROUP_CHAT_CLUB_ID),
+      joinedAt: daysFromSeed(i),
+      authority: 'GENERAL',
+      status: 'ACTIVE',
+    })),
+    skipDuplicates: true,
+  });
+
   await prisma.badge.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
@@ -500,6 +541,7 @@ async function insertDummyData() {
   await prisma.meeting.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => {
       const type = RECURRENCE_TYPES[index % RECURRENCE_TYPES.length];
+
       return {
         id: BigInt(index + 1),
         name: `Seed Meeting ${index + 1}`,
@@ -510,9 +552,8 @@ async function insertDummyData() {
         joinPolicy: index % 3 === 0 ? 'APPROVAL_REQUIRED' : 'AUTO',
         isRegular: index % 2 === 0,
         recurrenceType: type,
-        daysOfWeek:
-          type === 'WEEKLY' ? [DAY_OF_WEEK_VALUES[index % 7]] : [],
-        dayOfMonth: type === 'MONTHLY' ? ((index % 28) + 1) : null,
+        daysOfWeek: type === 'WEEKLY' ? [DAY_OF_WEEK_VALUES[index % 7]] : [],
+        dayOfMonth: type === 'MONTHLY' ? (index % 28) + 1 : null,
         hour: (index + 9) % 24,
         minute: (index * 10) % 60,
         createdAt: daysFromSeed(index),
@@ -529,15 +570,6 @@ async function insertDummyData() {
       meetingId: BigInt(index + 1),
       clubUserId: BigInt(index + 1),
       joinedAt: daysFromSeed(index),
-    })),
-    skipDuplicates: true,
-  });
-
-  await prisma.clubKeyword.createMany({
-    data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
-      id: BigInt(index + 1),
-      clubId: BigInt(index + 1),
-      keywordId: BigInt(index + 21),
     })),
     skipDuplicates: true,
   });
@@ -585,7 +617,12 @@ async function insertDummyData() {
   await prisma.articlePhoto.createMany({
     data: Array.from({ length: DUMMY_COUNT }, (_, index) => ({
       id: BigInt(index + 1),
-      photoUrl: `https://cdn.example.com/images/article/seed-${index + 1}.jpg`,
+      photoUrl: s3Uri(
+        'images',
+        BigInt(index + 1),
+        'article',
+        `seed-${index + 1}.jpg`,
+      ),
       createdAt: daysFromSeed(index),
       articleId: BigInt(index + 1),
       clubUserId: BigInt(index + 1),
@@ -658,7 +695,6 @@ async function resetSequences() {
     'ClubLike',
     'Meeting',
     'MeetingMember',
-    'ClubKeyword',
     'UserReport',
     'ClubReport',
   ];

@@ -10,6 +10,7 @@ import {
 import { OnboardingAiService } from './onboarding-ai.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { ClubRepository } from '../../club/repositories/club.repository';
+import { normalizeS3ObjectRef } from '../../../common/s3/s3-object-url.service';
 
 @Injectable()
 export class OnboardingService {
@@ -26,6 +27,7 @@ export class OnboardingService {
     const analysis = await this.onboardingAiService.analyzeProfile(userId, dto);
     const profileDto: CreateProfileDto = {
       ...dto,
+      introAudioUrl: normalizeS3ObjectRef(dto.introAudioUrl),
       introText: analysis.transcript,
       selectedKeywords: analysis.selectedKeywords,
       vibeVector: analysis.vibeVector,
@@ -59,7 +61,6 @@ export class OnboardingService {
     await this.onboardingRepository.updateClubVibe(
       clubId,
       dto,
-      analysis.selectedKeywords,
       analysis.vibeVector,
     );
 

@@ -255,6 +255,7 @@ export class OnboardingAiService {
     userId: bigint,
     cursor?: string,
     size?: string,
+    areaCode?: string,
   ): Promise<FastApiMatchesResponse> {
     const query: Record<string, string> = {
       userId: userId.toString(),
@@ -266,6 +267,11 @@ export class OnboardingAiService {
 
     if (size !== undefined) {
       query.size = size;
+    }
+
+    const trimmedAreaCode = areaCode?.trim();
+    if (trimmedAreaCode) {
+      query.areaCode = trimmedAreaCode;
     }
 
     return this.callFastApiGet<FastApiMatchesResponse>(

@@ -1,4 +1,8 @@
-import type { ClubDetailResponseDto, ClubListItemDto } from '../dtos/club.dto';
+import {
+  ClubJoinPolicy,
+  type ClubDetailResponseDto,
+  type ClubListItemDto,
+} from '../dtos/club.dto';
 import type {
   ClubDetailRow,
   ClubListRow,
@@ -14,7 +18,6 @@ export function toClubListItemDto(row: ClubListRow): ClubListItemDto {
     thumbnailUrl: row.thumbnailUrl,
     likes: row.likes,
     memberCount: row._count.clubUsers,
-    keywords: row.clubKeywords.map((keyword) => keyword.personality.body),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -66,18 +69,23 @@ export function toClubDetailDto(
     clubId: row.id.toString(),
     name: row.name,
     category: row.category,
-    introVoice: row.introVoiceUrl,
     introText: row.introText,
     capacity: row.capacity,
+    thumbnailUrl: row.thumbnailUrl,
+    clubImages: row.clubImages.map((image) => ({
+      clubImageId: image.clubImageId.toString(),
+      imageUrl: image.imageUrl,
+      sortOrder: image.sortOrder,
+    })),
+    joinPolicy: row.approvalRequired
+      ? ClubJoinPolicy.APPROVAL
+      : ClubJoinPolicy.AUTO,
     memberCount: row._count.clubUsers,
     likes: row.likes,
     isLiked: flags.isLiked,
     isJoined: flags.isJoined,
     myAuthority: flags.myAuthority,
     host,
-    keywords: row.clubKeywords
-      .map((keyword) => keyword.personality.body)
-      .filter((body): body is string => Boolean(body)),
     meetings: row.meetings.map((meeting) => {
       return {
         meetingId: meeting.id.toString(),

@@ -1,4 +1,4 @@
-import { ClubAuthority, ClubCategory } from '@prisma/client';
+import { ClubAuthority, ClubCategory, ClubUserStatus } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserClubItemDto {
@@ -17,6 +17,16 @@ export class UserClubItemDto {
   @ApiProperty({ enum: ClubCategory, example: ClubCategory.OTHERS })
   category!: ClubCategory;
 
+  @ApiProperty({ example: 30 })
+  capacity!: number;
+
+  @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  code!: string | null;
+
   @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',
     nullable: true,
@@ -29,8 +39,14 @@ export class UserClubItemDto {
   @ApiProperty({ enum: ClubAuthority, example: ClubAuthority.GENERAL })
   authority!: ClubAuthority;
 
-  @ApiProperty({ example: '2026-05-02T15:40:00.000Z' })
-  joinedAt!: string;
+  @ApiProperty({ enum: ClubUserStatus, example: ClubUserStatus.PENDING })
+  status!: ClubUserStatus;
+
+  @ApiPropertyOptional({
+    example: '2026-05-02T15:40:00.000Z',
+    nullable: true,
+  })
+  joinedAt!: string | null;
 }
 
 export class UserClubsResponseDto {
@@ -53,6 +69,16 @@ export class UserLikedClubItemDto {
 
   @ApiProperty({ enum: ClubCategory, example: ClubCategory.OTHERS })
   category!: ClubCategory;
+
+  @ApiProperty({ example: 30 })
+  capacity!: number;
+
+  @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  code!: string | null;
 
   @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',

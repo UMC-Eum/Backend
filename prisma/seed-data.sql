@@ -83,7 +83,7 @@ VALUES (1, 1, 1);
 
 -- Club (requires vibeVector)
 INSERT INTO "Club" ("id","hostId","name","category","capacity","likes","vibeVector","thumbnailUrl")
-VALUES (1, 1, 'Seoul Hikers','OUTDOOR', 20, 0, '[0,0,0]'::vector, 'https://example.com/club-thumb.jpg');
+VALUES (1, 1, 'Seoul Hikers','HOBBY', 20, 0, '[0,0,0]'::vector, 'https://example.com/club-thumb.jpg');
 
 -- ClubUser
 INSERT INTO "ClubUser" ("id","userId","clubId","authority","status")
@@ -107,10 +107,6 @@ VALUES (1, 'Morning Hike', now() + INTERVAL '1 day', 1, 'Bukhansan Trailhead');
 
 -- MeetingMember
 INSERT INTO "MeetingMember" ("id","meetingId","clubUserId")
-VALUES (1, 1, 1);
-
--- ClubKeyword (keywordId references Personality)
-INSERT INTO "ClubKeyword" ("id","clubId","keywordId")
 VALUES (1, 1, 1);
 
 -- Article

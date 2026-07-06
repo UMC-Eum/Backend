@@ -5,6 +5,7 @@ import {
   HeartSentItem,
   HeartListPayload,
   HeartItemBase,
+  UserProfileInfo,
 } from '../../dtos/heart.dto';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
@@ -32,28 +33,49 @@ export class HeartService {
     userId: string,
     targetUserId: string,
   ): Promise<HeartItemBase> {
-    const result = await this.heartRepository.postHeart(userId, targetUserId);
-    const userName = await this.userService
-      .getMe(Number(userId))
-      .then((user) => user.nickname);
-    try {
-      await this.notificationService.createNotification(
-        Number(targetUserId),
-        'HEART',
-        '마음을 누른 사람이 생겼습니다!',
-        `${userName}님이 회원님에게 마음을 보냈습니다.`,
-        Number(userId),
-      );
-    } catch {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: ERROR_DEFINITIONS.SERVER_TEMPORARY_ERROR.message,
+    if (!this.isPositiveIntegerString(userId)) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+    if (!this.isPositiveIntegerString(targetUserId)) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
         details: { field: 'targetUserId' },
       });
     }
+    if (userId === targetUserId) {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+        details: { field: 'targetUserId' },
+      });
+    }
+
+    const result = await this.heartRepository.postHeart(userId, targetUserId);
     if (result.ok) {
+      const userName = await this.userService
+        .getMe(Number(userId))
+        .then((user) => user.nickname);
+      try {
+        await this.notificationService.createNotification(
+          Number(targetUserId),
+          'HEART',
+          '마음을 누른 사람이 생겼습니다!',
+          `${userName}님이 회원님에게 마음을 보냈습니다.`,
+          Number(userId),
+        );
+      } catch {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: ERROR_DEFINITIONS.SERVER_TEMPORARY_ERROR.message,
+          details: { field: 'targetUserId' },
+        });
+      }
       return result.heart;
     } else {
-      if (result.reason === 'TARGET_NOT_FOUND') {
+      if (result.reason === 'INVALID_USER_ID') {
+        throw new AppException('VALIDATION_INVALID_FORMAT', {
+          message: ERROR_DEFINITIONS.VALIDATION_INVALID_FORMAT.message,
+          details: { field: 'targetUserId' },
+        });
+      } else if (result.reason === 'TARGET_NOT_FOUND') {
         throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
           message: ERROR_DEFINITIONS.SOCIAL_TARGET_USER_NOT_FOUND.message,
           details: { field: 'targetUserId' },
@@ -100,16 +122,18 @@ export class HeartService {
       });
 
     // 각 하트를 보낸 사용자의 프로필 정보를 가져옴
-    const itemsWithProfile = await Promise.all(
-      result.items.map(async (item) => {
-        const fromUserId = Number(item.fromUserId);
-        const fromUser = await this.userService.getDetailedProfile(fromUserId);
-        return {
-          ...item,
-          fromUser,
-        };
-      }),
-    );
+    const itemsWithProfile: HeartReceivedItem[] = [];
+    for (const item of result.items) {
+      const fromUser = await this.getProfileOrDeletedPlaceholder(
+        item.fromUserId,
+        item.heartId,
+        'received',
+      );
+      itemsWithProfile.push({
+        ...item,
+        fromUser,
+      });
+    }
 
     return {
       nextCursor: result.nextCursor,
@@ -135,21 +159,64 @@ export class HeartService {
       });
 
     // 각 하트를 받은 사용자의 프로필 정보를 가져옴
-    const itemsWithProfile = await Promise.all(
-      result.items.map(async (item) => {
-        const targetUserId = Number(item.targetUserId);
-        const targetUser =
-          await this.userService.getDetailedProfile(targetUserId);
-        return {
-          ...item,
-          targetUser,
-        };
-      }),
-    );
+    const itemsWithProfile: HeartSentItem[] = [];
+    for (const item of result.items) {
+      const targetUser = await this.getProfileOrDeletedPlaceholder(
+        item.targetUserId,
+        item.heartId,
+        'sent',
+      );
+      itemsWithProfile.push({
+        ...item,
+        targetUser,
+      });
+    }
 
     return {
       nextCursor: result.nextCursor,
       items: itemsWithProfile,
+    };
+  }
+
+  private isPositiveIntegerString(value: string): boolean {
+    return /^[1-9][0-9]*$/.test(value);
+  }
+
+  private async getProfileOrDeletedPlaceholder(
+    userId: number | null,
+    heartId: number,
+    context: 'received' | 'sent',
+  ): Promise<UserProfileInfo> {
+    if (userId == null || !Number.isSafeInteger(userId) || userId <= 0) {
+      this.logger.warn(
+        `heart ${context} list uses deleted user placeholder heartId=${heartId} userId=${userId}`,
+      );
+      return this.deletedUserProfile();
+    }
+
+    try {
+      return await this.userService.getDetailedProfile(userId);
+    } catch (error) {
+      this.logger.warn(
+        `heart ${context} list profile unavailable heartId=${heartId} userId=${userId}: ${String(error)}`,
+      );
+      return this.deletedUserProfile();
+    }
+  }
+
+  private deletedUserProfile(): UserProfileInfo {
+    return {
+      id: 0,
+      nickname: '삭제된 사용자',
+      birthdate: '',
+      profileImageUrl: null,
+      introText: null,
+      introVoiceUrl: null,
+      address: {
+        fullName: '',
+      },
+      interests: [],
+      personalities: [],
     };
   }
 

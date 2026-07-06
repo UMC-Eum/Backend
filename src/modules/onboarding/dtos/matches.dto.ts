@@ -55,7 +55,7 @@ export class RecommendedClubDto {
   @ApiProperty({
     description: '카테고리',
     enum: ClubCategory,
-    example: ClubCategory.CULTURE,
+    example: ClubCategory.CULTURE_ART,
   })
   category: ClubCategory;
 

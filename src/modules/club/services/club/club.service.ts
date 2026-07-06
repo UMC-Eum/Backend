@@ -9,6 +9,7 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTodayRecommendedClubsResponseDto,
   ListTopHostsResponseDto,
   UpdateClubRequestDto,
   UpdateClubResponseDto,
@@ -46,10 +47,12 @@ export class ClubService {
       name: dto.name,
       category: dto.category,
       introText: dto.introText,
-      introVoice: dto.introVoice,
       capacity: dto.capacity,
-      addressCode: user.address?.code ?? null,
-      keywordIds: dto.keywordIds,
+      addressCode: dto.areaCode,
+      approvalRequired: dto.approvalRequired,
+      boardPublic: dto.boardPublic,
+      thumbnailUrl: dto.thumbnailUrl,
+      imageUrls: dto.imageUrls,
     });
 
     try {
@@ -61,7 +64,6 @@ export class ClubService {
 
       await this.clubRepository.applyClubAnalysis(
         created.id,
-        analysis.selectedKeywords,
         analysis.vibeVector,
       );
     } catch (error) {
@@ -75,6 +77,11 @@ export class ClubService {
       name: created.name,
       category: created.category,
       capacity: created.capacity,
+      areaCode: created.code,
+      thumbnailUrl: created.thumbnailUrl,
+      imageUrls: created.clubImages.map((image) => image.imageUrl),
+      approvalRequired: created.approvalRequired,
+      boardPublic: created.boardPublic,
       memberCount: created._count.clubUsers,
       host: {
         userId: Number(created.user?.id ?? user.id),
@@ -135,6 +142,31 @@ export class ClubService {
     };
   }
 
+  async listTodayRecommendedClubs(
+    limit: number,
+  ): Promise<ListTodayRecommendedClubsResponseDto> {
+    const rows = await this.clubRepository.findTodayRecommendedClubs(limit);
+
+    return {
+      items: rows.map((row) => ({
+        clubId: row.clubId.toString(),
+        name: row.name,
+        category: row.category,
+        introText: row.introText,
+        thumbnailUrl: row.thumbnailUrl,
+        capacity: row.capacity,
+        memberCount: row.memberCount,
+        likes: row.likes,
+        recommendationScore: row.recommendationScore,
+        host: {
+          userId: row.hostId.toString(),
+          nickname: row.hostName,
+          profileImageUrl: row.hostProfileImageUrl,
+        },
+      })),
+    };
+  }
+
   async updateClub(
     userId: number,
     clubId: number,
@@ -152,10 +184,6 @@ export class ClubService {
     }
 
     const data = this.buildUpdateClubData(dto);
-    const keywordIds =
-      dto.keywordIds === undefined
-        ? undefined
-        : this.toUniqueBigIntIds(dto.keywordIds);
     const introTextForAnalysis =
       dto.introText !== undefined && dto.introText !== club.introText
         ? dto.introText
@@ -173,7 +201,6 @@ export class ClubService {
     const updated = await this.clubRepository.updateClub({
       clubId: clubKey,
       data,
-      keywordIds,
       ...(analysis ? { vibeVector: analysis.vibeVector } : {}),
     });
 
@@ -304,12 +331,6 @@ export class ClubService {
     return data;
   }
 
-  private toUniqueBigIntIds(ids: number[]): bigint[] {
-    return Array.from(new Set(ids.map((id) => BigInt(id).toString())), (id) =>
-      BigInt(id),
-    );
-  }
-
   private toUpdateClubResponseDto(row: UpdatedClubRow): UpdateClubResponseDto {
     return {
       clubId: row.id.toString(),
@@ -318,9 +339,6 @@ export class ClubService {
       introText: row.introText,
       introVoice: row.introVoiceUrl,
       capacity: row.capacity,
-      keywords: row.clubKeywords
-        .map((keyword) => keyword.personality.body)
-        .filter((body): body is string => Boolean(body)),
       updatedAt: row.updatedAt?.toISOString() ?? null,
     };
   }

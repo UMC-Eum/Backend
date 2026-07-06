@@ -4,6 +4,8 @@ import { RoomService } from './room.service';
 import { RoomRepository } from '../../repositories/room.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { MessageRepository } from '../../repositories/message.repository';
+import { ClubRepository } from '../../../club/repositories/club.repository';
+import { ChatGateway } from '../../gateways/chat.gateway';
 
 describe('RoomService', () => {
   let service: RoomService;
@@ -17,6 +19,7 @@ describe('RoomService', () => {
     getAddressByCode: jest.fn(),
     getRoomsByIds: jest.fn(),
     getPeerBasicsByIds: jest.fn(),
+    getRoomTypeInfo: jest.fn(),
   };
 
   const participantRepoMock: Partial<ParticipantRepository> = {
@@ -24,12 +27,28 @@ describe('RoomService', () => {
     findPeerUserId: jest.fn(),
     getMyRoomIds: jest.fn(),
     findPeerUserIdsByRoomIds: jest.fn(),
+    getMyReadStateByRoomIds: jest.fn(),
+    getMyActiveParticipation: jest.fn(),
+    getActiveParticipantsWithUser: jest.fn(),
   };
 
   const messageRepoMock: Partial<MessageRepository> = {
     getLastSentAtByRoomIds: jest.fn(),
-    countUnreadByRoomIds: jest.fn(),
+    countUnreadByCursor: jest.fn(),
     getLastMessageSummary: jest.fn(),
+  };
+
+  const clubRepoMock: Partial<ClubRepository> = {
+    findClubBasic: jest.fn(),
+    findClubBriefsByIds: jest.fn(),
+    findActiveClubUser: jest.fn(),
+    findActiveMembershipClubIds: jest.fn(),
+  };
+
+  const chatGatewayMock: Partial<ChatGateway> = {
+    emitChatMessage: jest.fn(),
+    emitRoomRead: jest.fn(),
+    emitMessageDeleted: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -39,6 +58,8 @@ describe('RoomService', () => {
         { provide: RoomRepository, useValue: roomRepoMock },
         { provide: ParticipantRepository, useValue: participantRepoMock },
         { provide: MessageRepository, useValue: messageRepoMock },
+        { provide: ClubRepository, useValue: clubRepoMock },
+        { provide: ChatGateway, useValue: chatGatewayMock },
       ],
     }).compile();
 
@@ -47,5 +68,56 @@ describe('RoomService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('getRoomDetail (CLUB)', () => {
+    it('should throw CLUB_FORBIDDEN_NOT_MEMBER when membership was revoked', async () => {
+      (
+        participantRepoMock.getMyActiveParticipation as jest.Mock
+      ).mockResolvedValue({ joinedAt: new Date('2026-01-01T00:00:00.000Z') });
+      (roomRepoMock.getRoomTypeInfo as jest.Mock).mockResolvedValue({
+        type: 'CLUB',
+        clubId: BigInt(1),
+      });
+      (clubRepoMock.findClubBasic as jest.Mock).mockResolvedValue({
+        id: BigInt(1),
+        name: '클럽',
+        thumbnailUrl: null,
+        hostId: BigInt(1),
+        deletedAt: null,
+      });
+      (clubRepoMock.findActiveClubUser as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.getRoomDetail(2, 10)).rejects.toMatchObject({
+        internalCode: 'CLUB_FORBIDDEN_NOT_MEMBER',
+      });
+      expect(
+        participantRepoMock.getActiveParticipantsWithUser,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listRooms', () => {
+    it('should exclude CLUB rooms where I am not an active member', async () => {
+      (participantRepoMock.getMyRoomIds as jest.Mock).mockResolvedValue([
+        BigInt(5),
+      ]);
+      (roomRepoMock.getRoomsByIds as jest.Mock).mockResolvedValue([
+        {
+          id: BigInt(5),
+          type: 'CLUB',
+          clubId: BigInt(9),
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ]);
+      (clubRepoMock.findActiveMembershipClubIds as jest.Mock).mockResolvedValue(
+        [],
+      );
+
+      const res = await service.listRooms(2, {});
+
+      expect(res.items).toEqual([]);
+      expect(res.nextCursor).toBeNull();
+    });
   });
 });

@@ -48,6 +48,7 @@
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "csv-parse": "^6.1.0",
+    "firebase-admin": "^14.1.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.13.1",
     "pino": "^10.1.0",

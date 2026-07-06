@@ -28,11 +28,15 @@ export class FileUploadService {
 
   async generatePresignedUrl(userId: number, dto: PresignFileDto) {
     const { fileName, contentType, purpose } = dto;
+    const objectName = `${Date.now()}_${fileName}`;
 
     // purpose에 따른 폴더 경로 결정
-    const folder = purpose === 'PROFILE_INTRO_AUDIO' ? 'voices' : 'images';
-
-    const key = `${folder}/${userId}/${Date.now()}_${fileName}`;
+    const key =
+      purpose === 'PROFILE_INTRO_AUDIO'
+        ? `voices/${userId}/${objectName}`
+        : purpose === 'CLUB'
+          ? `images/${userId}/club/${objectName}`
+          : `images/${userId}/${objectName}`;
 
     // 업로드용 Presigned URL (PUT)
     const putCommand = new PutObjectCommand({

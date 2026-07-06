@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Patch,
   Post,
@@ -35,12 +36,15 @@ import {
   ClubListSort,
   ListClubsQueryDto,
   ListClubsResponseDto,
+  ListTodayRecommendedClubsQueryDto,
+  ListTodayRecommendedClubsResponseDto,
   ListTopHostsQueryDto,
   ListTopHostsResponseDto,
   UpdateClubRequestDto,
   UpdateClubResponseDto,
 } from '../../dtos/club.dto';
 import { ClubService } from '../../services/club/club.service';
+import { RecentClubSearchService } from '../../services/club/recent-club-search.service';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { RequiredUserId } from '../../../auth/decorators';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
@@ -48,7 +52,12 @@ import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-in
 @ApiTags('Club')
 @Controller('clubs')
 export class ClubController {
-  constructor(private readonly clubService: ClubService) {}
+  private readonly logger = new Logger(ClubController.name);
+
+  constructor(
+    private readonly clubService: ClubService,
+    private readonly recentClubSearchService: RecentClubSearchService,
+  ) {}
 
   @Post()
   @UseGuards(AccessTokenGuard)
@@ -57,7 +66,30 @@ export class ClubController {
     summary: '클럽 생성',
     description: '로그인한 사용자가 새 클럽을 생성하고 호스트가 됩니다.',
   })
-  @ApiBody({ type: CreateClubRequestDto })
+  @ApiBody({
+    type: CreateClubRequestDto,
+    examples: {
+      default: {
+        summary: '클럽 생성 요청',
+        value: {
+          name: '보이스 러버즈',
+          category: 'OTHERS',
+          introText: '목소리로 친해져요',
+          capacity: 30,
+          areaCode: '1168000000',
+          approvalRequired: false,
+          boardPublic: true,
+          thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+          imageUrls: [
+            'https://cdn.example.com/clubs/12/images/1.jpg',
+            'https://cdn.example.com/clubs/12/images/2.jpg',
+            'https://cdn.example.com/clubs/12/images/3.jpg',
+            'https://cdn.example.com/clubs/12/images/4.jpg',
+          ],
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({
     description: '클럽 생성 성공',
     schema: {
@@ -66,10 +98,20 @@ export class ClubController {
         success: {
           data: {
             clubId: 12,
-            code: '주소 코드 호스트의 주소코드 반환',
+            code: '1168000000',
             name: '보이스 러버즈',
             category: 'OTHERS',
+            areaCode: '1168000000',
             capacity: 30,
+            thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+            imageUrls: [
+              'https://cdn.example.com/clubs/12/images/1.jpg',
+              'https://cdn.example.com/clubs/12/images/2.jpg',
+              'https://cdn.example.com/clubs/12/images/3.jpg',
+              'https://cdn.example.com/clubs/12/images/4.jpg',
+            ],
+            approvalRequired: false,
+            boardPublic: true,
             memberCount: 1,
             host: {
               userId: 7,
@@ -112,7 +154,7 @@ export class ClubController {
     required: false,
     description: '카테고리 필터',
     enum: ClubCategory,
-    example: ClubCategory.OUTDOOR,
+    example: ClubCategory.HOBBY,
   })
   @ApiQuery({
     name: 'sort',
@@ -145,7 +187,7 @@ export class ClubController {
                 clubId: '1',
                 name: '새벽 등산 모임',
                 introText: '함께 새벽 산행할 분들 모집해요.',
-                category: 'OUTDOOR',
+                category: 'HOBBY',
                 thumbnailUrl: 'https://cdn.example.com/clubs/1.jpg',
                 likes: 32,
                 memberCount: 12,
@@ -168,7 +210,77 @@ export class ClubController {
     @RequiredUserId() userId: number,
     @Query() query: ListClubsQueryDto,
   ): Promise<ListClubsResponseDto> {
-    return this.clubService.listClubs(userId, query);
+    const result = await this.clubService.listClubs(userId, query);
+
+    if (query.keyword?.trim()) {
+      try {
+        await this.recentClubSearchService.addRecentSearch(
+          userId,
+          query.keyword,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : JSON.stringify(error);
+        this.logger.warn(
+          `Failed to save recent club search keyword: ${message}`,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  @Get('today-recommended')
+  @ApiOperation({
+    summary: '오늘의 동호회 추천 조회',
+    description:
+      '좋아요, 활성 멤버 수, 최근 생성 보너스를 합산한 MVP 점수 기준으로 오늘의 추천 동호회를 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: '가져올 추천 동호회 수',
+    example: 10,
+  })
+  @ApiOkResponse({
+    description: '조회 성공',
+    schema: {
+      example: {
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            items: [
+              {
+                clubId: '12',
+                name: '등산 러버즈',
+                category: 'HOBBY',
+                introText: '등산으로 친해져요',
+                thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+                capacity: 30,
+                memberCount: 18,
+                likes: 142,
+                recommendationScore: 226,
+                host: {
+                  userId: '7',
+                  nickname: '보이스마스터',
+                  profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
+                },
+              },
+            ],
+          },
+        },
+        error: null,
+        meta: {
+          timestamp: '2026-05-21T00:00:00.000Z',
+          path: '/api/v1/clubs/today-recommended?limit=10',
+        },
+      },
+    },
+  })
+  listTodayRecommendedClubs(
+    @Query() query: ListTodayRecommendedClubsQueryDto,
+  ): Promise<ListTodayRecommendedClubsResponseDto> {
+    return this.clubService.listTodayRecommendedClubs(query.limit);
   }
 
   @Get('top-hosts')
@@ -305,7 +417,7 @@ export class ClubController {
   @ApiOperation({
     summary: '클럽 정보 부분 수정',
     description:
-      '호스트가 클럽 정보를 부분 수정합니다. 요청 body에 포함된 필드만 변경하며, keywordIds를 생략하면 기존 키워드를 유지하고 빈 배열이면 전체 제거합니다.',
+      '호스트가 클럽 정보를 부분 수정합니다. 요청 body에 포함된 필드만 변경합니다.',
   })
   @ApiParam({
     name: 'clubId',
@@ -328,12 +440,6 @@ export class ClubController {
           introVoice: null,
         },
       },
-      replaceKeywords: {
-        summary: '키워드 교체',
-        value: {
-          keywordIds: [1, 4, 7],
-        },
-      },
     },
   })
   @ApiOkResponse({
@@ -345,11 +451,10 @@ export class ClubController {
           data: {
             clubId: '12',
             name: '등산 러버즈 시즌3',
-            category: 'OUTDOOR',
+            category: 'HOBBY',
             introText: '더 즐겁게 모여요',
             introVoice: null,
             capacity: 60,
-            keywords: ['야외', '등산', '친목'],
             updatedAt: '2026-05-01T20:25:00.000Z',
           },
         },
@@ -435,10 +540,23 @@ export class ClubController {
           data: {
             clubId: '12',
             name: '등산 러버즈',
-            category: 'OUTDOOR',
-            introVoice: 'https://cdn.example.com/voice/12.mp3',
+            category: 'HOBBY',
             introText: '등산으로 친해져요',
             capacity: 30,
+            thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+            clubImages: [
+              {
+                clubImageId: '101',
+                imageUrl: 'https://cdn.example.com/clubs/12/images/1.jpg',
+                sortOrder: 1,
+              },
+              {
+                clubImageId: '102',
+                imageUrl: 'https://cdn.example.com/clubs/12/images/2.jpg',
+                sortOrder: 2,
+              },
+            ],
+            joinPolicy: 'AUTO',
             memberCount: 18,
             likes: 142,
             isLiked: false,
@@ -449,7 +567,6 @@ export class ClubController {
               nickname: '보이스마스터',
               profileImageUrl: 'https://cdn.example.com/profile/7.jpg',
             },
-            keywords: ['야외', '등산', '친목'],
             meetings: [
               {
                 meetingId: '88',

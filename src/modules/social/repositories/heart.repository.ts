@@ -9,18 +9,21 @@ import { HeartItemBase, HeartListPayload } from '../dtos/heart.dto';
 type HeartSentItemBase = {
   heartId: number;
   createdAt: string;
-  targetUserId: number;
+  targetUserId: number | null;
 };
 
 type HeartReceivedItemBase = {
   heartId: number;
   createdAt: string;
-  fromUserId: number;
+  fromUserId: number | null;
 };
 
 type PostHeartResult =
   | { ok: true; heart: HeartItemBase }
-  | { ok: false; reason: 'TARGET_NOT_FOUND' | 'ALREADY_EXISTS' };
+  | {
+      ok: false;
+      reason: 'TARGET_NOT_FOUND' | 'ALREADY_EXISTS' | 'INVALID_USER_ID';
+    };
 
 @Injectable()
 export class HeartRepository {
@@ -33,19 +36,39 @@ export class HeartRepository {
     return BigInt(value);
   }
 
+  private toPositiveBigInt(value: string | number | bigint): bigint | null {
+    try {
+      const parsed = this.toBigInt(value);
+      return parsed > 0n ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
   async postHeart(
     sentById: string | number | bigint,
     sentToId: string | number | bigint,
   ): Promise<PostHeartResult> {
+    const parsedSentById = this.toPositiveBigInt(sentById);
+    const parsedSentToId = this.toPositiveBigInt(sentToId);
+    if (!parsedSentById || !parsedSentToId) {
+      return { ok: false, reason: 'INVALID_USER_ID' };
+    }
+
     const payload = {
-      sentById: this.toBigInt(sentById),
-      sentToId: this.toBigInt(sentToId),
+      sentById: parsedSentById,
+      sentToId: parsedSentToId,
+      status: ActiveStatus.ACTIVE,
     };
     this.logger.debug(
       `postHeart sentById=${payload.sentById} sentToId=${payload.sentToId}`,
     );
-    const targetUser = await this.prisma.user.findUnique({
-      where: { id: payload.sentToId },
+    const targetUser = await this.prisma.user.findFirst({
+      where: {
+        id: payload.sentToId,
+        status: ActiveStatus.ACTIVE,
+        deletedAt: null,
+      },
       select: { id: true },
     });
     if (!targetUser) {
@@ -56,6 +79,7 @@ export class HeartRepository {
         sentById: payload.sentById,
         sentToId: payload.sentToId,
         status: ActiveStatus.ACTIVE,
+        deletedAt: null,
       },
     });
     if (exist != null) {
@@ -159,14 +183,14 @@ export class HeartRepository {
       const mappedItems: HeartSentItemBase[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
-        targetUserId: Number(item.sentToId),
+        targetUserId: item.sentToId == null ? null : Number(item.sentToId),
       }));
       return { nextCursor, items: mappedItems };
     } else {
       const mappedItems: HeartReceivedItemBase[] = items.map((item) => ({
         heartId: Number(item.id),
         createdAt: item.createdAt.toISOString(),
-        fromUserId: Number(item.sentById),
+        fromUserId: item.sentById == null ? null : Number(item.sentById),
       }));
       return { nextCursor, items: mappedItems };
     }
@@ -182,7 +206,11 @@ export class HeartRepository {
       `getReceivedHeartsByUserId userId=${sentToId} cursor=${params.cursor} size=${params.size}`,
     );
     const result = await this.findHeartsWithCursor({
-      where: { sentToId, status: ActiveStatus.ACTIVE, deletedAt: null },
+      where: {
+        sentToId,
+        status: ActiveStatus.ACTIVE,
+        deletedAt: null,
+      },
       cursor: params.cursor,
       size: params.size,
       isSent: false,
@@ -202,7 +230,11 @@ export class HeartRepository {
       `getSentHeartsByUserId userId=${sentById} cursor=${params.cursor} size=${params.size}`,
     );
     const result = await this.findHeartsWithCursor({
-      where: { sentById, status: ActiveStatus.ACTIVE, deletedAt: null },
+      where: {
+        sentById,
+        status: ActiveStatus.ACTIVE,
+        deletedAt: null,
+      },
       cursor: params.cursor,
       size: params.size,
       isSent: true,

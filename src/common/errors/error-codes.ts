@@ -56,6 +56,17 @@ export const ERROR_DEFINITIONS = {
     code: 'AUTH-008',
     message: '신고 누적으로 로그인이 제한되었습니다. 고객센터에 문의해 주세요.',
   },
+  AUTH_APPLE_TOKEN_INVALID: {
+    status: HttpStatus.UNAUTHORIZED,
+    code: 'AUTH-009',
+    message: '애플 인증 정보가 유효하지 않습니다. 다시 로그인해 주세요.',
+  },
+  AUTH_APPLE_TOKEN_EXCHANGE_FAILED: {
+    status: HttpStatus.BAD_GATEWAY,
+    code: 'AUTH-010',
+    message:
+      '애플 인증 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
 
   // VALID
   VALIDATION_INVALID_FORMAT: {
@@ -175,6 +186,16 @@ export const ERROR_DEFINITIONS = {
     code: 'CHAT-004',
     message: '차단 상태에서는 채팅 기능을 이용할 수 없어요.',
   },
+  CHAT_MESSAGE_UNSEND_NOT_ALLOWED: {
+    status: HttpStatus.CONFLICT,
+    code: 'CHAT-005',
+    message: '이미 읽은 메시지는 전송취소할 수 없어요.',
+  },
+  CHAT_GROUP_MESSAGE_UNSEND_NOT_ALLOWED: {
+    status: HttpStatus.CONFLICT,
+    code: 'CHAT-006',
+    message: '그룹 채팅 메시지는 전송취소할 수 없어요.',
+  },
 
   // ARTICLE
   ARTICLE_NOT_FOUND: {
@@ -290,6 +311,11 @@ export const ERROR_DEFINITIONS = {
     status: HttpStatus.FORBIDDEN,
     code: 'CLUB-015',
     message: '클럽 멤버만 참여할 수 있어요.',
+  },
+  CLUB_RECENT_SEARCH_KEYWORD_REQUIRED: {
+    status: HttpStatus.BAD_REQUEST,
+    code: 'CLUB-016',
+    message: '삭제할 최근 검색어를 입력해 주세요.',
   },
 
   // MEETING

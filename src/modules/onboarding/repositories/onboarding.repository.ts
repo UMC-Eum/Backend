@@ -112,16 +112,9 @@ export class OnboardingRepository {
   async updateClubVibe(
     clubId: bigint,
     dto: AnalyzeClubVibeRequestDto,
-    selectedKeywords: string[],
     vibeVector: number[],
   ): Promise<void> {
     const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
-
-    const uniqueKeywords = Array.from(
-      new Set(
-        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
-      ),
-    );
 
     await this.prisma.$transaction(async (tx) => {
       await tx.club.update({
@@ -136,31 +129,6 @@ export class OnboardingRepository {
         SET "vibeVector" = ${vibeVectorLiteral}::vector
         WHERE "id" = ${clubId}
       `;
-
-      await tx.clubKeyword.deleteMany({
-        where: { clubId },
-      });
-
-      if (uniqueKeywords.length > 0) {
-        const personalities = await Promise.all(
-          uniqueKeywords.map((keyword) =>
-            tx.personality.upsert({
-              where: { body: keyword },
-              update: {},
-              create: { body: keyword },
-              select: { id: true },
-            }),
-          ),
-        );
-
-        await tx.clubKeyword.createMany({
-          data: personalities.map(({ id }) => ({
-            clubId,
-            keywordId: id,
-          })),
-          skipDuplicates: true,
-        });
-      }
     });
   }
 }

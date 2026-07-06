@@ -183,4 +183,38 @@ describe('OnboardingAiService', () => {
       analysis_type: 'profile',
     });
   });
+
+  it('passes optional areaCode when requesting recommended clubs', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        resultType: 'SUCCESS',
+        success: {
+          data: {
+            items: [],
+            page: {
+              size: 20,
+              hasNext: false,
+              nextCursor: null,
+            },
+          },
+        },
+      }),
+    );
+
+    await service.getRecommendedClubs(
+      7n,
+      'eyJzaW1pbGFyaXR5U2NvcmUiOjAuNDEyMywiY2x1YklkIjoiOCJ9',
+      '20',
+      '1168000000',
+    );
+
+    const [url] = fetchMock.mock.calls[0];
+    const parsedUrl = new URL(url as string);
+    expect(parsedUrl.searchParams.get('userId')).toBe('7');
+    expect(parsedUrl.searchParams.get('cursor')).toBe(
+      'eyJzaW1pbGFyaXR5U2NvcmUiOjAuNDEyMywiY2x1YklkIjoiOCJ9',
+    );
+    expect(parsedUrl.searchParams.get('size')).toBe('20');
+    expect(parsedUrl.searchParams.get('areaCode')).toBe('1168000000');
+  });
 });

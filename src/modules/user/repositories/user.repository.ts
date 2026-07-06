@@ -89,6 +89,85 @@ export class UserRepository {
     });
   }
 
+  async upsertAppleUser({
+    providerUserId,
+    email,
+    shouldUpdateEmail,
+    nickname,
+    defaultBirthdate,
+    defaultAddressCode,
+    defaultIntroVoiceUrl,
+    defaultProfileImageUrl,
+  }: {
+    providerUserId: string;
+    email: string;
+    shouldUpdateEmail: boolean;
+    nickname: string;
+    defaultBirthdate: Date;
+    defaultAddressCode: string;
+    defaultIntroVoiceUrl: string;
+    defaultProfileImageUrl: string;
+  }) {
+    await this.ensureDefaultAddress(defaultAddressCode);
+
+    return this.prismaService.$transaction(async (tx) => {
+      const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
+        Prisma.sql`
+          INSERT INTO "User" (
+            "birthdate",
+            "email",
+            "nickname",
+            "updatedAt",
+            "introVoiceUrl",
+            "introText",
+            "profileImageUrl",
+            "code",
+            "provider",
+            "providerUserId",
+            "vibeVector"
+          )
+          VALUES (
+            ${defaultBirthdate},
+            ${email},
+            ${nickname},
+            NOW(),
+            ${defaultIntroVoiceUrl},
+            ${''},
+            ${defaultProfileImageUrl},
+            ${defaultAddressCode},
+            ${AuthProvider.APPLE}::"AuthProvider",
+            ${providerUserId},
+            '[0]'::vector
+          )
+          ON CONFLICT ("provider", "providerUserId") DO NOTHING
+          RETURNING "id"
+        `,
+      );
+
+      const insertedId = insertedRows[0]?.id;
+      if (insertedId) {
+        const createdUser = await tx.user.findUniqueOrThrow({
+          where: { id: insertedId },
+        });
+
+        return { user: createdUser, isNewUser: true };
+      }
+
+      const where = {
+        provider_providerUserId: {
+          provider: AuthProvider.APPLE,
+          providerUserId,
+        },
+      } as const;
+
+      const updatedUser = shouldUpdateEmail
+        ? await tx.user.update({ where, data: { email } })
+        : await tx.user.findUniqueOrThrow({ where });
+
+      return { user: updatedUser, isNewUser: false };
+    });
+  }
+
   countActiveReportsByUserId(userId: number) {
     return this.prismaService.userReport.count({
       where: {
@@ -284,15 +363,16 @@ export class UserRepository {
     });
   }
 
-  findMyActiveClubs(userId: number) {
+  findMyClubs(userId: number) {
     return this.prismaService.clubUser.findMany({
       where: {
         userId: BigInt(userId),
-        status: ClubUserStatus.ACTIVE,
+        status: { in: [ClubUserStatus.ACTIVE, ClubUserStatus.PENDING] },
         club: { deletedAt: null },
       },
       select: {
         authority: true,
+        status: true,
         joinedAt: true,
         club: {
           select: {
@@ -300,6 +380,8 @@ export class UserRepository {
             name: true,
             thumbnailUrl: true,
             category: true,
+            capacity: true,
+            code: true,
             introText: true,
             clubUsers: {
               where: { status: ClubUserStatus.ACTIVE },
@@ -308,7 +390,7 @@ export class UserRepository {
           },
         },
       },
-      orderBy: { joinedAt: 'desc' },
+      orderBy: [{ joinedAt: 'desc' }, { requestedAt: 'desc' }],
     });
   }
 
@@ -326,6 +408,8 @@ export class UserRepository {
             name: true,
             thumbnailUrl: true,
             category: true,
+            capacity: true,
+            code: true,
             introText: true,
             clubUsers: {
               where: { status: ClubUserStatus.ACTIVE },

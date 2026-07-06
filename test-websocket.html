@@ -112,7 +112,7 @@
   <div class="section">
     <h2>⚙️ 설정</h2>
     <div class="controls">
-      <input type="text" id="apiBaseUrl" placeholder="API URL" value="https://back.eum-dating.com">
+      <input type="text" id="apiBaseUrl" placeholder="API URL" value="http://localhost:3000/api/v1">
       <input type="password" id="accessToken" placeholder="Access Token (JWT)">
     </div>
   </div>
@@ -158,7 +158,17 @@
     <h2>📡 채팅방 관리 (REST API)</h2>
 
     <div class="api-group">
-      <h3>POST /chats/rooms - 새 채팅방 생성</h3>
+      <h3>POST /chats/clubs/{clubId}/room - 클럽 채팅방 입장 (그룹)</h3>
+      <p style="font-size: 12px; color: #666;">ACTIVE 클럽 멤버만 입장(멱등). 최초 입장 시 "…님이 입장했습니다" SYSTEM 메시지가 나갑니다. 성공하면 chatRoomId가 위/아래 입력칸에 자동 채워집니다.</p>
+      <div class="controls">
+        <input type="number" id="clubId" placeholder="클럽 ID" value="1" min="1">
+        <button onclick="enterClubRoom()" class="success">입장</button>
+      </div>
+      <div id="enterClubResponse" class="response-box"></div>
+    </div>
+
+    <div class="api-group">
+      <h3>POST /chats/rooms - 새 채팅방 생성 (1:1)</h3>
       <p style="font-size: 12px; color: #666;">상대방과 처음 만날 때 사용합니다.</p>
       <div class="controls">
         <input type="number" id="targetUserId" placeholder="상대방 ID" value="2" min="1">
@@ -196,19 +206,21 @@
     </div>
 
     <div class="api-group">
-      <h3>PATCH /chats/messages/{messageId}/read - 메시지 읽음 처리</h3>
+      <h3>PATCH /chats/rooms/{chatRoomId}/read - 채팅방 읽음 처리 (방 단위 커서)</h3>
+      <p style="font-size: 12px; color: #666;">내 읽음 커서(lastReadAt)를 현재 시각으로 전진. 기존 메시지 단위 read를 대체합니다. (DIRECT/CLUB 공통)</p>
       <div class="controls">
-        <input type="number" id="readMessageId" placeholder="메시지 ID" value="555" min="1">
-        <button onclick="markAsReadRest()">읽음 처리</button>
+        <input type="number" id="readRoomId" placeholder="채팅방 ID" value="3" min="1">
+        <button onclick="markRoomReadRest()">읽음 처리</button>
       </div>
-      <div id="markAsReadResponse" class="response-box"></div>
+      <div id="markReadResponse" class="response-box"></div>
     </div>
 
     <div class="api-group">
-      <h3>PATCH /chats/messages/{messageId} - 메시지 삭제</h3>
+      <h3>PATCH /chats/messages/{messageId} - 메시지 전송취소</h3>
+      <p style="font-size: 12px; color: #666;">DIRECT: 상대 미열람 시만(읽힘 409 CHAT-005). CLUB: 항상 차단(409 CHAT-006).</p>
       <div class="controls">
         <input type="number" id="deleteMessageId" placeholder="메시지 ID" value="555" min="1">
-        <button onclick="deleteMessageRest()" class="danger">삭제</button>
+        <button onclick="deleteMessageRest()" class="danger">전송취소</button>
       </div>
       <div id="deleteMessageResponse" class="response-box"></div>
     </div>
@@ -293,16 +305,22 @@
       });
 
       socket.on('message.new', (msg) => {
-        addLog(`📨 새 메시지: [${msg.senderUserId}] ${msg.text || `[${msg.type}]`}`, 'success');
+        // 입장/퇴장 등 SYSTEM 공지는 message.new(type=SYSTEM, isSystem=true)로 옴
+        if (msg.isSystem || msg.type === 'SYSTEM') {
+          addLog(`📢 시스템: ${msg.text}`, 'warning');
+        } else {
+          addLog(`📨 새 메시지: [${msg.senderUserId}] ${msg.text || `[${msg.type}]`}`, 'success');
+        }
       });
 
       socket.on('exception', (error) => {
         addLog(`❌ 오류: ${JSON.stringify(error)}`, 'error');
       });
 
+      // 읽음 처리는 방 단위 커서로 변경됨: {chatRoomId, readerUserId, lastReadAt}
       socket.on('message.read', (payload) => {
         addLog(
-          `👀 읽음: room=${payload.chatRoomId} msg=${payload.messageId} reader=${payload.readerUserId} at=${payload.readAt}`,
+          `👀 읽음 커서: room=${payload.chatRoomId} reader=${payload.readerUserId} lastReadAt=${payload.lastReadAt}`,
           'success',
         );
       });
@@ -421,6 +439,32 @@
       }
     }
 
+    // 응답 envelope({success:{data}}) 또는 평면 응답 모두에서 값 꺼내기
+    function pickData(resData) {
+      return resData?.success?.data ?? resData ?? {};
+    }
+
+    async function enterClubRoom() {
+      const clubId = parseInt(document.getElementById('clubId').value);
+      if (!clubId) {
+        addLog('❌ 클럽 ID를 입력하세요.', 'error');
+        return;
+      }
+
+      const result = await apiCall('POST', `/chats/clubs/${clubId}/room`);
+      showResponse('enterClubResponse', result.data, !result.ok);
+
+      // 성공하면 chatRoomId를 관련 입력칸에 자동 채움
+      const chatRoomId = pickData(result.data)?.chatRoomId;
+      if (result.ok && chatRoomId) {
+        ['chatRoomId', 'roomDetailId', 'msgRoomId', 'readRoomId'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = chatRoomId;
+        });
+        addLog(`➡️ 클럽 채팅방 ID ${chatRoomId} 자동 입력됨 (WebSocket room.join으로 입장 후 전송하세요)`, 'success');
+      }
+    }
+
     async function createRoom() {
       const targetUserId = parseInt(document.getElementById('targetUserId').value);
       if (!targetUserId) {
@@ -459,15 +503,15 @@
       showResponse('listMessagesResponse', result.data, !result.ok);
     }
 
-    async function markAsReadRest() {
-      const messageId = parseInt(document.getElementById('readMessageId').value);
-      if (!messageId) {
-        addLog('❌ 메시지 ID를 입력하세요.', 'error');
+    async function markRoomReadRest() {
+      const roomId = parseInt(document.getElementById('readRoomId').value);
+      if (!roomId) {
+        addLog('❌ 채팅방 ID를 입력하세요.', 'error');
         return;
       }
 
-      const result = await apiCall('PATCH', `/chats/messages/${messageId}/read`);
-      showResponse('markAsReadResponse', result.data, !result.ok);
+      const result = await apiCall('PATCH', `/chats/rooms/${roomId}/read`);
+      showResponse('markReadResponse', result.data, !result.ok);
     }
 
     async function deleteMessageRest() {

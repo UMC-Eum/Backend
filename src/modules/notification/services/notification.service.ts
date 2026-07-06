@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NotificationRepository } from '../repositories/notification.repository';
 import {
   NotificationResponseDto,
@@ -11,11 +11,15 @@ import {
   decodeCursorRaw,
   encodeCursor,
 } from '../../../common/utils/cursor.util';
+import { FcmPushService } from '../../push/services/fcm-push.service';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(
     private readonly notificationRepository: NotificationRepository,
+    private readonly fcmPushService: FcmPushService,
   ) {}
 
   async markAsRead(id: string, userId: number) {
@@ -59,6 +63,15 @@ export class NotificationService {
       body,
       sentById,
     );
+
+    try {
+      await this.fcmPushService.sendNotificationToUser(userId, result);
+    } catch (e) {
+      this.logger.warn(
+        `FCM push failed notificationId=${result.id.toString()} userId=${userId}: ${String(e)}`,
+      );
+    }
+
     return result;
   }
 

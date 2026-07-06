@@ -22,6 +22,7 @@ import {
   type DeleteClubLikeResult,
   type ListClubsRepositoryParams,
   type SoftDeletedClubRow,
+  type TodayRecommendedClubRow,
   type TopHostRow,
   type UpdateClubRepositoryParams,
   type UpdatedClubRow,
@@ -34,18 +35,6 @@ export class ClubRepository {
   async createClubWithHost(
     params: CreateClubRepositoryParams,
   ): Promise<CreatedClubRow> {
-    const uniqueKeywordIds = this.toUniqueBigIntIds(params.keywordIds);
-
-    if (uniqueKeywordIds.length > 0) {
-      const keywordCount = await this.prisma.personality.count({
-        where: { id: { in: uniqueKeywordIds } },
-      });
-
-      if (keywordCount !== uniqueKeywordIds.length) {
-        throw new AppException('KEYWORD_NOT_FOUND');
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const insertedRows = await tx.$queryRaw<Array<{ id: bigint }>>(
         Prisma.sql`
@@ -58,17 +47,23 @@ export class ClubRepository {
             "capacity",
             "code",
             "likes",
+            "thumbnailUrl",
+            "approvalRequired",
+            "boardPublic",
             "vibeVector"
           )
           VALUES (
             ${params.hostId},
             ${params.name},
-            ${params.introVoice},
+            ${null},
             ${params.introText},
             ${params.category}::"ClubCategory",
             ${params.capacity},
             ${params.addressCode},
             ${0},
+            ${params.thumbnailUrl},
+            ${params.approvalRequired},
+            ${params.boardPublic},
             '[0]'::vector
           )
           RETURNING "id"
@@ -80,6 +75,16 @@ export class ClubRepository {
         throw new AppException('SERVER_TEMPORARY_ERROR');
       }
 
+      if (params.imageUrls?.length) {
+        await tx.clubImage.createMany({
+          data: params.imageUrls.map((imageUrl, index) => ({
+            clubId,
+            imageUrl,
+            sortOrder: index + 1,
+          })),
+        });
+      }
+
       await tx.clubUser.create({
         data: {
           clubId,
@@ -89,16 +94,6 @@ export class ClubRepository {
         },
       });
 
-      if (uniqueKeywordIds.length > 0) {
-        await tx.clubKeyword.createMany({
-          data: uniqueKeywordIds.map((keywordId) => ({
-            clubId,
-            keywordId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-
       return tx.club.findUniqueOrThrow({
         where: { id: clubId },
         select: this.createdClubSelect(),
@@ -106,44 +101,14 @@ export class ClubRepository {
     });
   }
 
-  async applyClubAnalysis(
-    clubId: bigint,
-    selectedKeywords: string[],
-    vibeVector: number[],
-  ): Promise<void> {
+  async applyClubAnalysis(clubId: bigint, vibeVector: number[]): Promise<void> {
     const vibeVectorLiteral = toPgVectorLiteral(vibeVector);
-    const uniqueKeywords = Array.from(
-      new Set(
-        selectedKeywords.map((keyword) => keyword.trim()).filter(Boolean),
-      ),
-    );
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`
-        UPDATE "Club"
-        SET "vibeVector" = ${vibeVectorLiteral}::vector
-        WHERE "id" = ${clubId}
-      `;
-
-      const personalities = await Promise.all(
-        uniqueKeywords.map((keyword) =>
-          tx.personality.upsert({
-            where: { body: keyword },
-            update: {},
-            create: { body: keyword },
-            select: { id: true },
-          }),
-        ),
-      );
-
-      await tx.clubKeyword.createMany({
-        data: personalities.map(({ id }) => ({
-          clubId,
-          keywordId: id,
-        })),
-        skipDuplicates: true,
-      });
-    });
+    await this.prisma.$executeRaw`
+      UPDATE "Club"
+      SET "vibeVector" = ${vibeVectorLiteral}::vector
+      WHERE "id" = ${clubId}
+    `;
   }
 
   async deleteCreatedClub(clubId: bigint, hostId: bigint): Promise<void> {
@@ -176,6 +141,37 @@ export class ClubRepository {
     });
   }
 
+  // 클럽 채팅방 표시용 기본 정보.
+  async findClubBasic(clubId: bigint): Promise<{
+    id: bigint;
+    name: string;
+    thumbnailUrl: string | null;
+    hostId: bigint | null;
+    deletedAt: Date | null;
+  } | null> {
+    return this.prisma.club.findUnique({
+      where: { id: clubId },
+      select: {
+        id: true,
+        name: true,
+        thumbnailUrl: true,
+        hostId: true,
+        deletedAt: true,
+      },
+    });
+  }
+
+  // 채팅방 목록 표시용 배치 조회.
+  async findClubBriefsByIds(
+    clubIds: bigint[],
+  ): Promise<Array<{ id: bigint; name: string; thumbnailUrl: string | null }>> {
+    if (clubIds.length === 0) return [];
+    return this.prisma.club.findMany({
+      where: { id: { in: clubIds } },
+      select: { id: true, name: true, thumbnailUrl: true },
+    });
+  }
+
   async findManyForList(
     params: ListClubsRepositoryParams,
   ): Promise<ClubListRow[]> {
@@ -190,40 +186,13 @@ export class ClubRepository {
   async updateClub(
     params: UpdateClubRepositoryParams,
   ): Promise<UpdatedClubRow> {
-    const keywordIds = params.keywordIds;
     const vibeVectorLiteral =
       params.vibeVector === undefined
         ? undefined
         : toPgVectorLiteral(params.vibeVector);
 
-    if (keywordIds !== undefined && keywordIds.length > 0) {
-      const keywordCount = await this.prisma.personality.count({
-        where: { id: { in: keywordIds } },
-      });
-
-      if (keywordCount !== keywordIds.length) {
-        throw new AppException('KEYWORD_NOT_FOUND');
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const hasClubData = Object.keys(params.data).length > 0;
-
-      if (keywordIds !== undefined) {
-        await tx.clubKeyword.deleteMany({
-          where: { clubId: params.clubId },
-        });
-
-        if (keywordIds.length > 0) {
-          await tx.clubKeyword.createMany({
-            data: keywordIds.map((keywordId) => ({
-              clubId: params.clubId,
-              keywordId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
 
       if (hasClubData) {
         await tx.club.update({
@@ -390,15 +359,6 @@ export class ClubRepository {
         OR: [
           { name: { contains: params.keyword } },
           { introText: { contains: params.keyword } },
-          {
-            clubKeywords: {
-              some: {
-                personality: {
-                  body: { contains: params.keyword },
-                },
-              },
-            },
-          },
         ],
       });
     }
@@ -529,6 +489,55 @@ export class ClubRepository {
     });
   }
 
+  async findTodayRecommendedClubs(
+    limit: number,
+  ): Promise<TodayRecommendedClubRow[]> {
+    return this.prisma.$queryRaw<TodayRecommendedClubRow[]>(Prisma.sql`
+      SELECT
+        c."id" AS "clubId",
+        c."name",
+        c."category"::text AS "category",
+        c."introText",
+        c."thumbnailUrl",
+        c."capacity",
+        c."likes",
+        u."id" AS "hostId",
+        u."nickname" AS "hostName",
+        u."profileImageUrl" AS "hostProfileImageUrl",
+        COALESCE(active_members."memberCount", 0)::int AS "memberCount",
+        (
+          c."likes" * 2
+          + COALESCE(active_members."memberCount", 0) * 3
+          + CASE
+              WHEN c."createdAt" >= NOW() - INTERVAL '7 days' THEN 30
+              WHEN c."createdAt" >= NOW() - INTERVAL '30 days' THEN 10
+              ELSE 0
+            END
+        )::int AS "recommendationScore"
+      FROM "Club" c
+      JOIN "User" u ON u."id" = c."hostId"
+      LEFT JOIN (
+        SELECT "clubId", COUNT(*)::int AS "memberCount"
+        FROM "ClubUser"
+        WHERE "leftAt" IS NULL
+          AND "status" = ${ClubUserStatus.ACTIVE}::"ClubUserStatus"
+        GROUP BY "clubId"
+      ) active_members ON active_members."clubId" = c."id"
+      WHERE c."deletedAt" IS NULL
+        AND c."hostId" IS NOT NULL
+        AND u."deletedAt" IS NULL
+        AND u."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
+        AND COALESCE(active_members."memberCount", 0) < c."capacity"
+      ORDER BY
+        "recommendationScore" DESC,
+        c."likes" DESC,
+        "memberCount" DESC,
+        c."createdAt" DESC,
+        c."id" DESC
+      LIMIT ${limit}
+    `);
+  }
+
   private createdClubSelect() {
     return {
       id: true,
@@ -536,6 +545,9 @@ export class ClubRepository {
       name: true,
       category: true,
       capacity: true,
+      thumbnailUrl: true,
+      approvalRequired: true,
+      boardPublic: true,
       createdAt: true,
       user: {
         select: {
@@ -552,6 +564,16 @@ export class ClubRepository {
               status: ClubUserStatus.ACTIVE,
             },
           },
+        },
+      },
+      clubImages: {
+        where: { deletedAt: null },
+        select: {
+          imageUrl: true,
+          sortOrder: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
         },
       },
     } satisfies Prisma.ClubSelect;
@@ -571,15 +593,34 @@ export class ClubRepository {
   async findActiveClubUser(
     userId: bigint,
     clubId: bigint,
-  ): Promise<{ id: bigint } | null> {
+  ): Promise<{ id: bigint; authority: ClubAuthority } | null> {
     return this.prisma.clubUser.findFirst({
       where: {
         userId,
         clubId,
         status: ClubUserStatus.ACTIVE,
         leftAt: null,
+        club: { deletedAt: null },
       },
-      select: { id: true },
+      select: { id: true, authority: true },
     });
+  }
+
+  async findActiveMembershipClubIds(
+    userId: bigint,
+    clubIds: bigint[],
+  ): Promise<bigint[]> {
+    if (clubIds.length === 0) return [];
+    const rows = await this.prisma.clubUser.findMany({
+      where: {
+        userId,
+        clubId: { in: clubIds },
+        status: ClubUserStatus.ACTIVE,
+        leftAt: null,
+        club: { deletedAt: null },
+      },
+      select: { clubId: true },
+    });
+    return rows.map((r) => r.clubId);
   }
 }

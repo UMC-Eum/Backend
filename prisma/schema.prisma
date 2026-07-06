@@ -49,6 +49,7 @@ enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM // 입장/퇴장 등 시스템 공지 메시지
 }
 
 enum ChatRoomStatus {
@@ -65,6 +66,11 @@ enum NotificationType {
   PROFILE
   REMIND
   UPDATE
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
 }
 
 enum ArticleCategory {
@@ -124,10 +130,11 @@ enum ChatRoomType {
 
 enum ClubCategory {
   SPORTS
-  LANGUAGE
+  HOBBY
+  CULTURE_ART
   VOLUNTEER
-  OUTDOOR
-  CULTURE
+  FOOD
+  STUDY
   OTHERS
 }
 
@@ -143,7 +150,7 @@ model User {
   deletedAt       DateTime?             @db.Timestamp(6)
   idealVoiceUrl   String?               @db.Text
   introVoiceUrl   String                @db.Text
-  introText       String                @db.VarChar(255)
+  introText       String                @db.Text
   profileImageUrl String                @db.Text
   status          ActiveStatus          @default(ACTIVE)
   code            String?               @db.Char(10)
@@ -160,6 +167,7 @@ model User {
   personalities          UserPersonality[]
   notifications          Notification[]           @relation("sentTo")
   notificationsFrom      Notification[]           @relation("sentBy")
+  pushDeviceTokens       PushDeviceToken[]
   chatRooms              ChatRoom[]
   chatParticipations     ChatParticipant[]
   userMarketingAgreement UserMarketingAgreement[]
@@ -177,6 +185,7 @@ model User {
   clubUsers              ClubUser[]
   clubLikes              ClubLike[]
   userReports            UserReport[]
+  recentSearchKeywords   RecentSearchKeyword[]
 
   @@unique([provider, providerUserId])
   @@index([status])
@@ -385,6 +394,24 @@ model Notification {
   @@index([sentById])
 }
 
+model PushDeviceToken {
+  id          BigInt       @id @default(autoincrement()) @db.BigInt
+  userId      BigInt       @db.BigInt
+  token       String       @unique @db.VarChar(512)
+  platform    PushPlatform
+  deviceId    String?      @db.VarChar(128)
+  appVersion  String?      @db.VarChar(32)
+  lastSeenAt  DateTime     @default(now()) @db.Timestamp(6)
+  revokedAt   DateTime?    @db.Timestamp(6)
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
+}
+
 model ChatRoom {
   id           BigInt            @id @default(autoincrement()) @db.BigInt
   userId       BigInt?           @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
@@ -398,18 +425,20 @@ model ChatRoom {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 채팅방은 보존.
   club Club? @relation(fields: [clubId], references: [id], onDelete: SetNull) //클럽이 사라져도 채팅방은 보존
 
+  @@unique([clubId]) //클럽당 채팅방 1개 (DIRECT은 clubId=null이라 다중 NULL 허용되어 무관)
   @@index([userId])
   @@index([status])
   @@index([startedAt])
 }
 
 model ChatParticipant {
-  id       BigInt        @id @default(autoincrement()) @db.BigInt
-  joinedAt DateTime      @default(now()) @db.Timestamp(6)
-  userId   BigInt?       @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
-  roomId   BigInt        @db.BigInt
-  endedAt  DateTime?     @db.Timestamp(6)
-  role     ClubAuthority @default(HOST)
+  id         BigInt        @id @default(autoincrement()) @db.BigInt
+  joinedAt   DateTime      @default(now()) @db.Timestamp(6)
+  userId     BigInt?       @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
+  roomId     BigInt        @db.BigInt
+  endedAt    DateTime?     @db.Timestamp(6)
+  role       ClubAuthority @default(GENERAL) //클럽 provisioning 시 ClubUser.authority로 명시 세팅
+  lastReadAt DateTime?     @db.Timestamp(6) //참여자별 읽음 커서 (DIRECT/CLUB 공통)
 
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade) //채팅방이 사라지면 참여자 기록도 삭제돼야 함.
   user User?    @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 남아야 함.
@@ -418,6 +447,7 @@ model ChatParticipant {
 
   @@unique([roomId, userId])
   @@index([userId])
+  @@index([roomId, endedAt]) //멤버 목록/인원수/읽음 집계용
 }
 
 model ChatMessage {
@@ -557,20 +587,22 @@ model ArticlePhoto {
 }
 
 model Club {
-  id            BigInt                @id @default(autoincrement()) @db.BigInt
-  hostId        BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
-  name          String                @db.VarChar(50)
-  introVoiceUrl String?               @db.Text
-  introText     String?               @db.VarChar(512)
-  category      ClubCategory          @default(OTHERS)
-  capacity      Int                   @db.Integer
-  createdAt     DateTime              @default(now()) @db.Timestamp(6)
-  updatedAt     DateTime?             @updatedAt @db.Timestamp(6)
-  deletedAt     DateTime?             @db.Timestamp(6)
-  code          String?               @db.Char(10)
-  likes         Int                   @db.Integer
-  vibeVector    Unsupported("vector")
-  thumbnailUrl  String?               @db.Text
+  id               BigInt                @id @default(autoincrement()) @db.BigInt
+  hostId           BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
+  name             String                @db.VarChar(50)
+  introVoiceUrl    String?               @db.Text
+  introText        String?               @db.VarChar(512)
+  category         ClubCategory          @default(OTHERS)
+  capacity         Int                   @db.Integer
+  createdAt        DateTime              @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime?             @updatedAt @db.Timestamp(6)
+  deletedAt        DateTime?             @db.Timestamp(6)
+  code             String?               @db.Char(10)
+  likes            Int                   @db.Integer
+  vibeVector       Unsupported("vector")
+  thumbnailUrl     String?               @db.Text
+  approvalRequired Boolean               @default(false)
+  boardPublic      Boolean               @default(true)
 
   user    User?    @relation(fields: [hostId], references: [id], onDelete: SetNull) // 호스트가 삭제돼도 클럽은 유지.
   address Address? @relation(fields: [code], references: [code], onDelete: SetNull) // 지역이 삭제돼도 클럽 유지.
@@ -580,11 +612,26 @@ model Club {
   clubUsers    ClubUser[]
   clubLikes    ClubLike[]
   meetings     Meeting[]
+  clubImages   ClubImage[]
   clubKeywords ClubKeyword[]
   clubReports  ClubReport[]
 
   @@index([category, createdAt])
   @@index([code, createdAt])
+}
+
+model ClubImage {
+  clubImageId BigInt    @id @default(autoincrement()) @db.BigInt
+  clubId      BigInt    @db.BigInt
+  imageUrl    String    @db.Text
+  sortOrder   Int       @db.Integer
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt   DateTime? @db.Timestamp(6)
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, sortOrder])
+  @@index([deletedAt])
 }
 
 model ClubUser {
@@ -703,6 +750,18 @@ model UserReport {
 
   @@unique([reportId])
   @@index([reportedUserId])
+}
+
+model RecentSearchKeyword {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  userId    BigInt   @db.BigInt
+  keyword   String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, keyword])
+  @@index([userId, createdAt])
 }
 
 model ClubReport {

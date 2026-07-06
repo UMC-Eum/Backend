@@ -29,6 +29,7 @@ Table User {
   personalities UserPersonality [not null]
   notifications Notification [not null]
   notificationsFrom Notification [not null]
+  pushDeviceTokens PushDeviceToken [not null]
   chatRooms ChatRoom [not null]
   chatParticipations ChatParticipant [not null]
   userMarketingAgreement UserMarketingAgreement [not null]
@@ -217,6 +218,20 @@ Table Notification {
   sentBy User
 }
 
+Table PushDeviceToken {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  token String [unique, not null]
+  platform PushPlatform [not null]
+  deviceId String
+  appVersion String
+  lastSeenAt DateTime [default: `now()`, not null]
+  revokedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  user User [not null]
+}
+
 Table ChatRoom {
   id BigInt [pk, increment]
   userId BigInt
@@ -224,7 +239,7 @@ Table ChatRoom {
   endedAt DateTime
   status ChatRoomStatus [not null, default: 'ACTIVE']
   type ChatRoomType [not null, default: 'DIRECT']
-  clubId BigInt
+  clubId BigInt [unique]
   participants ChatParticipant [not null]
   user User
   club Club
@@ -236,7 +251,8 @@ Table ChatParticipant {
   userId BigInt
   roomId BigInt [not null]
   endedAt DateTime
-  role ClubAuthority [not null, default: 'HOST']
+  role ClubAuthority [not null, default: 'GENERAL']
+  lastReadAt DateTime
   room ChatRoom [not null]
   user User
   chatMessages ChatMessage [not null]
@@ -371,6 +387,8 @@ Table Club {
   code String
   likes Int [not null]
   thumbnailUrl String
+  approvalRequired Boolean [not null, default: false]
+  boardPublic Boolean [not null, default: true]
   user User
   address Address
   chatRooms ChatRoom [not null]
@@ -378,8 +396,19 @@ Table Club {
   clubUsers ClubUser [not null]
   clubLikes ClubLike [not null]
   meetings Meeting [not null]
+  clubImages ClubImage [not null]
   clubKeywords ClubKeyword [not null]
   clubReports ClubReport [not null]
+}
+
+Table ClubImage {
+  clubImageId BigInt [pk, increment]
+  clubId BigInt [not null]
+  imageUrl String [not null]
+  sortOrder Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  club Club [not null]
 }
 
 Table ClubUser {
@@ -532,6 +561,7 @@ Enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM
 }
 
 Enum ChatRoomStatus {
@@ -548,6 +578,11 @@ Enum NotificationType {
   PROFILE
   REMIND
   UPDATE
+}
+
+Enum PushPlatform {
+  IOS
+  ANDROID
 }
 
 Enum ArticleCategory {
@@ -607,10 +642,11 @@ Enum ChatRoomType {
 
 Enum ClubCategory {
   SPORTS
-  LANGUAGE
+  HOBBY
+  CULTURE_ART
   VOLUNTEER
-  OUTDOOR
-  CULTURE
+  FOOD
+  STUDY
   OTHERS
 }
 
@@ -649,6 +685,8 @@ Ref: Report.reportedById > User.id [delete: Set Null]
 Ref: Notification.userId > User.id [delete: Cascade]
 
 Ref: Notification.sentById > User.id [delete: Cascade]
+
+Ref: PushDeviceToken.userId > User.id [delete: Cascade]
 
 Ref: ChatRoom.userId > User.id [delete: Set Null]
 
@@ -691,6 +729,8 @@ Ref: ArticlePhoto.clubUserId > ClubUser.id [delete: Set Null]
 Ref: Club.hostId > User.id [delete: Set Null]
 
 Ref: Club.code > Address.code [delete: Set Null]
+
+Ref: ClubImage.clubId > Club.id [delete: Cascade]
 
 Ref: ClubUser.userId > User.id [delete: Cascade]
 

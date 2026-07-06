@@ -67,6 +67,14 @@ export class UserPublicProfileResponseDto {
   })
   hasSentHeart!: boolean;
 
+  @ApiPropertyOptional({
+    example: 101,
+    nullable: true,
+    description:
+      '현재 로그인 사용자가 이 사용자에게 보낸 활성 하트 ID. 없으면 null',
+  })
+  sentHeartId!: number | null;
+
   @ApiProperty({ example: 'https://example.com/assets/profile.png' })
   profileImageUrl!: string;
 }

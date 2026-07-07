@@ -14,6 +14,8 @@ describe('ChatSocketService', () => {
 
   const participantRepoMock: Partial<ParticipantRepository> = {
     isParticipant: jest.fn(),
+    findPeerUserId: jest.fn(),
+    isBlockedBetweenUsers: jest.fn(),
   };
   const roomRepoMock: Partial<RoomRepository> = {
     getRoomTypeInfo: jest.fn(),
@@ -21,18 +23,30 @@ describe('ChatSocketService', () => {
   const clubRepoMock: Partial<ClubRepository> = {
     findActiveClubUser: jest.fn(),
   };
+  const messageRepoMock: Partial<MessageRepository> = {
+    createMessage: jest.fn(),
+  };
+  const chatMediaServiceMock: Partial<ChatMediaService> = {
+    toClientUrl: jest.fn(),
+  };
+  const notificationServiceMock: Partial<NotificationService> = {
+    createNotification: jest.fn(),
+  };
+  const prismaMock = {
+    user: { findFirst: jest.fn() },
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChatSocketService,
-        { provide: PrismaService, useValue: {} },
+        { provide: PrismaService, useValue: prismaMock },
         { provide: ParticipantRepository, useValue: participantRepoMock },
-        { provide: MessageRepository, useValue: {} },
+        { provide: MessageRepository, useValue: messageRepoMock },
         { provide: RoomRepository, useValue: roomRepoMock },
         { provide: ClubRepository, useValue: clubRepoMock },
-        { provide: ChatMediaService, useValue: {} },
-        { provide: NotificationService, useValue: {} },
+        { provide: ChatMediaService, useValue: chatMediaServiceMock },
+        { provide: NotificationService, useValue: notificationServiceMock },
       ],
     }).compile();
 
@@ -79,6 +93,52 @@ describe('ChatSocketService', () => {
         }),
       ).rejects.toMatchObject({ internalCode: 'VALIDATION_INVALID_FORMAT' });
       expect(participantRepoMock.isParticipant).not.toHaveBeenCalled();
+    });
+
+    it('should return ok, messageId and sentAt in the ACK for a TEXT message', async () => {
+      const sentAt = new Date('2025-12-30T04:06:00.000Z');
+      (participantRepoMock.isParticipant as jest.Mock).mockResolvedValue(true);
+      (roomRepoMock.getRoomTypeInfo as jest.Mock).mockResolvedValue({
+        type: 'DIRECT',
+        clubId: null,
+      });
+      (participantRepoMock.findPeerUserId as jest.Mock).mockResolvedValue(
+        BigInt(2),
+      );
+      (
+        participantRepoMock.isBlockedBetweenUsers as jest.Mock
+      ).mockResolvedValue(false);
+      (messageRepoMock.createMessage as jest.Mock).mockResolvedValue({
+        id: BigInt(9001),
+        sentAt,
+      });
+      (chatMediaServiceMock.toClientUrl as jest.Mock).mockResolvedValue(null);
+      prismaMock.user.findFirst.mockResolvedValue({ nickname: 'me' });
+      (
+        notificationServiceMock.createNotification as jest.Mock
+      ).mockResolvedValue({
+        id: BigInt(1),
+        type: 'CHAT',
+        title: 'me',
+        body: 'hello',
+        isRead: false,
+        createdAt: new Date(),
+      });
+
+      const emit = jest.fn();
+      const server = { to: jest.fn().mockReturnValue({ emit }) } as never;
+
+      const ack = await service.sendMessage(server, 1, {
+        chatRoomId: 10,
+        type: 'TEXT',
+        text: 'hello',
+      });
+
+      expect(ack).toEqual({
+        ok: true,
+        messageId: 9001,
+        sentAt: sentAt.toISOString(),
+      });
     });
   });
 });

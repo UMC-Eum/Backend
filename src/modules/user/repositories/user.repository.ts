@@ -9,6 +9,19 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
+export type ActiveUserProfileRow = {
+  id: bigint;
+  nickname: string;
+  sex: Sex;
+  age: number;
+  introText: string;
+  profileImageUrl: string;
+  address: {
+    fullName: string;
+    sigunguName: string | null;
+  } | null;
+};
+
 @Injectable()
 export class UserRepository {
   constructor(private readonly prismaService: PrismaService) {}
@@ -430,6 +443,87 @@ export class UserRepository {
         status: ActiveStatus.ACTIVE,
       },
       select: { id: true },
+    });
+  }
+
+  findActiveUserAreaById(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        address: {
+          select: {
+            sidoCode: true,
+            sigunguCode: true,
+          },
+        },
+      },
+    });
+  }
+
+  findAddressAreaByCode(code: string) {
+    return this.prismaService.address.findUnique({
+      where: { code },
+      select: {
+        sidoCode: true,
+        sigunguCode: true,
+      },
+    });
+  }
+
+  async findActiveUsersByIdsInArea({
+    userIds,
+    sidoCode,
+    sigunguCode,
+  }: {
+    userIds: number[];
+    sidoCode: string;
+    sigunguCode: string;
+  }): Promise<ActiveUserProfileRow[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    return this.prismaService.user.findMany({
+      where: {
+        id: { in: userIds.map((id) => BigInt(id)) },
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+        address: {
+          is: {
+            sidoCode,
+            sigunguCode,
+          },
+        },
+      },
+      select: {
+        id: true,
+        nickname: true,
+        sex: true,
+        age: true,
+        introText: true,
+        profileImageUrl: true,
+        address: {
+          select: {
+            fullName: true,
+            sigunguName: true,
+          },
+        },
+      },
+    });
+  }
+
+  updateLastActiveAt(userId: number, lastActiveAt: Date) {
+    return this.prismaService.user.updateMany({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      data: { lastActiveAt },
     });
   }
 

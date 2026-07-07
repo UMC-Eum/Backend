@@ -125,6 +125,10 @@
       <button onclick="connectWebSocket()" class="success">연결</button>
       <button onclick="disconnectWebSocket()" class="danger">연결 끊기</button>
       <button onclick="pingWS()">Ping</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+        <input type="checkbox" id="autoPing" onchange="toggleAutoPing()" style="width:auto;">
+        자동 ping (30초, 하트비트)
+      </label>
     </div>
 
     <!-- 채팅방 입장 & 메시지 전송 (WebSocket용) -->
@@ -223,6 +227,27 @@
         <button onclick="deleteMessageRest()" class="danger">전송취소</button>
       </div>
       <div id="deleteMessageResponse" class="response-box"></div>
+    </div>
+  </div>
+
+  <!-- 활동중 사용자 (REST) -->
+  <div class="section">
+    <h2>🟢 활동중 사용자 (REST)</h2>
+    <div class="api-group">
+      <h3>GET /users/active - 현재 활동중 사용자 조회</h3>
+      <p style="font-size: 12px; color: #666;">
+        내 지역(또는 areaCode) 기준 현재 활동중 유저. 데이터 소스는 <b>소켓 presence + 주기적 ping</b>이라
+        연결 후 ping(자동 ping 권장)을 보내고 있어야 뜹니다.
+        <b>본인은 결과에서 제외</b>되므로, 같은 지역 다른 유저가 접속+ping 중이어야 목록이 채워집니다(탭 2개로 테스트).
+      </p>
+      <div class="controls">
+        <input type="text" id="activeAreaCode" placeholder="areaCode (선택, 미지정 시 내 지역)">
+        <input type="number" id="activeSize" placeholder="size (기본 20)" value="20" min="1" max="50">
+        <input type="text" id="activeCursor" placeholder="cursor (다음 페이지용, 자동 채움)">
+        <button onclick="getActiveUsers(false)" class="success">활동중 조회</button>
+        <button onclick="getActiveUsers(true)" id="activeNextBtn" disabled>다음 페이지</button>
+      </div>
+      <div id="activeUsersResponse" class="response-box"></div>
     </div>
   </div>
 
@@ -523,6 +548,60 @@
 
       const result = await apiCall('PATCH', `/chats/messages/${messageId}`);
       showResponse('deleteMessageResponse', result.data, !result.ok);
+    }
+
+    // ============ 활동중 사용자 (REST) ============
+    async function getActiveUsers(useCursor = false) {
+      const areaCode = document.getElementById('activeAreaCode').value.trim();
+      const size = document.getElementById('activeSize').value.trim();
+      const cursor = document.getElementById('activeCursor').value.trim();
+
+      const params = new URLSearchParams();
+      if (areaCode) params.set('areaCode', areaCode);
+      if (size) params.set('size', size);
+      if (useCursor && cursor) params.set('cursor', cursor);
+
+      const qs = params.toString();
+      const result = await apiCall('GET', `/users/active${qs ? `?${qs}` : ''}`);
+      showResponse('activeUsersResponse', result.data, !result.ok);
+
+      if (!result.ok) {
+        document.getElementById('activeNextBtn').disabled = true;
+        return;
+      }
+
+      const data = pickData(result.data);
+      const items = data?.items ?? [];
+      const page = data?.page ?? {};
+
+      addLog(`🟢 활동중 ${items.length}명 (hasNext=${!!page.hasNext})`, 'success');
+      items.forEach((u) => {
+        addLog(
+          `  · [${u.userId}] ${u.nickname} (${u.gender ?? '-'}, ${u.age ?? '-'}) ${u.areaName ?? ''} · lastActive=${u.lastActiveAt}`,
+          'info',
+        );
+      });
+
+      // 다음 페이지 커서 자동 반영
+      document.getElementById('activeCursor').value = page.nextCursor ?? '';
+      document.getElementById('activeNextBtn').disabled = !page.hasNext;
+    }
+
+    // ============ 하트비트 자동 ping ============
+    let autoPingTimer = null;
+    function toggleAutoPing() {
+      const on = document.getElementById('autoPing').checked;
+      if (on) {
+        if (autoPingTimer) clearInterval(autoPingTimer);
+        autoPingTimer = setInterval(() => {
+          if (socket?.connected) socket.emit('ping', () => {});
+        }, 30000);
+        addLog('🫀 자동 ping 시작 (30초 간격)', 'success');
+      } else if (autoPingTimer) {
+        clearInterval(autoPingTimer);
+        autoPingTimer = null;
+        addLog('🫀 자동 ping 중지', 'warning');
+      }
     }
 
     // 초기화

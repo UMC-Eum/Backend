@@ -32,7 +32,9 @@ import {
 } from '../../dtos/user-clubs-response.dto';
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
+import { ActiveUsersResponseDto } from '../../dtos/user-active-response.dto';
 import { UserService } from '../../services/user/user.service';
+import { UserActivityService } from '../../services/user/user-activity.service';
 
 @ApiTags('User')
 @ApiBearerAuth('access-token')
@@ -43,7 +45,10 @@ import { UserService } from '../../services/user/user.service';
 })
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly userActivityService: UserActivityService,
+  ) {}
 
   @Get('me')
   @UseGuards(AccessTokenGuard)
@@ -90,6 +95,45 @@ export class UserController {
     @Query('size') size?: string,
   ) {
     return this.userService.getMyVisitors(userId ?? 0, { cursor, size });
+  }
+
+  @Get('active')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({
+    summary: 'Get currently active users in an area',
+    description:
+      '최근 2분 내 /chats WebSocket 활동이 있었던 같은 시군구 사용자를 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'areaCode',
+    required: false,
+    description:
+      '조회 기준 주소 코드. 생략하면 현재 로그인 사용자의 주소 시군구 기준으로 조회합니다.',
+    example: '1168000000',
+  })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: '페이지네이션 커서. 이전 응답의 nextCursor를 전달합니다.',
+  })
+  @ApiQuery({
+    name: 'size',
+    required: false,
+    description: '한 페이지당 사용자 수',
+    example: 20,
+  })
+  @ApiOkResponse({ type: ActiveUsersResponseDto })
+  getActiveUsers(
+    @CurrentUser('userId') userId: number | null,
+    @Query('areaCode') areaCode?: string,
+    @Query('cursor') cursor?: string,
+    @Query('size') size?: string,
+  ) {
+    return this.userActivityService.getActiveUsers(userId ?? 0, {
+      areaCode,
+      cursor,
+      size,
+    });
   }
 
   @Post(':userId/visits')

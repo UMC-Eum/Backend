@@ -24,6 +24,21 @@ NestJS 기반으로 구성되어 있으며, 초기 프로젝트 세팅과 공통
 
 ## 🚀 Getting Started
 
+### ⚡ 빠른 시작 요약
+
+```bash
+# 최초 세팅
+npm install                    # 의존성 설치 (postinstall로 prisma generate 자동 실행)
+npm run prisma:migrate:dev     # 로컬 DB 마이그레이션 적용
+
+# 실행
+npm run start:dev              # 개발 모드 (watch) — 기본 포트 3000
+```
+
+> 외부 공용 RDS를 사용할 경우 `migrate:dev` 대신 `npm run prisma:migrate:deploy`를 사용하세요 (아래 "빠른 실행" 참고).
+
+---
+
 ### 1️⃣ Requirements
 
 - Node.js >= 20
@@ -261,13 +276,18 @@ docker-compose.yml           # 로컬 backend 이미지 단독 실행용
 ## 📌 Scripts
 
 ```bash
-npm run start         # production 실행
-npm run start:dev     # development 실행 (watch)
-npm run build         # build
-npm run lint          # lint
-npm run test          # unit test
-npm run typecheck     # 타입 체크(tsc --noEmit)
-npm run prisma:generate # prisma client generate
+npm run start           # 실행 (nest start)
+npm run start:dev       # development 실행 (watch)
+npm run start:prod      # production 실행 (dist/src/main.js)
+npm run build           # build (prisma generate + nest build)
+npm run lint            # lint
+npm run test            # unit test
+npm run typecheck       # 타입 체크(tsc --noEmit)
+npm run prisma:generate         # prisma client generate
+npm run prisma:migrate:dev      # 로컬 DB 마이그레이션 (개발)
+npm run prisma:migrate:deploy   # 마이그레이션 배포 (공용/prod)
+npm run prisma:migrate:reset    # 마이그레이션 리셋 (데이터 삭제 주의)
+npm run prisma:studio           # Prisma Studio 실행
 ```
 
 ---

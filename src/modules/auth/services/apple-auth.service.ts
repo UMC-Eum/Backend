@@ -81,14 +81,6 @@ export class AppleAuthService {
         clientId,
       );
 
-      phase = 'exchange_authorization_code';
-      if (request.authorizationCode) {
-        await this.exchangeAuthorizationCode(
-          request.authorizationCode,
-          clientId,
-        );
-      }
-
       providerUserId = identity.sub;
       const nickname =
         request.name?.trim() || `apple_${providerUserId.slice(0, 8)}`;
@@ -275,20 +267,28 @@ export class AppleAuthService {
       });
     }
 
-    const clientSecret = jwt.sign(
-      {
-        iss: teamId,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 60 * 60,
-        aud: AppleAuthService.APPLE_ISSUER,
-        sub: clientId,
-      },
-      createPrivateKey(privateKey),
-      {
-        algorithm: 'ES256',
-        keyid: keyId,
-      },
-    );
+    let clientSecret: string;
+    try {
+      clientSecret = jwt.sign(
+        {
+          iss: teamId,
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          aud: AppleAuthService.APPLE_ISSUER,
+          sub: clientId,
+        },
+        createPrivateKey(privateKey),
+        {
+          algorithm: 'ES256',
+          keyid: keyId,
+        },
+      );
+    } catch (error) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Apple private key is invalid.',
+        details: error,
+      });
+    }
 
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -326,7 +326,16 @@ export class AppleAuthService {
       return null;
     }
 
-    return privateKey.replaceAll('\\n', '\n');
+    const unquoted = privateKey.trim().replace(/^['"]|['"]$/g, '');
+    const maybePem = unquoted.includes('BEGIN')
+      ? unquoted
+      : Buffer.from(unquoted, 'base64').toString('utf8');
+
+    return maybePem
+      .trim()
+      .replaceAll('\\\\n', '\n')
+      .replaceAll('\\n', '\n')
+      .replaceAll('\r\n', '\n');
   }
 
   private async rotateRefreshTokens(refreshToken: string, userId: number) {

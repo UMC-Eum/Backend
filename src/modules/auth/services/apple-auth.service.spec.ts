@@ -7,21 +7,29 @@ describe('AppleAuthService', () => {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
   });
+  const { privateKey: appleClientPrivateKey } = generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+  });
+  const appleClientPrivateKeyPem = appleClientPrivateKey
+    .export({ type: 'pkcs8', format: 'pem' })
+    .toString();
   const publicJwk = publicKey.export({ format: 'jwk' });
   const kid = 'apple-test-key';
   const clientId = 'com.eum.app';
+  const configValues: Record<string, string> = {
+    APPLE_CLIENT_ID: clientId,
+    APPLE_TEAM_ID: 'TEAMID1234',
+    APPLE_KEY_ID: 'KEYID1234',
+    APPLE_PRIVATE_KEY: appleClientPrivateKeyPem,
+    JWT_ACCESS_SECRET: 'access-secret',
+    JWT_REFRESH_SECRET: 'refresh-secret',
+    JWT_ACCESS_EXPIRES_IN: '1h',
+    JWT_REFRESH_EXPIRES_IN: '14d',
+  };
 
   const configServiceMock = {
     get: jest.fn((key: string, defaultValue?: string) => {
-      const values: Record<string, string> = {
-        APPLE_CLIENT_ID: clientId,
-        JWT_ACCESS_SECRET: 'access-secret',
-        JWT_REFRESH_SECRET: 'refresh-secret',
-        JWT_ACCESS_EXPIRES_IN: '1h',
-        JWT_REFRESH_EXPIRES_IN: '14d',
-      };
-
-      return values[key] ?? defaultValue;
+      return configValues[key] ?? defaultValue;
     }),
   };
   const jwtTokenServiceMock = {
@@ -44,6 +52,7 @@ describe('AppleAuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    configValues.APPLE_PRIVATE_KEY = appleClientPrivateKeyPem;
 
     fetchMock = jest.fn().mockResolvedValue({
       ok: true,
@@ -139,5 +148,20 @@ describe('AppleAuthService', () => {
     });
 
     expect(userRepositoryMock.upsertAppleUser).not.toHaveBeenCalled();
+  });
+
+  it('authorization code가 전달되어도 Apple token endpoint를 호출하지 않는다', async () => {
+    const escapedPrivateKey = appleClientPrivateKeyPem.replaceAll('\n', '\\n');
+    configValues.APPLE_PRIVATE_KEY = `"${Buffer.from(escapedPrivateKey).toString('base64')}"`;
+
+    await service.loginWithApple({
+      identityToken: signIdentityToken(),
+      authorizationCode: 'apple-auth-code',
+    });
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      'https://appleid.apple.com/auth/token',
+      expect.anything(),
+    );
   });
 });

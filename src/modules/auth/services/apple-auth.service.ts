@@ -62,92 +62,117 @@ export class AppleAuthService {
     request: AppleLoginRequestDto,
     clientIdOverride?: string,
   ): Promise<AppleLoginResult> {
-    const clientId =
-      clientIdOverride ?? this.configService.get<string>('APPLE_CLIENT_ID');
+    let phase = 'load_config';
+    let providerUserId: string | undefined;
 
-    if (!clientId) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: 'Apple client ID is not configured.',
+    try {
+      const clientId =
+        clientIdOverride ?? this.configService.get<string>('APPLE_CLIENT_ID');
+
+      if (!clientId) {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: 'Apple client ID is not configured.',
+        });
+      }
+
+      phase = 'verify_identity_token';
+      const identity = await this.verifyIdentityToken(
+        request.identityToken,
+        clientId,
+      );
+
+      phase = 'exchange_authorization_code';
+      if (request.authorizationCode) {
+        await this.exchangeAuthorizationCode(
+          request.authorizationCode,
+          clientId,
+        );
+      }
+
+      providerUserId = identity.sub;
+      const nickname =
+        request.name?.trim() || `apple_${providerUserId.slice(0, 8)}`;
+      const appleEmail = request.email?.trim() || identity.email || null;
+      const email = appleEmail ?? `apple-${providerUserId}@apple.local`;
+
+      phase = 'upsert_user';
+      const userRecord = await this.userRepository.upsertAppleUser({
+        providerUserId,
+        nickname,
+        email,
+        shouldUpdateEmail: Boolean(appleEmail),
+        defaultBirthdate: AppleAuthService.DEFAULT_BIRTHDATE,
+        defaultAddressCode: AppleAuthService.DEFAULT_ADDRESS_CODE,
+        defaultIntroVoiceUrl: AppleAuthService.DEFAULT_INTRO_VOICE_URL,
+        defaultProfileImageUrl: AppleAuthService.DEFAULT_PROFILE_IMAGE_URL,
       });
+
+      if (!userRecord) {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: '애플 신규 유저 생성에 실패했습니다.',
+        });
+      }
+
+      const userId = Number(userRecord.user.id) || 0;
+
+      phase = 'ensure_user_can_login';
+      await this.ensureUserCanLogin(userId, userRecord.user.status);
+
+      const payload = {
+        sub: userId,
+        provider: 'apple',
+      };
+
+      phase = 'issue_tokens';
+      const accessExpiresIn = this.configService.get<string>(
+        'JWT_ACCESS_EXPIRES_IN',
+        '1h',
+      ) as SignOptions['expiresIn'];
+      const accessToken = this.jwtTokenService.sign(
+        payload,
+        this.configService.get<string>(
+          'JWT_ACCESS_SECRET',
+          'dev-access-secret',
+        ),
+        accessExpiresIn,
+      );
+
+      const refreshSecret = this.configService.get<string>(
+        'JWT_REFRESH_SECRET',
+        'dev-refresh-secret',
+      );
+      const refreshExpiresIn = this.configService.get<string>(
+        'JWT_REFRESH_EXPIRES_IN',
+        '14d',
+      ) as SignOptions['expiresIn'];
+      const refreshToken = this.jwtTokenService.sign(
+        payload,
+        refreshSecret,
+        refreshExpiresIn,
+      );
+
+      phase = 'rotate_refresh_token';
+      await this.rotateRefreshTokens(refreshToken, userId);
+
+      const onboardingRequired = this.isOnboardingRequired(userRecord.user);
+
+      return {
+        accessToken,
+        refreshToken,
+        isNewUser: userRecord.isNewUser,
+        onboardingRequired,
+        user: {
+          userId,
+          nickname: userRecord.user.nickname || null,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Apple login failed at ${phase}. ${this.formatLoginError(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
     }
-
-    const identity = await this.verifyIdentityToken(
-      request.identityToken,
-      clientId,
-    );
-
-    if (request.authorizationCode) {
-      await this.exchangeAuthorizationCode(request.authorizationCode, clientId);
-    }
-
-    const providerUserId = identity.sub;
-    const nickname =
-      request.name?.trim() || `apple_${providerUserId.slice(0, 8)}`;
-    const appleEmail = request.email?.trim() || identity.email || null;
-    const email = appleEmail ?? `apple-${providerUserId}@apple.local`;
-
-    const userRecord = await this.userRepository.upsertAppleUser({
-      providerUserId,
-      nickname,
-      email,
-      shouldUpdateEmail: Boolean(appleEmail),
-      defaultBirthdate: AppleAuthService.DEFAULT_BIRTHDATE,
-      defaultAddressCode: AppleAuthService.DEFAULT_ADDRESS_CODE,
-      defaultIntroVoiceUrl: AppleAuthService.DEFAULT_INTRO_VOICE_URL,
-      defaultProfileImageUrl: AppleAuthService.DEFAULT_PROFILE_IMAGE_URL,
-    });
-
-    if (!userRecord) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: '애플 신규 유저 생성에 실패했습니다.',
-      });
-    }
-
-    const userId = Number(userRecord.user.id) || 0;
-    await this.ensureUserCanLogin(userId, userRecord.user.status);
-
-    const payload = {
-      sub: userId,
-      provider: 'apple',
-    };
-
-    const accessExpiresIn = this.configService.get<string>(
-      'JWT_ACCESS_EXPIRES_IN',
-      '1h',
-    ) as SignOptions['expiresIn'];
-    const accessToken = this.jwtTokenService.sign(
-      payload,
-      this.configService.get<string>('JWT_ACCESS_SECRET', 'dev-access-secret'),
-      accessExpiresIn,
-    );
-
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
-    const refreshExpiresIn = this.configService.get<string>(
-      'JWT_REFRESH_EXPIRES_IN',
-      '14d',
-    ) as SignOptions['expiresIn'];
-    const refreshToken = this.jwtTokenService.sign(
-      payload,
-      refreshSecret,
-      refreshExpiresIn,
-    );
-    await this.rotateRefreshTokens(refreshToken, userId);
-
-    const onboardingRequired = this.isOnboardingRequired(userRecord.user);
-
-    return {
-      accessToken,
-      refreshToken,
-      isNewUser: userRecord.isNewUser,
-      onboardingRequired,
-      user: {
-        userId,
-        nickname: userRecord.user.nickname || null,
-      },
-    };
   }
 
   private async verifyIdentityToken(
@@ -370,5 +395,18 @@ export class AppleAuthService {
       user.code === null ||
       user.code === AppleAuthService.DEFAULT_ADDRESS_CODE
     );
+  }
+
+  private formatLoginError(error: unknown): string {
+    if (error instanceof AppException) {
+      const response = error.getResponse();
+      return `internalCode=${error.internalCode}, response=${JSON.stringify(response)}`;
+    }
+
+    if (error instanceof Error) {
+      return `${error.name}: ${error.message}`;
+    }
+
+    return String(error);
   }
 }

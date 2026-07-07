@@ -84,6 +84,7 @@ export type LikeArticleResult =
         likes: number;
         userId: bigint | null;
         user: { nickname: string } | null;
+        club: { name: string };
       };
       sender: { nickname: string } | null;
       created: boolean;
@@ -118,6 +119,21 @@ export class ArticleRepository {
     });
 
     return club !== null;
+  }
+
+  async findClubReadSettings(
+    clubId: number,
+  ): Promise<{ id: bigint; boardPublic: boolean } | null> {
+    return this.prisma.club.findFirst({
+      where: {
+        id: BigInt(clubId),
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        boardPublic: true,
+      },
+    });
   }
 
   async existsActiveClubUser(userId: number, clubId: number): Promise<boolean> {
@@ -566,6 +582,11 @@ export class ArticleRepository {
               nickname: true,
             },
           },
+          club: {
+            select: {
+              name: true,
+            },
+          },
         },
       });
 
@@ -620,6 +641,11 @@ export class ArticleRepository {
           user: {
             select: {
               nickname: true,
+            },
+          },
+          club: {
+            select: {
+              name: true,
             },
           },
         },

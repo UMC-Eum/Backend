@@ -10,7 +10,10 @@ import {
 import { OnboardingAiService } from './onboarding-ai.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { ClubRepository } from '../../club/repositories/club.repository';
-import { normalizeS3ObjectRef } from '../../../common/s3/s3-object-url.service';
+import {
+  normalizeS3ObjectRef,
+  S3ObjectUrlService,
+} from '../../../common/s3/s3-object-url.service';
 
 @Injectable()
 export class OnboardingService {
@@ -18,16 +21,23 @@ export class OnboardingService {
     private readonly onboardingRepository: OnboardingRepository,
     private readonly onboardingAiService: OnboardingAiService,
     private readonly clubRepository: ClubRepository,
+    private readonly s3ObjectUrlService: S3ObjectUrlService,
   ) {}
 
   async createUserProfile(
     userId: number,
     dto: CreateProfileRequestDto,
   ): Promise<CreateProfileResponseDto> {
-    const analysis = await this.onboardingAiService.analyzeProfile(userId, dto);
+    const storedIntroAudioUrl = normalizeS3ObjectRef(dto.introAudioUrl);
+    const analysisIntroAudioUrl =
+      await this.s3ObjectUrlService.toClientUrl(storedIntroAudioUrl);
+    const analysis = await this.onboardingAiService.analyzeProfile(userId, {
+      ...dto,
+      introAudioUrl: analysisIntroAudioUrl ?? storedIntroAudioUrl,
+    });
     const profileDto: CreateProfileDto = {
       ...dto,
-      introAudioUrl: normalizeS3ObjectRef(dto.introAudioUrl),
+      introAudioUrl: storedIntroAudioUrl,
       introText: analysis.transcript,
       selectedKeywords: analysis.selectedKeywords,
       vibeVector: analysis.vibeVector,

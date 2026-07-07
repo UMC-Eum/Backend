@@ -259,6 +259,7 @@ export class UserService {
       participatingClubs,
       hostingClubs: Array.from(hostingClubsById.values()),
       hasSentHeart: Boolean(sentHeart),
+      sentHeartId: sentHeart ? Number(sentHeart.id) : null,
       profileImageUrl: user.profileImageUrl,
     };
   }

@@ -91,8 +91,8 @@ export class CommentService {
     ) {
       await this.createCommentNotification({
         receiverId: Number(parentComment.userId),
-        title: '내 댓글에 답글이 달렸어요.',
-        body: `${comment.user.nickname}님이 ${parentComment.user?.nickname ?? '회원'}님의 댓글에 답글을 남겼어요.`,
+        title: '회원님의 댓글에 답글이 달렸어요.',
+        body: `[${club.name}]${comment.user.nickname}님이 회원님의 댓글에 답글을 남겼어요.`,
         senderId: userId,
         context: 'reply',
       });
@@ -101,8 +101,8 @@ export class CommentService {
     if (article.userId && Number(article.userId) !== userId && comment.user) {
       await this.createCommentNotification({
         receiverId: Number(article.userId),
-        title: '내 게시물에 댓글이 달렸어요.',
-        body: `${comment.user.nickname}님이 ${article.user?.nickname ?? '회원'}님의 게시물에 댓글을 남겼어요.`,
+        title: '회원님의 게시물에 댓글이 달렸어요.',
+        body: `[${club.name}]${comment.user.nickname}님이 회원님의 게시물에 댓글을 남겼어요.`,
         senderId: userId,
         context: 'article',
       });
@@ -224,7 +224,26 @@ export class CommentService {
     clubId: number,
     articleId: number,
   ) {
-    await this.validateArticleExists(clubId, articleId);
+    const club = await this.clubRepository.findBoardReadSettings(
+      BigInt(clubId),
+    );
+
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    const article = await this.commentRepository.findArticleByClubId(
+      BigInt(clubId),
+      BigInt(articleId),
+    );
+
+    if (!article) {
+      throw new AppException('ARTICLE_NOT_FOUND');
+    }
+
+    if (club.boardPublic) {
+      return;
+    }
 
     const clubUser = await this.clubRepository.findActiveClubUser(
       BigInt(userId),

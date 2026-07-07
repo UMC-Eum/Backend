@@ -64,8 +64,8 @@ describe('ArticleController', () => {
     };
     serviceMock.findArchivePhotos.mockResolvedValue(expected);
 
-    const res = await controller.findArchive(1, { sort: 'recent' });
-    expect(serviceMock.findArchivePhotos).toHaveBeenCalledWith(1, {
+    const res = await controller.findArchive(10, 1, { sort: 'recent' });
+    expect(serviceMock.findArchivePhotos).toHaveBeenCalledWith(10, 1, {
       sort: 'recent',
     });
     expect(res).toEqual(expected);

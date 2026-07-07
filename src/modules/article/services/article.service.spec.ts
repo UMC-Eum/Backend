@@ -20,6 +20,7 @@ describe('ArticleService', () => {
     findArchivePhotos: jest.fn(),
     existsClub: jest.fn(),
     existsActiveClubUser: jest.fn(),
+    findClubReadSettings: jest.fn(),
   };
   const notificationServiceMock = {
     createNotification: jest.fn(),
@@ -68,8 +69,49 @@ describe('ArticleService', () => {
   });
 
   describe('findArticleDetail', () => {
-    it('checks active club membership before reading detail', async () => {
-      repositoryMock.existsClub.mockResolvedValue(true);
+    it('allows authenticated non-members to read detail when club board is public', async () => {
+      repositoryMock.findClubReadSettings.mockResolvedValue({
+        id: 1n,
+        boardPublic: true,
+      });
+      repositoryMock.findArticleDetail.mockResolvedValue({
+        article: {
+          id: 1n,
+          clubId: 1n,
+          title: 'title',
+          contents: 'contents',
+          category: 'FREE',
+          isPinned: false,
+          view: 1,
+          likes: 0,
+          userId: 2n,
+          user: {
+            id: 2n,
+            nickname: 'author',
+            profileImageUrl: 'https://example.com/profile.jpg',
+          },
+          articleLikes: [],
+          articlePhotos: [],
+          comments: [],
+          createdAt: new Date('2026-05-01T17:40:00.000Z'),
+          updatedAt: null,
+        },
+        authorAuthorities: new Map(),
+      });
+
+      const res = await service.findArticleDetail(10, 1, 1);
+
+      expect(repositoryMock.existsActiveClubUser).not.toHaveBeenCalled();
+      expect(repositoryMock.findArticleDetail).toHaveBeenCalledWith(10, 1, 1);
+      expect(res.isMine).toBe(false);
+      expect(res.isLiked).toBe(false);
+    });
+
+    it('checks active club membership before reading private club detail', async () => {
+      repositoryMock.findClubReadSettings.mockResolvedValue({
+        id: 1n,
+        boardPublic: false,
+      });
       repositoryMock.existsActiveClubUser.mockResolvedValue(false);
 
       await expect(service.findArticleDetail(1, 1, 1)).rejects.toMatchObject({
@@ -138,6 +180,7 @@ describe('ArticleService', () => {
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });
@@ -148,8 +191,8 @@ describe('ArticleService', () => {
       expect(notificationServiceMock.createNotification).toHaveBeenCalledWith(
         20,
         NotificationType.ARTICLE,
-        '게시글에 좋아요가 눌렸어요.',
-        '보낸사람님이 받는사람님의 게시물을 좋아합니다.',
+        '회원님의 게시물에 좋아요가 눌렸어요.',
+        '[한강 라이딩 동호회]보낸사람님이 회원님의 게시물에 좋아요를 눌렀어요.',
         11,
       );
     });
@@ -165,6 +208,7 @@ describe('ArticleService', () => {
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });
@@ -179,6 +223,7 @@ describe('ArticleService', () => {
           likes: 4,
           userId: BigInt(11),
           user: { nickname: '보낸사람' },
+          club: { name: '한강 라이딩 동호회' },
         },
         sender: { nickname: '보낸사람' },
       });
@@ -203,7 +248,10 @@ describe('ArticleService', () => {
 
   describe('findArchivePhotos', () => {
     it('returns archive response with paginated photos', async () => {
-      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.findClubReadSettings.mockResolvedValue({
+        id: 1n,
+        boardPublic: true,
+      });
       repositoryMock.findArchivePhotos.mockResolvedValue([
         {
           id: BigInt(101),
@@ -213,7 +261,7 @@ describe('ArticleService', () => {
         },
       ]);
 
-      const res = await service.findArchivePhotos(1, { sort: 'recent' });
+      const res = await service.findArchivePhotos(10, 1, { sort: 'recent' });
 
       expect(res.items).toHaveLength(1);
       expect(res.items[0].photoId).toBe(101);
@@ -223,7 +271,10 @@ describe('ArticleService', () => {
     });
 
     it('sets hasMore true when extra photo exists', async () => {
-      repositoryMock.existsClub.mockResolvedValue(true);
+      repositoryMock.findClubReadSettings.mockResolvedValue({
+        id: 1n,
+        boardPublic: true,
+      });
       const mockPhotos = Array(21)
         .fill(0)
         .map((_, i) => ({
@@ -234,7 +285,7 @@ describe('ArticleService', () => {
         }));
       repositoryMock.findArchivePhotos.mockResolvedValue(mockPhotos);
 
-      const res = await service.findArchivePhotos(1, { limit: 20 });
+      const res = await service.findArchivePhotos(10, 1, { limit: 20 });
 
       expect(res.items).toHaveLength(20);
       expect(res.hasMore).toBe(true);
@@ -242,10 +293,10 @@ describe('ArticleService', () => {
     });
 
     it('throws AppException when club not found', async () => {
-      repositoryMock.existsClub.mockResolvedValue(false);
+      repositoryMock.findClubReadSettings.mockResolvedValue(null);
 
       await expect(
-        service.findArchivePhotos(999, { sort: 'recent' }),
+        service.findArchivePhotos(10, 999, { sort: 'recent' }),
       ).rejects.toThrow();
     });
   });

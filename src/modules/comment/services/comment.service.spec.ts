@@ -23,6 +23,7 @@ describe('CommentService', () => {
   };
   const clubRepository = {
     findById: jest.fn(),
+    findBoardReadSettings: jest.fn(),
     findActiveClubUser: jest.fn(),
   };
   const notificationService = {
@@ -64,7 +65,11 @@ describe('CommentService', () => {
   });
 
   it('댓글을 작성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.createComment.mockResolvedValue({
@@ -103,7 +108,11 @@ describe('CommentService', () => {
   });
 
   it('게시글에 댓글을 작성하면 게시글 작성자에게 알림을 생성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({
       id: 1n,
       userId: 2n,
@@ -132,8 +141,8 @@ describe('CommentService', () => {
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       2,
       NotificationType.COMMENT,
-      '내 게시물에 댓글이 달렸어요.',
-      '댓글작성자님이 게시글작성자님의 게시물에 댓글을 남겼어요.',
+      '회원님의 게시물에 댓글이 달렸어요.',
+      '[동작구 뜨개질 모임]댓글작성자님이 회원님의 게시물에 댓글을 남겼어요.',
       1,
     );
   });
@@ -183,7 +192,11 @@ describe('CommentService', () => {
   });
 
   it('답글을 작성하면 부모 댓글 작성자에게 알림을 생성한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findById.mockResolvedValue({
+      id: 1n,
+      name: '동작구 뜨개질 모임',
+      deletedAt: null,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.findParentComment.mockResolvedValue({
@@ -214,8 +227,8 @@ describe('CommentService', () => {
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       2,
       NotificationType.COMMENT,
-      '내 댓글에 답글이 달렸어요.',
-      '자식작성자님이 부모작성자님의 댓글에 답글을 남겼어요.',
+      '회원님의 댓글에 답글이 달렸어요.',
+      '[동작구 뜨개질 모임]자식작성자님이 회원님의 댓글에 답글을 남겼어요.',
       1,
     );
   });
@@ -286,7 +299,11 @@ describe('CommentService', () => {
   });
 
   it('댓글 목록을 조회한다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
@@ -349,8 +366,49 @@ describe('CommentService', () => {
     });
   });
 
+  it('게시판이 공개 상태면 인증된 비회원도 댓글 목록을 조회한다', async () => {
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: true,
+    });
+    repository.findArticleByClubId.mockResolvedValue({ id: 1n });
+    repository.countComments.mockResolvedValue(1);
+    repository.findCommentsWithReplies.mockResolvedValue([
+      {
+        id: 555n,
+        articleId: 1n,
+        parentCommentId: null,
+        depth: 0,
+        contents: '공개 댓글',
+        userId: 2n,
+        createdAt: new Date('2026-05-01T15:20:00.000Z'),
+        user: {
+          id: 2n,
+          nickname: '보이스마스터',
+          profileImageUrl: 'https://cdn.example.com/profile/2.jpg',
+          clubUsers: [{ authority: ClubAuthority.GENERAL }],
+        },
+        replies: [],
+      },
+    ]);
+
+    const result = await service.listComments(userId, clubId, articleId, {});
+
+    expect(clubRepository.findActiveClubUser).not.toHaveBeenCalled();
+    expect(result.comments[0]).toMatchObject({
+      commentId: 555,
+      isMine: false,
+      contents: '공개 댓글',
+    });
+  });
+
   it('limit보다 결과가 많으면 nextCursor와 hasMore를 내려준다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue({ id: 10n });
     repository.countComments.mockResolvedValue(2);
@@ -399,7 +457,11 @@ describe('CommentService', () => {
   });
 
   it('클럽 멤버가 아니면 댓글 목록 조회가 거부된다', async () => {
-    clubRepository.findById.mockResolvedValue({ id: 1n, deletedAt: null });
+    clubRepository.findBoardReadSettings.mockResolvedValue({
+      id: 1n,
+      deletedAt: null,
+      boardPublic: false,
+    });
     repository.findArticleByClubId.mockResolvedValue({ id: 1n });
     clubRepository.findActiveClubUser.mockResolvedValue(null);
 

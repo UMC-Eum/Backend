@@ -123,6 +123,7 @@ export class ClubRepository {
   async findById(clubId: bigint): Promise<{
     id: bigint;
     hostId: bigint | null;
+    name: string;
     capacity: number;
     deletedAt: Date | null;
     introText: string | null;
@@ -132,6 +133,7 @@ export class ClubRepository {
       select: {
         id: true,
         hostId: true,
+        name: true,
         capacity: true,
         deletedAt: true,
         introText: true,
@@ -155,6 +157,21 @@ export class ClubRepository {
         thumbnailUrl: true,
         hostId: true,
         deletedAt: true,
+      },
+    });
+  }
+
+  async findBoardReadSettings(clubId: bigint): Promise<{
+    id: bigint;
+    deletedAt: Date | null;
+    boardPublic: boolean;
+  } | null> {
+    return this.prisma.club.findUnique({
+      where: { id: clubId },
+      select: {
+        id: true,
+        deletedAt: true,
+        boardPublic: true,
       },
     });
   }

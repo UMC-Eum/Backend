@@ -56,23 +56,19 @@ export class LocalAuthService {
       provider: 'local',
     };
 
-    const accessExpiresIn = this.configService.get<string>(
+    const accessExpiresIn = this.configService.getOrThrow<string>(
       'JWT_ACCESS_EXPIRES_IN',
-      '1h',
     ) as SignOptions['expiresIn'];
     const accessToken = this.jwtTokenService.sign(
       payload,
-      this.configService.get<string>('JWT_ACCESS_SECRET', 'dev-access-secret'),
+      this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       accessExpiresIn,
     );
 
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
-    const refreshExpiresIn = this.configService.get<string>(
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const refreshExpiresIn = this.configService.getOrThrow<string>(
       'JWT_REFRESH_EXPIRES_IN',
-      '14d',
     ) as SignOptions['expiresIn'];
     const refreshToken = this.jwtTokenService.sign(
       payload,
@@ -120,10 +116,8 @@ export class LocalAuthService {
   }
 
   private async rotateRefreshTokens(refreshToken: string, userId: number) {
-    const refreshSecret = this.configService.get<string>(
-      'JWT_REFRESH_SECRET',
-      'dev-refresh-secret',
-    );
+    const refreshSecret =
+      this.configService.getOrThrow<string>('JWT_REFRESH_SECRET');
     const payload = this.jwtTokenService.verify(refreshToken, refreshSecret);
     const expiresAt = new Date(payload.exp * 1000);
 

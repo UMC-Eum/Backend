@@ -35,10 +35,11 @@ export class ArticleService {
   ) {}
 
   async findClubArticles(
+    userId: number,
     clubId: number,
     query: ListArticlesQueryDto,
   ): Promise<ListArticlesResponseDto> {
-    await this.ensureClubExists(clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArticlesByClub(clubId, {
@@ -122,8 +123,7 @@ export class ArticleService {
     clubId: number,
     articleId: number,
   ): Promise<ArticleDetailDto> {
-    await this.ensureClubExists(clubId);
-    await this.ensureClubMember(userId, clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const result = await this.articleRepository.findArticleDetail(
       userId,
@@ -285,6 +285,23 @@ export class ArticleService {
     }
   }
 
+  private async ensureClubReadable(
+    userId: number,
+    clubId: number,
+  ): Promise<void> {
+    const club = await this.articleRepository.findClubReadSettings(clubId);
+
+    if (!club) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+
+    if (club.boardPublic) {
+      return;
+    }
+
+    await this.ensureClubMember(userId, clubId);
+  }
+
   private async ensureClubMember(
     userId: number,
     clubId: number,
@@ -342,14 +359,13 @@ export class ArticleService {
     }
 
     const senderNickname = result.sender?.nickname ?? '알 수 없는 사용자';
-    const receiverNickname =
-      result.article.user?.nickname ?? '알 수 없는 사용자';
+    const clubName = result.article.club.name;
 
     await this.notificationService.createNotification(
       Number(authorId),
       NotificationType.ARTICLE,
-      '게시글에 좋아요가 눌렸어요.',
-      `${senderNickname}님이 ${receiverNickname}님의 게시물을 좋아합니다.`,
+      '회원님의 게시물에 좋아요가 눌렸어요.',
+      `[${clubName}]${senderNickname}님이 회원님의 게시물에 좋아요를 눌렀어요.`,
       senderId,
     );
   }
@@ -471,6 +487,7 @@ export class ArticleService {
   }
 
   async findArchivePhotos(
+    userId: number,
     clubId: number,
     query: ListArticlesQueryDto,
   ): Promise<{
@@ -483,7 +500,7 @@ export class ArticleService {
     nextCursor: string | null;
     hasMore: boolean;
   }> {
-    await this.ensureClubExists(clubId);
+    await this.ensureClubReadable(userId, clubId);
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArchivePhotos(clubId, {

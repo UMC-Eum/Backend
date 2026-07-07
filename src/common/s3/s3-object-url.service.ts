@@ -9,6 +9,11 @@ type ParsedS3Ref = {
   key: string;
 };
 
+type CachedClientUrl = {
+  url: string;
+  expiresAtMs: number;
+};
+
 const S3_REF_PREFIX = 's3://';
 const DEFAULT_GET_EXPIRES_SEC = 60 * 60;
 const CLIENT_URL_FIELDS = new Set([
@@ -91,6 +96,7 @@ export class S3ObjectUrlService {
   private readonly s3: S3Client;
   private readonly defaultBucket: string;
   private readonly getExpiresSec: number;
+  private readonly clientUrlCache = new Map<string, CachedClientUrl>();
 
   constructor(private readonly configService: ConfigService) {
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
@@ -125,12 +131,27 @@ export class S3ObjectUrlService {
     const parsed = parseS3Ref(input) ?? parseS3HttpsUrl(input);
     if (!parsed) return input;
 
+    const cacheKey = `${parsed.bucket}/${parsed.key}`;
+    const now = Date.now();
+    const cached = this.clientUrlCache.get(cacheKey);
+    if (cached && cached.expiresAtMs > now) {
+      return cached.url;
+    }
+
     const command = new GetObjectCommand({
       Bucket: parsed.bucket,
       Key: parsed.key,
     });
 
-    return getSignedUrl(this.s3, command, { expiresIn: this.getExpiresSec });
+    const url = await getSignedUrl(this.s3, command, {
+      expiresIn: this.getExpiresSec,
+    });
+    this.clientUrlCache.set(cacheKey, {
+      url,
+      expiresAtMs: now + this.getExpiresSec * 1000,
+    });
+
+    return url;
   }
 
   async transformClientUrlFields<T>(value: T): Promise<T> {

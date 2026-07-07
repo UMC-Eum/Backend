@@ -231,4 +231,19 @@ export class NotificationRepository {
       },
     });
   }
+
+  // 동호회 알림 전체 읽음
+  readAllClubNotifications(userId: number) {
+    return this.prisma.notification.updateMany({
+      data: {
+        isRead: true,
+      },
+      where: {
+        userId: BigInt(userId),
+        isRead: false,
+        deletedAt: null,
+        type: { in: [NotificationType.ARTICLE, NotificationType.COMMENT] },
+      },
+    });
+  }
 }

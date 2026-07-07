@@ -158,6 +158,10 @@ export class NotificationService {
     await this.notificationRepository.readAllHeartNotifications(userId);
   }
 
+  async readAllClubNotifications(userId: number) {
+    await this.notificationRepository.readAllClubNotifications(userId);
+  }
+
   private decodeNotificationCursor(cursor: string): bigint {
     const parsed = decodeCursorRaw(cursor);
     const id = parsed.id;

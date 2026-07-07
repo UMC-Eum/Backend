@@ -9,6 +9,7 @@ describe('NotificationService', () => {
     createNotification: jest.fn(),
     markAsRead: jest.fn(),
     findAll: jest.fn(),
+    readAllClubNotifications: jest.fn(),
   };
   const fcmPushServiceMock = {
     sendNotificationToUser: jest.fn(),
@@ -28,5 +29,11 @@ describe('NotificationService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('marks all club notifications as read', async () => {
+    await service.readAllClubNotifications(1);
+
+    expect(repositoryMock.readAllClubNotifications).toHaveBeenCalledWith(1);
   });
 });

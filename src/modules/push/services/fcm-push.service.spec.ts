@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { BatchResponse, MulticastMessage } from 'firebase-admin/messaging';
 import { FcmPushService } from './fcm-push.service';
@@ -105,9 +106,26 @@ describe('FcmPushService', () => {
     expect(sendEachForMulticastMock).toHaveBeenCalledTimes(2);
     expect(firstMessage.tokens).toHaveLength(500);
     expect(secondMessage.tokens).toHaveLength(1);
+    expect(firstMessage.apns).toEqual({
+      headers: {
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
+      },
+      payload: {
+        aps: {
+          alert: {
+            title: '제목',
+            body: '본문',
+          },
+          sound: 'default',
+        },
+      },
+    });
   });
 
   it('revokes invalid FCM tokens without logging token values', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
     repository.findActiveTokensByUserId.mockResolvedValue([
       { token: ' valid-token ' },
       { token: 'invalid-token' },
@@ -147,6 +165,14 @@ describe('FcmPushService', () => {
       }),
     );
     expect(repository.revokeTokens).toHaveBeenCalledWith(['invalid-token']);
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('invalid-token'),
+      ),
+    ).toBe(false);
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   it('does not send when Firebase credentials are absent', async () => {

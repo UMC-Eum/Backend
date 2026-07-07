@@ -32,6 +32,9 @@ export class FcmPushService {
     notification: Notification,
   ): Promise<void> {
     if (!this.messaging) {
+      this.logger.warn(
+        `FCM send skipped because messaging client is disabled userId=${userId} notificationId=${notification.id.toString()}`,
+      );
       return;
     }
 
@@ -42,6 +45,9 @@ export class FcmPushService {
       .filter((token) => token.length > 0);
 
     if (tokens.length === 0) {
+      this.logger.warn(
+        `FCM send skipped because active token is empty userId=${userId} notificationId=${notification.id.toString()}`,
+      );
       return;
     }
 
@@ -66,8 +72,16 @@ export class FcmPushService {
           type: String(notification.type),
         },
         apns: {
+          headers: {
+            'apns-push-type': 'alert',
+            'apns-priority': '10',
+          },
           payload: {
             aps: {
+              alert: {
+                title: notification.title,
+                body: notification.body,
+              },
               sound: 'default',
             },
           },
@@ -84,11 +98,22 @@ export class FcmPushService {
         const response = await this.messaging.sendEachForMulticast(message);
         failureCount += response.failureCount;
 
+        this.logger.log(
+          `FCM chunk send result userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenCount=${tokenChunk.length} successCount=${response.successCount} failureCount=${response.failureCount}`,
+        );
+
         response.responses.forEach((sendResponse, responseIndex) => {
           const errorCode = sendResponse.error?.code;
+          const errorMessage = sendResponse.error?.message;
 
           if (errorCode && INVALID_TOKEN_ERROR_CODES.has(errorCode)) {
             invalidTokens.push(tokenChunk[responseIndex]);
+          }
+
+          if (errorCode) {
+            this.logger.warn(
+              `FCM token send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenIndex=${responseIndex} tokenPrefix=${this.maskToken(tokenChunk[responseIndex])} errorCode=${errorCode} errorMessage=${errorMessage ?? ''}`,
+            );
           }
         });
       } catch (e) {
@@ -101,6 +126,9 @@ export class FcmPushService {
 
     if (invalidTokens.length > 0) {
       await this.pushDeviceTokenRepository.revokeTokens(invalidTokens);
+      this.logger.warn(
+        `FCM revoked invalid tokens userId=${userId} notificationId=${notification.id.toString()} count=${invalidTokens.length}`,
+      );
     }
 
     if (failureCount > invalidTokens.length) {
@@ -140,5 +168,11 @@ export class FcmPushService {
       this.logger.error(`FCM is disabled: ${String(e)}`);
       return null;
     }
+  }
+
+  private maskToken(token: string): string {
+    return token.length <= 12
+      ? `${token.slice(0, 4)}...`
+      : `${token.slice(0, 8)}...${token.slice(-4)}`;
   }
 }

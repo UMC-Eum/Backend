@@ -15,6 +15,8 @@ const INVALID_TOKEN_ERROR_CODES = new Set([
 ]);
 const FCM_MULTICAST_TOKEN_LIMIT = 500;
 
+export type FcmNotificationData = Record<string, string>;
+
 @Injectable()
 export class FcmPushService {
   private readonly logger = new Logger(FcmPushService.name);
@@ -30,6 +32,7 @@ export class FcmPushService {
   async sendNotificationToUser(
     userId: number,
     notification: Notification,
+    data: FcmNotificationData = {},
   ): Promise<void> {
     if (!this.messaging) {
       this.logger.warn(
@@ -70,6 +73,7 @@ export class FcmPushService {
         data: {
           notificationId: notification.id.toString(),
           type: String(notification.type),
+          ...data,
         },
         apns: {
           headers: {

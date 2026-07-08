@@ -94,6 +94,9 @@ export class CommentService {
         title: '회원님의 댓글에 답글이 달렸어요.',
         body: `[${club.name}]${comment.user.nickname}님이 회원님의 댓글에 답글을 남겼어요.`,
         senderId: userId,
+        clubId,
+        articleId,
+        commentId: Number(comment.id),
         context: 'reply',
       });
     }
@@ -104,6 +107,9 @@ export class CommentService {
         title: '회원님의 게시물에 댓글이 달렸어요.',
         body: `[${club.name}]${comment.user.nickname}님이 회원님의 게시물에 댓글을 남겼어요.`,
         senderId: userId,
+        clubId,
+        articleId,
+        commentId: Number(comment.id),
         context: 'article',
       });
     }
@@ -116,6 +122,9 @@ export class CommentService {
     title: string;
     body: string;
     senderId: number;
+    clubId: number;
+    articleId: number;
+    commentId: number;
     context: 'article' | 'reply';
   }): Promise<void> {
     try {
@@ -125,6 +134,12 @@ export class CommentService {
         params.title,
         params.body,
         params.senderId,
+        {
+          clubId: String(params.clubId),
+          articleId: String(params.articleId),
+          commentId: String(params.commentId),
+          senderUserId: String(params.senderId),
+        },
       );
     } catch (e) {
       this.logger.warn(

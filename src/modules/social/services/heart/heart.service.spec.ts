@@ -101,6 +101,10 @@ describe('HeartService', () => {
         '마음을 누른 사람이 생겼습니다!',
         'TestUser님이 회원님에게 마음을 보냈습니다.',
         7,
+        {
+          senderUserId: '7',
+          heartId: '101',
+        },
       );
     });
 

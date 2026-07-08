@@ -177,6 +177,7 @@ describe('ArticleService', () => {
         created: true,
         article: {
           id: BigInt(10),
+          clubId: BigInt(1),
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
@@ -194,6 +195,11 @@ describe('ArticleService', () => {
         '회원님의 게시물에 좋아요가 눌렸어요.',
         '[한강 라이딩 동호회]보낸사람님이 회원님의 게시물에 좋아요를 눌렀어요.',
         11,
+        {
+          clubId: '1',
+          articleId: '10',
+          senderUserId: '11',
+        },
       );
     });
 
@@ -205,6 +211,7 @@ describe('ArticleService', () => {
         created: false,
         article: {
           id: BigInt(10),
+          clubId: BigInt(1),
           likes: 3,
           userId: BigInt(20),
           user: { nickname: '받는사람' },
@@ -220,6 +227,7 @@ describe('ArticleService', () => {
         created: true,
         article: {
           id: BigInt(10),
+          clubId: BigInt(1),
           likes: 4,
           userId: BigInt(11),
           user: { nickname: '보낸사람' },

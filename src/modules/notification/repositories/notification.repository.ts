@@ -91,7 +91,13 @@ export class NotificationRepository {
     return this.prisma.notification.findMany({
       where: {
         userId: BigInt(userId),
-        type: { in: [NotificationType.ARTICLE, NotificationType.COMMENT] },
+        type: {
+          in: [
+            NotificationType.ARTICLE,
+            NotificationType.COMMENT,
+            NotificationType.CLUB,
+          ],
+        },
         deletedAt: null,
       },
       take: limit,
@@ -245,7 +251,13 @@ export class NotificationRepository {
         userId: BigInt(userId),
         isRead: false,
         deletedAt: null,
-        type: { in: [NotificationType.ARTICLE, NotificationType.COMMENT] },
+        type: {
+          in: [
+            NotificationType.ARTICLE,
+            NotificationType.COMMENT,
+            NotificationType.CLUB,
+          ],
+        },
       },
     });
   }

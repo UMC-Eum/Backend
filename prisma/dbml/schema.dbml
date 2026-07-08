@@ -197,6 +197,8 @@ Table Block {
 Table Report {
   id BigInt [pk, increment]
   reportedById BigInt
+  targetType ReportTargetType
+  targetId BigInt
   reportedAt DateTime [not null]
   reason String [not null]
   category ReportCategory [not null, default: 'OTHERS']
@@ -648,6 +650,12 @@ Enum ReportCategory {
   ABUSE
   SPAM
   OTHERS
+}
+
+Enum ReportTargetType {
+  USER
+  CLUB
+  ARTICLE
 }
 
 Enum ChatRoomType {

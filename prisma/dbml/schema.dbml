@@ -592,6 +592,7 @@ Enum NotificationType {
   PROFILE
   REMIND
   UPDATE
+  CLUB
 }
 
 Enum PushPlatform {

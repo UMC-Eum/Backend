@@ -199,6 +199,7 @@ Table Report {
   reportedById BigInt
   targetType ReportTargetType
   targetId BigInt
+  chatRoomId BigInt
   reportedAt DateTime [not null]
   reason String [not null]
   category ReportCategory [not null, default: 'OTHERS']

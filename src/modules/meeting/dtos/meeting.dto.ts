@@ -2,6 +2,7 @@ import {
   ClubAuthority,
   DayOfWeek,
   MeetingJoinPolicy,
+  MeetingMemberStatus,
   RecurrenceType,
 } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -12,6 +13,7 @@ import {
   IsArray,
   IsDefined,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -316,8 +318,56 @@ export class JoinMeetingResponseDto {
   @ApiProperty({ example: 42 })
   userId!: number;
 
-  @ApiProperty({ example: '2026-05-01T20:05:00+09:00' })
-  joinedAt!: string;
+  @ApiProperty({
+    enum: MeetingMemberStatus,
+    example: MeetingMemberStatus.ACTIVE,
+    description: 'AUTO 정모는 ACTIVE(즉시 참석), 승인정모는 PENDING(승인 대기)',
+  })
+  status!: MeetingMemberStatus;
+
+  @ApiProperty({
+    example: '2026-05-01T20:05:00+09:00',
+    nullable: true,
+    description: '참석 확정 시각. 승인 대기(PENDING)면 null',
+  })
+  joinedAt!: string | null;
+}
+
+export class UpdateAttendeeStatusRequestDto {
+  @ApiProperty({
+    enum: [MeetingMemberStatus.ACTIVE, MeetingMemberStatus.REJECTED],
+    example: MeetingMemberStatus.ACTIVE,
+    description: '승인: ACTIVE, 거절: REJECTED',
+  })
+  @IsIn([MeetingMemberStatus.ACTIVE, MeetingMemberStatus.REJECTED])
+  status!: MeetingMemberStatus;
+}
+
+export class UpdateAttendeeStatusResponseDto {
+  @ApiProperty({ example: 5001 })
+  meetingMemberId!: number;
+
+  @ApiProperty({ example: 88 })
+  meetingId!: number;
+
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ example: 42 })
+  userId!: number;
+
+  @ApiProperty({
+    enum: MeetingMemberStatus,
+    example: MeetingMemberStatus.ACTIVE,
+  })
+  status!: MeetingMemberStatus;
+
+  @ApiProperty({
+    example: '2026-05-01T20:05:00+09:00',
+    nullable: true,
+    description: '승인(ACTIVE) 시각. 거절(REJECTED)이면 null',
+  })
+  joinedAt!: string | null;
 }
 
 export class LeaveMeetingResponseDto {
@@ -393,4 +443,29 @@ export class ListAttendeesResponseDto {
 
   @ApiProperty({ example: true })
   hasMore!: boolean;
+}
+
+export class MeetingRequestItemDto {
+  @ApiProperty({ example: 5001 })
+  meetingMemberId!: number;
+
+  @ApiProperty({ example: 333 })
+  clubUserId!: number;
+
+  @ApiProperty({ type: AttendeeUserDto })
+  user!: AttendeeUserDto;
+
+  @ApiProperty({ example: '참석하고 싶습니다!' })
+  joinMessage!: string;
+
+  @ApiProperty({ example: '2026-05-01T20:05:00+09:00' })
+  requestedAt!: string;
+}
+
+export class MeetingRequestListResponseDto {
+  @ApiProperty({ example: 88 })
+  meetingId!: number;
+
+  @ApiProperty({ type: [MeetingRequestItemDto] })
+  requests!: MeetingRequestItemDto[];
 }

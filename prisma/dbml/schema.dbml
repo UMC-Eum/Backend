@@ -492,7 +492,10 @@ Table MeetingMember {
   id BigInt [pk, increment]
   meetingId BigInt [not null]
   clubUserId BigInt [not null]
-  joinedAt DateTime [default: `now()`, not null]
+  status MeetingMemberStatus [not null, default: 'ACTIVE']
+  requestedAt DateTime [default: `now()`, not null]
+  joinedAt DateTime
+  joinMessage String [not null, default: '']
   deletedAt DateTime
   meeting Meeting [not null]
   clubUser ClubUser [not null]
@@ -623,6 +626,12 @@ Enum ClubUserStatus {
 Enum MeetingJoinPolicy {
   AUTO
   APPROVAL_REQUIRED
+}
+
+Enum MeetingMemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
 }
 
 Enum RecurrenceType {

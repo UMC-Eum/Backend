@@ -359,6 +359,16 @@ export const ERROR_DEFINITIONS = {
     code: 'MEETING-008',
     message: '승인 정모는 곧 지원될 예정이에요.',
   },
+  MEETING_REQUEST_NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'MEETING-009',
+    message: '참석 신청을 찾을 수 없어요.',
+  },
+  MEETING_ALREADY_REQUESTED: {
+    status: HttpStatus.CONFLICT,
+    code: 'MEETING-010',
+    message: '이미 참석 신청이 접수되었어요.',
+  },
 
   // SYSTEM
   SERVER_TEMPORARY_ERROR: {

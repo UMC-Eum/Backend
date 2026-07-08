@@ -19,14 +19,13 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
-  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
-import { RequiredUserId } from '../../../auth/decorators';
-import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
-import { MeetingService } from '../../services/meeting/meeting.service';
+import { AccessTokenGuard } from '../../auth/guards/access-token.guard';
+import { RequiredUserId } from '../../auth/decorators';
+import { ParsePositiveIntPipe } from '../../../common/pipes/parse-positive-int.pipe';
+import { MeetingService } from '../services/meeting.service';
 import {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
@@ -36,9 +35,12 @@ import {
   LeaveMeetingResponseDto,
   ListAttendeesQueryDto,
   ListAttendeesResponseDto,
+  MeetingRequestListResponseDto,
+  UpdateAttendeeStatusRequestDto,
+  UpdateAttendeeStatusResponseDto,
   UpdateMeetingRequestDto,
   UpdateMeetingResponseDto,
-} from '../../dtos/meeting.dto';
+} from '../dtos/meeting.dto';
 
 @ApiTags('Meeting')
 @ApiBearerAuth('access-token')
@@ -133,14 +135,19 @@ export class MeetingController {
   }
 
   @Post(':meetingId/attendees/me')
-  @ApiOperation({ summary: '정모 참석 (클럽 멤버만, AUTO 정책)' })
+  @ApiOperation({
+    summary: '정모 참석/신청 (클럽 멤버만)',
+    description:
+      'AUTO 정모는 즉시 참석(status=ACTIVE), 승인정모는 참석 신청(status=PENDING)으로 처리됩니다.',
+  })
   @ApiCreatedResponse({
-    description: '정모 참석 완료',
+    description: '정모 참석 완료(ACTIVE) 또는 참석 신청 접수(PENDING)',
     type: JoinMeetingResponseDto,
   })
   @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
-  @ApiConflictResponse({ description: '이미 참석 중이거나 정원이 가득 참' })
-  @ApiResponse({ status: 501, description: '승인 정모는 아직 미지원' })
+  @ApiConflictResponse({
+    description: '이미 참석 중이거나 신청 대기 중이거나 정원이 가득 참',
+  })
   async joinMeeting(
     @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
@@ -196,6 +203,54 @@ export class MeetingController {
       BigInt(clubId),
       BigInt(meetingId),
       query,
+    );
+  }
+
+  @Get(':meetingId/attendees/requests')
+  @ApiOperation({ summary: '정모 참석 신청 대기목록 조회 (호스트만)' })
+  @ApiOkResponse({
+    description: '참석 신청 대기목록 조회 성공',
+    type: MeetingRequestListResponseDto,
+  })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({ description: '클럽 또는 정모를 찾을 수 없음' })
+  async listMeetingRequests(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+  ): Promise<MeetingRequestListResponseDto> {
+    return this.meetingService.listMeetingRequests(
+      BigInt(userId),
+      BigInt(clubId),
+      BigInt(meetingId),
+    );
+  }
+
+  @Patch(':meetingId/attendees/:userId')
+  @ApiOperation({ summary: '정모 참석 신청 승인/거절 (호스트만)' })
+  @ApiBody({ type: UpdateAttendeeStatusRequestDto })
+  @ApiOkResponse({
+    description: '참석 신청 처리 완료',
+    type: UpdateAttendeeStatusResponseDto,
+  })
+  @ApiForbiddenResponse({ description: '호스트가 아님' })
+  @ApiNotFoundResponse({
+    description: '클럽/정모 없음 또는 참석 신청을 찾을 수 없음',
+  })
+  @ApiConflictResponse({ description: '정원이 가득 참(승인 시)' })
+  async updateAttendeeStatus(
+    @RequiredUserId() hostUserId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('meetingId', new ParsePositiveIntPipe()) meetingId: number,
+    @Param('userId', new ParsePositiveIntPipe()) userId: number,
+    @Body() dto: UpdateAttendeeStatusRequestDto,
+  ): Promise<UpdateAttendeeStatusResponseDto> {
+    return this.meetingService.updateAttendeeStatus(
+      BigInt(hostUserId),
+      BigInt(clubId),
+      BigInt(meetingId),
+      BigInt(userId),
+      dto,
     );
   }
 }

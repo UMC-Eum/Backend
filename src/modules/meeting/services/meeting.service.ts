@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { AppException } from '../../../../common/errors/app.exception';
-import { toKstIso } from '../../../../common/utils/datetime.util';
-import { encodeCursor } from '../../../../common/utils/cursor.util';
-import { ClubRepository } from '../../repositories/club.repository';
+import { AppException } from '../../../common/errors/app.exception';
+import { toKstIso } from '../../../common/utils/datetime.util';
+import { encodeCursor } from '../../../common/utils/cursor.util';
+import { ClubRepository } from '../../club/repositories/club.repository';
 import {
   AttendeeListRow,
   AttendeePreviewRow,
   MeetingDetailRow,
   MeetingRepository,
-} from '../../repositories/meeting.repository';
+  PendingRequestRow,
+} from '../repositories/meeting.repository';
 import {
   CreateMeetingRequestDto,
   CreateMeetingResponseDto,
@@ -18,15 +19,18 @@ import {
   LeaveMeetingResponseDto,
   ListAttendeesQueryDto,
   ListAttendeesResponseDto,
+  MeetingRequestListResponseDto,
+  UpdateAttendeeStatusRequestDto,
+  UpdateAttendeeStatusResponseDto,
   UpdateMeetingRequestDto,
   UpdateMeetingResponseDto,
-} from '../../dtos/meeting.dto';
+} from '../dtos/meeting.dto';
 import {
   computeNextOccurrenceKst,
   formatDateLabel,
   Recurrence,
-} from '../../utils/recurrence.util';
-import { decodeAttendeesCursor } from '../../utils/cursor.util';
+} from '../utils/recurrence.util';
+import { decodeAttendeesCursor } from '../utils/cursor.util';
 
 @Injectable()
 export class MeetingService {
@@ -234,7 +238,7 @@ export class MeetingService {
       capacityExceeded,
       meetingMissing,
       alreadyJoined,
-      approvalRequired,
+      alreadyRequested,
     } = await this.meetingRepository.joinMeeting(
       clubId,
       meetingId,
@@ -243,11 +247,11 @@ export class MeetingService {
     if (meetingMissing) {
       throw new AppException('MEETING_NOT_FOUND');
     }
-    if (approvalRequired) {
-      throw new AppException('MEETING_APPROVAL_NOT_SUPPORTED');
-    }
     if (alreadyJoined) {
       throw new AppException('MEETING_ALREADY_JOINED');
+    }
+    if (alreadyRequested) {
+      throw new AppException('MEETING_ALREADY_REQUESTED');
     }
     if (capacityExceeded) {
       throw new AppException('MEETING_CAPACITY_EXCEEDED');
@@ -261,7 +265,8 @@ export class MeetingService {
       meetingId: Number(member.meetingId),
       clubUserId: Number(member.clubUserId),
       userId: Number(userId),
-      joinedAt: toKstIso(member.joinedAt),
+      status: member.status,
+      joinedAt: member.joinedAt ? toKstIso(member.joinedAt) : null,
     };
   }
 
@@ -364,6 +369,114 @@ export class MeetingService {
       attendees: page.map((row) => this.buildAttendeeItem(row)),
       nextCursor,
       hasMore,
+    };
+  }
+
+  async listMeetingRequests(
+    userId: bigint,
+    clubId: bigint,
+    meetingId: bigint,
+  ): Promise<MeetingRequestListResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== userId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const meeting = await this.meetingRepository.findDetail(clubId, meetingId);
+    if (!meeting) {
+      throw new AppException('MEETING_NOT_FOUND');
+    }
+
+    const requests = await this.meetingRepository.listPendingRequests(
+      clubId,
+      meetingId,
+    );
+    return {
+      meetingId: Number(meetingId),
+      requests: requests.map((row) => this.buildRequestItem(row)),
+    };
+  }
+
+  async updateAttendeeStatus(
+    hostUserId: bigint,
+    clubId: bigint,
+    meetingId: bigint,
+    targetUserId: bigint,
+    dto: UpdateAttendeeStatusRequestDto,
+  ): Promise<UpdateAttendeeStatusResponseDto> {
+    const club = await this.clubRepository.findById(clubId);
+    if (!club || club.deletedAt) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (club.hostId !== hostUserId) {
+      throw new AppException('CLUB_FORBIDDEN_NOT_HOST');
+    }
+
+    const meeting = await this.meetingRepository.findDetail(clubId, meetingId);
+    if (!meeting) {
+      throw new AppException('MEETING_NOT_FOUND');
+    }
+
+    const targetClubUser = await this.clubRepository.findActiveClubUser(
+      targetUserId,
+      clubId,
+    );
+    if (!targetClubUser) {
+      throw new AppException('MEETING_REQUEST_NOT_FOUND');
+    }
+
+    const result =
+      await this.meetingRepository.processPendingStatusWithCapacity({
+        clubId,
+        meetingId,
+        targetClubUserId: targetClubUser.id,
+        status: dto.status,
+        capacity: meeting.capacity,
+      });
+    if (result.result === 'not_found') {
+      throw new AppException('MEETING_REQUEST_NOT_FOUND');
+    }
+    if (result.result === 'capacity_exceeded') {
+      throw new AppException('MEETING_CAPACITY_EXCEEDED');
+    }
+
+    const { member } = result;
+    return {
+      meetingMemberId: Number(member.id),
+      meetingId: Number(member.meetingId),
+      clubUserId: Number(member.clubUserId),
+      userId: Number(targetUserId),
+      status: member.status,
+      joinedAt: member.joinedAt ? toKstIso(member.joinedAt) : null,
+    };
+  }
+
+  private buildRequestItem(row: PendingRequestRow): {
+    meetingMemberId: number;
+    clubUserId: number;
+    user: {
+      userId: number;
+      nickname: string;
+      profileImageUrl: string;
+      authority: AttendeeListRow['authority'];
+    };
+    joinMessage: string;
+    requestedAt: string;
+  } {
+    return {
+      meetingMemberId: Number(row.meetingMemberId),
+      clubUserId: Number(row.clubUserId),
+      user: {
+        userId: Number(row.userId),
+        nickname: row.nickname,
+        profileImageUrl: row.profileImageUrl,
+        authority: row.authority,
+      },
+      joinMessage: row.joinMessage,
+      requestedAt: toKstIso(row.requestedAt),
     };
   }
 

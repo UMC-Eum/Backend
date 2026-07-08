@@ -176,6 +176,7 @@ export class ClubController {
   })
   @ApiOkResponse({
     description: '조회 성공',
+    type: ListClubsResponseDto,
     schema: {
       example: {
         resultType: 'SUCCESS',
@@ -185,6 +186,7 @@ export class ClubController {
             items: [
               {
                 clubId: '1',
+                hostNickname: '보이스마스터',
                 name: '새벽 등산 모임',
                 introText: '함께 새벽 산행할 분들 모집해요.',
                 category: 'HOBBY',

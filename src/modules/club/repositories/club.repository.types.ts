@@ -25,6 +25,13 @@ export const CLUB_LIST_SELECT = {
   thumbnailUrl: true,
   likes: true,
   createdAt: true,
+  user: {
+    select: {
+      nickname: true,
+      deletedAt: true,
+      status: true,
+    },
+  },
   _count: {
     select: {
       clubUsers: {

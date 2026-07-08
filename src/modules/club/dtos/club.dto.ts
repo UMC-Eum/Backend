@@ -365,6 +365,13 @@ export class ClubListItemDto {
   @ApiProperty({ description: '클럽 ID', example: '1' })
   clubId: string;
 
+  @ApiProperty({
+    description: '호스트 닉네임',
+    example: '보이스마스터',
+    nullable: true,
+  })
+  hostNickname: string | null;
+
   @ApiProperty({ description: '클럽 이름', example: '새벽 등산 모임' })
   name: string;
 

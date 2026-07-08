@@ -14,9 +14,16 @@ import { MeetingRepository } from './repositories/meeting.repository';
 import { ClubMemberRepository } from './repositories/club-member.repository';
 import { UserModule } from '../user/user.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, UserModule, OnboardingModule],
+  imports: [
+    AuthModule,
+    PrismaModule,
+    UserModule,
+    OnboardingModule,
+    NotificationModule,
+  ],
   controllers: [
     ClubController,
     ClubSearchController,

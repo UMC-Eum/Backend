@@ -92,7 +92,7 @@ export class NotificationService {
       const nextCursor = hasNext ? items[items.length - 1].id : null;
       return {
         nextCursor: nextCursor !== null ? Number(nextCursor) : null,
-        items: result.map((item) =>
+        items: items.map((item) =>
           NotificationWithSenderResponseDto.from(item),
         ),
       };

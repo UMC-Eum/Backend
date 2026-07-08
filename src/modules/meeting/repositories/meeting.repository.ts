@@ -3,6 +3,7 @@ import {
   ClubAuthority,
   DayOfWeek,
   MeetingJoinPolicy,
+  MeetingMemberStatus,
   RecurrenceType,
 } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
@@ -37,9 +38,32 @@ export type MeetingMemberRow = {
   id: bigint;
   meetingId: bigint;
   clubUserId: bigint;
-  joinedAt: Date;
+  status: MeetingMemberStatus;
+  requestedAt: Date;
+  joinedAt: Date | null;
   deletedAt: Date | null;
 };
+
+export type PendingRequestRow = {
+  meetingMemberId: bigint;
+  clubUserId: bigint;
+  requestedAt: Date;
+  joinMessage: string;
+  userId: bigint;
+  nickname: string;
+  profileImageUrl: string;
+  authority: ClubAuthority;
+};
+
+const MEETING_MEMBER_SELECT = {
+  id: true,
+  meetingId: true,
+  clubUserId: true,
+  status: true,
+  requestedAt: true,
+  joinedAt: true,
+  deletedAt: true,
+} as const;
 
 export type AttendeeListRow = {
   id: bigint;
@@ -97,7 +121,12 @@ export class MeetingRepository {
         select: MEETING_DETAIL_SELECT,
       });
       await tx.meetingMember.create({
-        data: { meetingId: meeting.id, clubUserId: hostClubUserId },
+        data: {
+          meetingId: meeting.id,
+          clubUserId: hostClubUserId,
+          status: MeetingMemberStatus.ACTIVE,
+          joinedAt: new Date(),
+        },
       });
       return meeting;
     });
@@ -160,7 +189,11 @@ export class MeetingRepository {
 
       if (data.capacity !== undefined) {
         const count = await tx.meetingMember.count({
-          where: { meetingId, deletedAt: null },
+          where: {
+            meetingId,
+            deletedAt: null,
+            status: MeetingMemberStatus.ACTIVE,
+          },
         });
         if (data.capacity < count) {
           return {
@@ -185,7 +218,11 @@ export class MeetingRepository {
 
   async countAttendees(meetingId: bigint): Promise<number> {
     return this.prisma.meetingMember.count({
-      where: { meetingId, deletedAt: null },
+      where: {
+        meetingId,
+        deletedAt: null,
+        status: MeetingMemberStatus.ACTIVE,
+      },
     });
   }
 
@@ -194,7 +231,11 @@ export class MeetingRepository {
     limit: number,
   ): Promise<AttendeePreviewRow[]> {
     const rows = await this.prisma.meetingMember.findMany({
-      where: { meetingId, deletedAt: null },
+      where: {
+        meetingId,
+        deletedAt: null,
+        status: MeetingMemberStatus.ACTIVE,
+      },
       take: limit,
       orderBy: { joinedAt: 'asc' },
       select: {
@@ -216,7 +257,12 @@ export class MeetingRepository {
 
   async isAttending(meetingId: bigint, clubUserId: bigint): Promise<boolean> {
     const count = await this.prisma.meetingMember.count({
-      where: { meetingId, clubUserId, deletedAt: null },
+      where: {
+        meetingId,
+        clubUserId,
+        deletedAt: null,
+        status: MeetingMemberStatus.ACTIVE,
+      },
     });
     return count > 0;
   }
@@ -251,13 +297,7 @@ export class MeetingRepository {
   ): Promise<MeetingMemberRow | null> {
     return this.prisma.meetingMember.findUnique({
       where: { meetingId_clubUserId: { meetingId, clubUserId } },
-      select: {
-        id: true,
-        meetingId: true,
-        clubUserId: true,
-        joinedAt: true,
-        deletedAt: true,
-      },
+      select: MEETING_MEMBER_SELECT,
     });
   }
 
@@ -270,7 +310,7 @@ export class MeetingRepository {
     capacityExceeded: boolean;
     meetingMissing: boolean;
     alreadyJoined: boolean;
-    approvalRequired: boolean;
+    alreadyRequested: boolean;
   }> {
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<
@@ -288,36 +328,76 @@ export class MeetingRepository {
           capacityExceeded: false,
           meetingMissing: true,
           alreadyJoined: false,
-          approvalRequired: false,
+          alreadyRequested: false,
         };
       }
-      if (rows[0].joinPolicy === MeetingJoinPolicy.APPROVAL_REQUIRED) {
-        return {
-          member: null,
-          capacityExceeded: false,
-          meetingMissing: false,
-          alreadyJoined: false,
-          approvalRequired: true,
-        };
-      }
+      const isApproval =
+        rows[0].joinPolicy === MeetingJoinPolicy.APPROVAL_REQUIRED;
       const capacity = rows[0].capacity;
 
       const existing = await tx.meetingMember.findUnique({
         where: { meetingId_clubUserId: { meetingId, clubUserId } },
-        select: { id: true, deletedAt: true },
+        select: { id: true, status: true, deletedAt: true },
       });
+      // 이미 참석중이거나 승인 대기중이면 중복 처리 (REJECTED/취소 이력은 재신청 허용)
       if (existing && existing.deletedAt === null) {
+        if (existing.status === MeetingMemberStatus.ACTIVE) {
+          return {
+            member: null,
+            capacityExceeded: false,
+            meetingMissing: false,
+            alreadyJoined: true,
+            alreadyRequested: false,
+          };
+        }
+        if (existing.status === MeetingMemberStatus.PENDING) {
+          return {
+            member: null,
+            capacityExceeded: false,
+            meetingMissing: false,
+            alreadyJoined: false,
+            alreadyRequested: true,
+          };
+        }
+      }
+
+      const now = new Date();
+
+      // 승인정모: 정원체크 없이 PENDING 신청 생성 (승인 시점에만 정원 확인)
+      if (isApproval) {
+        const member = await tx.meetingMember.upsert({
+          where: { meetingId_clubUserId: { meetingId, clubUserId } },
+          create: {
+            meetingId,
+            clubUserId,
+            status: MeetingMemberStatus.PENDING,
+            requestedAt: now,
+            joinedAt: null,
+          },
+          update: {
+            status: MeetingMemberStatus.PENDING,
+            requestedAt: now,
+            joinedAt: null,
+            deletedAt: null,
+          },
+          select: MEETING_MEMBER_SELECT,
+        });
         return {
-          member: null,
+          member,
           capacityExceeded: false,
           meetingMissing: false,
-          alreadyJoined: true,
-          approvalRequired: false,
+          alreadyJoined: false,
+          alreadyRequested: false,
         };
       }
 
+      // 자유참석(AUTO): 정원(ACTIVE 수) 확인 후 즉시 참석 확정
       const count = await tx.meetingMember.count({
-        where: { meetingId, deletedAt: null },
+        where: {
+          meetingId,
+          deletedAt: null,
+          status: MeetingMemberStatus.ACTIVE,
+        },
       });
       if (count >= capacity) {
         return {
@@ -325,28 +405,31 @@ export class MeetingRepository {
           capacityExceeded: true,
           meetingMissing: false,
           alreadyJoined: false,
-          approvalRequired: false,
+          alreadyRequested: false,
         };
       }
-      const joinedAt = new Date();
       const member = await tx.meetingMember.upsert({
         where: { meetingId_clubUserId: { meetingId, clubUserId } },
-        create: { meetingId, clubUserId, joinedAt },
-        update: { deletedAt: null, joinedAt },
-        select: {
-          id: true,
-          meetingId: true,
-          clubUserId: true,
-          joinedAt: true,
-          deletedAt: true,
+        create: {
+          meetingId,
+          clubUserId,
+          status: MeetingMemberStatus.ACTIVE,
+          requestedAt: now,
+          joinedAt: now,
         },
+        update: {
+          status: MeetingMemberStatus.ACTIVE,
+          joinedAt: now,
+          deletedAt: null,
+        },
+        select: MEETING_MEMBER_SELECT,
       });
       return {
         member,
         capacityExceeded: false,
         meetingMissing: false,
         alreadyJoined: false,
-        approvalRequired: false,
+        alreadyRequested: false,
       };
     });
   }
@@ -379,6 +462,7 @@ export class MeetingRepository {
       where: {
         meetingId,
         deletedAt: null,
+        status: MeetingMemberStatus.ACTIVE,
         meeting: { clubId },
         ...(cursor
           ? {
@@ -411,11 +495,111 @@ export class MeetingRepository {
     return rows.map((r) => ({
       id: r.id,
       clubUserId: r.clubUserId,
-      joinedAt: r.joinedAt,
+      // ACTIVE 참석자는 항상 joinedAt이 존재 (승인/참석 확정 시 세팅)
+      joinedAt: r.joinedAt as Date,
       userId: r.clubUser.user.id,
       nickname: r.clubUser.user.nickname,
       profileImageUrl: r.clubUser.user.profileImageUrl,
       authority: r.clubUser.authority,
     }));
+  }
+
+  async listPendingRequests(
+    clubId: bigint,
+    meetingId: bigint,
+  ): Promise<PendingRequestRow[]> {
+    const rows = await this.prisma.meetingMember.findMany({
+      where: {
+        meetingId,
+        deletedAt: null,
+        status: MeetingMemberStatus.PENDING,
+        meeting: { clubId },
+      },
+      orderBy: { requestedAt: 'asc' },
+      select: {
+        id: true,
+        clubUserId: true,
+        requestedAt: true,
+        joinMessage: true,
+        clubUser: {
+          select: {
+            authority: true,
+            user: {
+              select: { id: true, nickname: true, profileImageUrl: true },
+            },
+          },
+        },
+      },
+    });
+    return rows.map((r) => ({
+      meetingMemberId: r.id,
+      clubUserId: r.clubUserId,
+      requestedAt: r.requestedAt,
+      joinMessage: r.joinMessage,
+      userId: r.clubUser.user.id,
+      nickname: r.clubUser.user.nickname,
+      profileImageUrl: r.clubUser.user.profileImageUrl,
+      authority: r.clubUser.authority,
+    }));
+  }
+
+  async processPendingStatusWithCapacity(params: {
+    clubId: bigint;
+    meetingId: bigint;
+    targetClubUserId: bigint;
+    status: MeetingMemberStatus;
+    capacity: number;
+  }): Promise<
+    | { result: 'not_found' }
+    | { result: 'capacity_exceeded' }
+    | { result: 'updated'; member: MeetingMemberRow }
+  > {
+    const { clubId, meetingId, targetClubUserId, status, capacity } = params;
+    return this.prisma.$transaction(async (tx) => {
+      // 정원 경합 방지: 정모가 속한 클럽/정모를 잠근다
+      const meetings = await tx.$queryRaw<
+        Array<{ id: bigint; deletedAt: Date | null }>
+      >`SELECT id, "deletedAt" FROM "Meeting" WHERE id = ${meetingId} AND "clubId" = ${clubId} FOR UPDATE`;
+      if (meetings.length === 0 || meetings[0].deletedAt !== null) {
+        return { result: 'not_found' as const };
+      }
+
+      const pending = await tx.meetingMember.findFirst({
+        where: {
+          meetingId,
+          clubUserId: targetClubUserId,
+          deletedAt: null,
+          status: MeetingMemberStatus.PENDING,
+        },
+        select: { id: true },
+      });
+      if (!pending) {
+        return { result: 'not_found' as const };
+      }
+
+      // 승인 시에만 정원(ACTIVE 수) 확인
+      if (status === MeetingMemberStatus.ACTIVE) {
+        const activeCount = await tx.meetingMember.count({
+          where: {
+            meetingId,
+            deletedAt: null,
+            status: MeetingMemberStatus.ACTIVE,
+          },
+        });
+        if (activeCount >= capacity) {
+          return { result: 'capacity_exceeded' as const };
+        }
+      }
+
+      const member = await tx.meetingMember.update({
+        where: { id: pending.id },
+        data: {
+          status,
+          joinedAt: status === MeetingMemberStatus.ACTIVE ? new Date() : null,
+        },
+        select: MEETING_MEMBER_SELECT,
+      });
+      return { result: 'updated' as const, member };
+    });
   }
 }

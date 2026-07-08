@@ -99,6 +99,12 @@ enum MeetingJoinPolicy {
   APPROVAL_REQUIRED
 }
 
+enum MeetingMemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
 enum RecurrenceType {
   DAILY
   WEEKLY
@@ -718,16 +724,20 @@ model Meeting {
 }
 
 model MeetingMember {
-  id         BigInt    @id @default(autoincrement()) @db.BigInt
-  meetingId  BigInt    @db.BigInt
-  clubUserId BigInt    @db.BigInt
-  joinedAt   DateTime  @default(now()) @db.Timestamp(6)
-  deletedAt  DateTime? @db.Timestamp(6)
+  id          BigInt              @id @default(autoincrement()) @db.BigInt
+  meetingId   BigInt              @db.BigInt
+  clubUserId  BigInt              @db.BigInt
+  status      MeetingMemberStatus @default(ACTIVE) // 참석 상태 (승인정모: PENDING→ACTIVE/REJECTED)
+  requestedAt DateTime            @default(now()) @db.Timestamp(6) // 참석 신청 시각
+  joinedAt    DateTime?           @db.Timestamp(6) // 승인/참석 확정 시각 (PENDING이면 null)
+  joinMessage String              @default("") @db.VarChar(300) // 승인정모 신청 메시지 (선택)
+  deletedAt   DateTime?           @db.Timestamp(6)
 
   meeting  Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade) // 미팅 삭제 시 함께 삭제
   clubUser ClubUser @relation(fields: [clubUserId], references: [id], onDelete: Cascade) // 유저 삭제 시 함께 삭제
 
   @@unique([meetingId, clubUserId])
+  @@index([meetingId, status])
   @@index([meetingId, joinedAt])
   @@index([clubUserId, joinedAt])
 }

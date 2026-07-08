@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { JwtTokenService } from '../../../auth/services/jwt-token.service';
-import { PrismaService } from '../../../../infra/prisma/prisma.service';
-import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
-import { MeetingService } from '../../services/meeting/meeting.service';
+import { JwtTokenService } from '../../auth/services/jwt-token.service';
+import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { AccessTokenGuard } from '../../auth/guards/access-token.guard';
+import { MeetingService } from '../services/meeting.service';
 import { MeetingController } from './meeting.controller';
 
 describe('MeetingController', () => {

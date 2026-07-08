@@ -13,6 +13,7 @@ import { AgreementModule } from '../agreements/agreement.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
 import { ClubModule } from '../club/club.module';
+import { MeetingModule } from '../meeting/meeting.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
 import { ArticleModule } from '../article/article.module';
 import { CommentModule } from '../comment/comment.module';
@@ -44,6 +45,7 @@ import { S3ObjectUrlModule } from 'src/common/s3/s3-object-url.module';
     NotificationModule,
     OnboardingModule,
     ClubModule,
+    MeetingModule,
     CommentModule,
     AuthModule,
     UserModule,

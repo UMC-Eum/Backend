@@ -92,7 +92,7 @@ export class CommentService {
       await this.createCommentNotification({
         receiverId: Number(parentComment.userId),
         title: '회원님의 댓글에 답글이 달렸어요.',
-        body: `[${club.name}]${comment.user.nickname}님이 회원님의 댓글에 답글을 남겼어요.`,
+        body: `[${club.name}] ${comment.user.nickname}님이 회원님의 댓글에 답글을 남겼어요.`,
         senderId: userId,
         clubId,
         articleId,
@@ -105,7 +105,7 @@ export class CommentService {
       await this.createCommentNotification({
         receiverId: Number(article.userId),
         title: '회원님의 게시물에 댓글이 달렸어요.',
-        body: `[${club.name}]${comment.user.nickname}님이 회원님의 게시물에 댓글을 남겼어요.`,
+        body: `[${club.name}] ${comment.user.nickname}님이 회원님의 게시물에 댓글을 남겼어요.`,
         senderId: userId,
         clubId,
         articleId,

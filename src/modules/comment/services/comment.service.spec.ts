@@ -142,7 +142,7 @@ describe('CommentService', () => {
       2,
       NotificationType.COMMENT,
       '회원님의 게시물에 댓글이 달렸어요.',
-      '[동작구 뜨개질 모임]댓글작성자님이 회원님의 게시물에 댓글을 남겼어요.',
+      '[동작구 뜨개질 모임] 댓글작성자님이 회원님의 게시물에 댓글을 남겼어요.',
       1,
       {
         clubId: String(clubId),
@@ -234,7 +234,7 @@ describe('CommentService', () => {
       2,
       NotificationType.COMMENT,
       '회원님의 댓글에 답글이 달렸어요.',
-      '[동작구 뜨개질 모임]자식작성자님이 회원님의 댓글에 답글을 남겼어요.',
+      '[동작구 뜨개질 모임] 자식작성자님이 회원님의 댓글에 답글을 남겼어요.',
       1,
       {
         clubId: String(clubId),

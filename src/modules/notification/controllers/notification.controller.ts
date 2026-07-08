@@ -31,8 +31,15 @@ export class NotificationController {
   @Patch('/hearts/read')
   @UseGuards(AccessTokenGuard)
   async readAllHeartNotifications(@RequiredUserId() userId: number) {
-    console.log('readAllHeartNotifications 진입');
     await this.notificationService.readAllHeartNotifications(userId);
+  }
+
+  @ApiOperation({ summary: '동호회 알림 전체 읽기' })
+  @ApiOkResponse()
+  @Patch('/clubs/read')
+  @UseGuards(AccessTokenGuard)
+  async readAllClubNotifications(@RequiredUserId() userId: number) {
+    await this.notificationService.readAllClubNotifications(userId);
   }
 
   @ApiOperation({ summary: '알림 읽음 처리' })

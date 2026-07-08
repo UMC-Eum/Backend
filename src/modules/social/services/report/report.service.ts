@@ -8,6 +8,8 @@ import { NotificationService } from '../../../notification/services/notification
 
 @Injectable()
 export class ReportService {
+  private static readonly CLUB_REPORT_DEACTIVATION_THRESHOLD = 5;
+
   constructor(
     readonly reportRepository: ReportRepository,
     private readonly notificationService: NotificationService,
@@ -58,11 +60,7 @@ export class ReportService {
       });
     }
 
-    await this.createClubReportNotification(
-      String(userId),
-      clubId,
-      club.hostId,
-    );
+    await this.handleClubReportThreshold(String(userId), clubId, club.hostId);
     return result;
   }
 
@@ -102,29 +100,31 @@ export class ReportService {
     return result;
   }
 
-  private async createClubReportNotification(
+  private async handleClubReportThreshold(
     reporterUserId: string,
     clubId: string,
     hostId: bigint | null,
   ): Promise<void> {
-    if (!hostId) {
-      return;
-    }
-
     const reportCount =
       await this.reportRepository.countActiveClubReports(clubId);
 
-    await this.notificationService.createNotification(
-      Number(hostId),
-      NotificationType.CLUB,
-      '동호회 신고 알림',
-      `5번 이상의 동호회 신고시에, 동호회가 비활성화됩니다. 현재 ${reportCount}번 신고되었습니다.`,
-      Number(reporterUserId),
-      {
-        clubId,
-        reportCount: reportCount.toString(),
-      },
-    );
+    if (hostId) {
+      await this.notificationService.createNotification(
+        Number(hostId),
+        NotificationType.CLUB,
+        '동호회 신고 알림',
+        `5번 이상의 동호회 신고시에, 동호회가 비활성화됩니다. 현재 ${reportCount}번 신고되었습니다.`,
+        Number(reporterUserId),
+        {
+          clubId,
+          reportCount: reportCount.toString(),
+        },
+      );
+    }
+
+    if (reportCount >= ReportService.CLUB_REPORT_DEACTIVATION_THRESHOLD) {
+      await this.reportRepository.deactivateClub(clubId);
+    }
   }
 
   private async createArticleReportNotification(

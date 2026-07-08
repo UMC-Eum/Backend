@@ -42,6 +42,18 @@ export class ReportRepository {
     });
   }
 
+  deactivateClub(clubId: string) {
+    return this.prisma.club.updateMany({
+      where: {
+        id: BigInt(clubId),
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+  }
+
   countActiveUserReports(userId: string) {
     return this.prisma.userReport.count({
       where: {

@@ -12,6 +12,7 @@ describe('ReportService', () => {
     findActiveArticleByClubId: jest.fn(),
     countActiveClubReports: jest.fn(),
     countActiveUserReports: jest.fn(),
+    deactivateClub: jest.fn(),
     createClubReport: jest.fn(),
     createArticleReport: jest.fn(),
   };
@@ -81,7 +82,40 @@ describe('ReportService', () => {
         reportCount: '3',
       },
     );
+    expect(reportRepository.deactivateClub).not.toHaveBeenCalled();
     expect(result.clubId).toBe(12);
+  });
+
+  it('동호회 신고가 5번 이상이면 동호회를 비활성화한다', async () => {
+    reportRepository.findActiveClubById.mockResolvedValue({
+      id: 12n,
+      hostId: 99n,
+    });
+    reportRepository.createClubReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.SPAM,
+      reason: '스팸입니다.',
+      clubId: 12,
+    });
+    reportRepository.countActiveClubReports.mockResolvedValue(5);
+
+    await service.createClubReport('7', '12', {
+      category: ReportCategory.SPAM,
+      reason: '스팸입니다.',
+    });
+
+    expect(reportRepository.deactivateClub).toHaveBeenCalledWith('12');
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      99,
+      'CLUB',
+      '동호회 신고 알림',
+      '5번 이상의 동호회 신고시에, 동호회가 비활성화됩니다. 현재 5번 신고되었습니다.',
+      7,
+      {
+        clubId: '12',
+        reportCount: '5',
+      },
+    );
   });
 
   it('동호회가 없으면 CLUB_NOT_FOUND', async () => {

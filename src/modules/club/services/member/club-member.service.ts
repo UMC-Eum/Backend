@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { ClubAuthority, ClubUser, ClubUserStatus } from '@prisma/client';
+import {
+  ClubAuthority,
+  ClubUser,
+  ClubUserStatus,
+  NotificationType,
+} from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
+import { NotificationService } from '../../../notification/services/notification.service';
 import {
   ClubMemberListItemDto,
   ClubMemberListResponseDto,
@@ -20,6 +26,7 @@ export class ClubMemberService {
   constructor(
     private readonly clubRepository: ClubRepository,
     private readonly clubMemberRepository: ClubMemberRepository,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async requestJoin(
@@ -43,6 +50,7 @@ export class ClubMemberService {
         userId,
         message: dto.message,
       });
+      await this.createJoinRequestNotification(club, userId);
       return this.toResponse(created);
     }
 
@@ -55,6 +63,7 @@ export class ClubMemberService {
         userId,
         message: dto.message,
       });
+      await this.createJoinRequestNotification(club, userId);
       return this.toResponse(updated);
     }
 
@@ -96,6 +105,13 @@ export class ClubMemberService {
     if (result.result === 'capacity_exceeded') {
       throw new AppException('CLUB_CAPACITY_EXCEEDED');
     }
+
+    await this.createJoinRequestStatusNotification(
+      club,
+      hostUserId,
+      targetUserId,
+      dto.status,
+    );
 
     return this.toResponse(result.member);
   }
@@ -266,6 +282,51 @@ export class ClubMemberService {
       requestedAt: member.requestedAt.toISOString(),
       joinedAt: member.joinedAt?.toISOString() ?? null,
     };
+  }
+
+  private async createJoinRequestNotification(
+    club: { id: bigint; hostId: bigint | null; name: string },
+    requesterUserId: bigint,
+  ): Promise<void> {
+    if (!club.hostId || club.hostId === requesterUserId) {
+      return;
+    }
+
+    await this.notificationService.createNotification(
+      Number(club.hostId),
+      NotificationType.CLUB,
+      '새 동호회 가입 신청이 있어요.',
+      `[${club.name}] 새 가입 신청이 도착했어요.`,
+      Number(requesterUserId),
+      {
+        clubId: club.id.toString(),
+        senderUserId: requesterUserId.toString(),
+      },
+    );
+  }
+
+  private async createJoinRequestStatusNotification(
+    club: { id: bigint; name: string },
+    hostUserId: bigint,
+    targetUserId: bigint,
+    status: ClubUserStatus,
+  ): Promise<void> {
+    const approved = status === ClubUserStatus.ACTIVE;
+
+    await this.notificationService.createNotification(
+      Number(targetUserId),
+      NotificationType.CLUB,
+      approved ? '동호회 가입이 승인됐어요.' : '동호회 가입 신청이 거절됐어요.',
+      approved
+        ? `[${club.name}] 동호회 가입이 승인됐어요.`
+        : `[${club.name}] 동호회 가입 신청이 거절됐어요.`,
+      Number(hostUserId),
+      {
+        clubId: club.id.toString(),
+        senderUserId: hostUserId.toString(),
+        status,
+      },
+    );
   }
 
   private toRequestItem(

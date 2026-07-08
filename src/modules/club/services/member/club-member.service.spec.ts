@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ClubAuthority, ClubUserStatus } from '@prisma/client';
+import {
+  ClubAuthority,
+  ClubUserStatus,
+  NotificationType,
+} from '@prisma/client';
 import { ClubMemberService } from './club-member.service';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
+import { NotificationService } from '../../../notification/services/notification.service';
 
 describe('ClubMemberService', () => {
   let service: ClubMemberService;
@@ -17,6 +22,7 @@ describe('ClubMemberService', () => {
   const leave = jest.fn();
   const kick = jest.fn();
   const delegateHost = jest.fn();
+  const createNotification = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -47,6 +53,7 @@ describe('ClubMemberService', () => {
     leave.mockReset();
     kick.mockReset();
     delegateHost.mockReset();
+    createNotification.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -66,6 +73,12 @@ describe('ClubMemberService', () => {
             delegateHost,
           },
         },
+        {
+          provide: NotificationService,
+          useValue: {
+            createNotification,
+          },
+        },
       ],
     }).compile();
 
@@ -76,6 +89,7 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      name: '테스트 동호회',
       capacity: 10,
       deletedAt: null,
     });
@@ -91,6 +105,17 @@ describe('ClubMemberService', () => {
       userId,
       message: member.joinMessage,
     });
+    expect(createNotification).toHaveBeenCalledWith(
+      Number(hostUserId),
+      NotificationType.CLUB,
+      '새 동호회 가입 신청이 있어요.',
+      '[테스트 동호회] 새 가입 신청이 도착했어요.',
+      Number(userId),
+      {
+        clubId: clubId.toString(),
+        senderUserId: userId.toString(),
+      },
+    );
     expect(result).toEqual({
       clubUserId: 333,
       clubId: 12,
@@ -107,6 +132,7 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      name: '테스트 동호회',
       capacity: 10,
       deletedAt: null,
     });
@@ -124,6 +150,7 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      name: '테스트 동호회',
       capacity: 10,
       deletedAt: null,
     });
@@ -142,6 +169,17 @@ describe('ClubMemberService', () => {
       userId,
       message: member.joinMessage,
     });
+    expect(createNotification).toHaveBeenCalledWith(
+      Number(hostUserId),
+      NotificationType.CLUB,
+      '새 동호회 가입 신청이 있어요.',
+      '[테스트 동호회] 새 가입 신청이 도착했어요.',
+      Number(userId),
+      {
+        clubId: clubId.toString(),
+        senderUserId: userId.toString(),
+      },
+    );
     expect(result.status).toBe(ClubUserStatus.PENDING);
   });
 
@@ -149,6 +187,7 @@ describe('ClubMemberService', () => {
     findClubById.mockResolvedValue({
       id: clubId,
       hostId: hostUserId,
+      name: '테스트 동호회',
       capacity: 10,
       deletedAt: null,
     });
@@ -174,6 +213,18 @@ describe('ClubMemberService', () => {
       status: ClubUserStatus.ACTIVE,
       capacity: 10,
     });
+    expect(createNotification).toHaveBeenCalledWith(
+      Number(userId),
+      NotificationType.CLUB,
+      '동호회 가입이 승인됐어요.',
+      '[테스트 동호회] 동호회 가입이 승인됐어요.',
+      Number(hostUserId),
+      {
+        clubId: clubId.toString(),
+        senderUserId: hostUserId.toString(),
+        status: ClubUserStatus.ACTIVE,
+      },
+    );
     expect(result.status).toBe(ClubUserStatus.ACTIVE);
     expect(result.joinedAt).toBe(joinedAt.toISOString());
   });

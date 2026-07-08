@@ -11,7 +11,10 @@ import {
   decodeCursorRaw,
   encodeCursor,
 } from '../../../common/utils/cursor.util';
-import { FcmPushService } from '../../push/services/fcm-push.service';
+import {
+  FcmNotificationData,
+  FcmPushService,
+} from '../../push/services/fcm-push.service';
 
 @Injectable()
 export class NotificationService {
@@ -55,6 +58,7 @@ export class NotificationService {
     title: string,
     body: string,
     sentById?: number,
+    pushData?: FcmNotificationData,
   ) {
     const result = await this.notificationRepository.createNotification(
       userId,
@@ -65,7 +69,11 @@ export class NotificationService {
     );
 
     try {
-      await this.fcmPushService.sendNotificationToUser(userId, result);
+      await this.fcmPushService.sendNotificationToUser(
+        userId,
+        result,
+        pushData,
+      );
     } catch (e) {
       this.logger.warn(
         `FCM push failed notificationId=${result.id.toString()} userId=${userId}: ${String(e)}`,

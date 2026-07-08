@@ -265,6 +265,12 @@ export class ChatSocketService {
           NotificationType.CHAT,
           title,
           preview.textPreview,
+          params.senderUserId,
+          {
+            chatRoomId: String(params.chatRoomId),
+            messageId: String(params.messageId),
+            senderUserId: String(params.senderUserId),
+          },
         );
 
         server.to(toUserRoom(receiverUserId)).emit('notification.new', {

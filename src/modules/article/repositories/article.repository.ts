@@ -81,6 +81,7 @@ export type LikeArticleResult =
       status: 'success';
       article: {
         id: bigint;
+        clubId: bigint;
         likes: number;
         userId: bigint | null;
         user: { nickname: string } | null;
@@ -575,6 +576,7 @@ export class ArticleRepository {
         },
         select: {
           id: true,
+          clubId: true,
           likes: true,
           userId: true,
           user: {
@@ -636,6 +638,7 @@ export class ArticleRepository {
         data: { likes: { increment: 1 } },
         select: {
           id: true,
+          clubId: true,
           likes: true,
           userId: true,
           user: {

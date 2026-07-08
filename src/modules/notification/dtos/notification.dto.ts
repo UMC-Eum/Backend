@@ -60,13 +60,7 @@ export class NotificationResponseDto {
   @IsString()
   body!: string;
 
-  @ApiPropertyOptional({ type: NotificationTargetDto })
-  target?: NotificationTargetDto;
-
-  static from(
-    entity: Notification,
-    target?: NotificationTargetDto,
-  ): NotificationResponseDto {
+  static from(entity: Notification): NotificationResponseDto {
     return {
       notificationId: entity.id.toString(),
       type: entity.type,
@@ -74,7 +68,6 @@ export class NotificationResponseDto {
       body: entity.body,
       isRead: entity.isRead,
       createdAt: entity.createdAt.toISOString(),
-      ...(target && { target }),
     };
   }
 }

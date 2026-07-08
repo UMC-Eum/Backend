@@ -61,6 +61,10 @@ export class HeartService {
           '마음을 누른 사람이 생겼습니다!',
           `${userName}님이 회원님에게 마음을 보냈습니다.`,
           Number(userId),
+          {
+            senderUserId: String(userId),
+            heartId: String(result.heart.heartId),
+          },
         );
       } catch {
         throw new AppException('SERVER_TEMPORARY_ERROR', {

@@ -123,6 +123,52 @@ describe('FcmPushService', () => {
     });
   });
 
+  it('includes extra click navigation data in FCM payload', async () => {
+    repository.findActiveTokensByUserId.mockResolvedValue([
+      { token: 'valid-token' },
+    ]);
+    sendEachForMulticastMock.mockResolvedValue(
+      batchResponse({ successCount: 1, failureCount: 0 }),
+    );
+
+    const service = new FcmPushService(
+      configService as unknown as ConfigService,
+      repository as unknown as PushDeviceTokenRepository,
+    );
+
+    await service.sendNotificationToUser(
+      10,
+      {
+        id: BigInt(1),
+        userId: BigInt(10),
+        type: NotificationType.CHAT,
+        isRead: false,
+        createdAt: new Date('2026-06-28T12:00:00.000Z'),
+        deletedAt: null,
+        title: '제목',
+        body: '본문',
+        sentById: null,
+      },
+      {
+        chatRoomId: '123',
+        messageId: '456',
+        senderUserId: '789',
+      },
+    );
+
+    expect(sendEachForMulticastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          notificationId: '1',
+          type: 'CHAT',
+          chatRoomId: '123',
+          messageId: '456',
+          senderUserId: '789',
+        },
+      }),
+    );
+  });
+
   it('revokes invalid FCM tokens without logging token values', async () => {
     const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();

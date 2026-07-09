@@ -26,10 +26,12 @@ describe('RoomService', () => {
     isParticipant: jest.fn(),
     findPeerUserId: jest.fn(),
     getMyRoomIds: jest.fn(),
+    getMyJoinedAtByRoomIds: jest.fn(),
     findPeerUserIdsByRoomIds: jest.fn(),
     getMyReadStateByRoomIds: jest.fn(),
     getMyActiveParticipation: jest.fn(),
     getActiveParticipantsWithUser: jest.fn(),
+    countActiveByRoomIds: jest.fn(),
   };
 
   const messageRepoMock: Partial<MessageRepository> = {
@@ -52,6 +54,8 @@ describe('RoomService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoomService,
@@ -118,6 +122,81 @@ describe('RoomService', () => {
 
       expect(res.items).toEqual([]);
       expect(res.nextCursor).toBeNull();
+    });
+
+    it('should keep DIRECT room in my list when peer already left the room', async () => {
+      const roomId = BigInt(10);
+      const me = BigInt(2);
+      const peer = BigInt(7);
+      const joinedAt = new Date('2026-01-01T00:00:00.000Z');
+
+      (participantRepoMock.getMyRoomIds as jest.Mock).mockResolvedValue([
+        roomId,
+      ]);
+      (roomRepoMock.getRoomsByIds as jest.Mock).mockResolvedValue([
+        {
+          id: roomId,
+          type: 'DIRECT',
+          clubId: null,
+          startedAt: joinedAt,
+        },
+      ]);
+      (clubRepoMock.findActiveMembershipClubIds as jest.Mock).mockResolvedValue(
+        [],
+      );
+      (
+        participantRepoMock.getMyJoinedAtByRoomIds as jest.Mock
+      ).mockResolvedValue(new Map([[roomId, joinedAt]]));
+      (messageRepoMock.getLastSentAtByRoomIds as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (
+        participantRepoMock.findPeerUserIdsByRoomIds as jest.Mock
+      ).mockResolvedValue(new Map([[roomId, peer]]));
+      (roomRepoMock.getPeerBasicsByIds as jest.Mock).mockResolvedValue([
+        {
+          id: peer,
+          nickname: '상대',
+          profileImageUrl: null,
+          status: 'ACTIVE',
+          address: { fullName: '서울특별시 강남구' },
+        },
+      ]);
+      (clubRepoMock.findClubBriefsByIds as jest.Mock).mockResolvedValue([]);
+      (participantRepoMock.countActiveByRoomIds as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (
+        participantRepoMock.getMyReadStateByRoomIds as jest.Mock
+      ).mockResolvedValue(new Map());
+      (messageRepoMock.countUnreadByCursor as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (messageRepoMock.getLastMessageSummary as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const res = await service.listRooms(Number(me), {});
+
+      expect(participantRepoMock.findPeerUserIdsByRoomIds).toHaveBeenCalledWith(
+        [roomId],
+        me,
+      );
+      expect(res.items).toEqual([
+        {
+          chatRoomId: Number(roomId),
+          type: 'DIRECT',
+          peer: {
+            userId: Number(peer),
+            nickname: '상대',
+            profileImageUrl: null,
+            areaName: '서울특별시 강남구',
+            isWithdrawn: false,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+        },
+      ]);
     });
   });
 });

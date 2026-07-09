@@ -79,7 +79,7 @@ export class ParticipantRepository {
     me: bigint,
   ): Promise<Map<bigint, bigint>> {
     const rows = await this.prisma.chatParticipant.findMany({
-      where: { roomId: { in: roomIds }, userId: { not: me }, endedAt: null },
+      where: { roomId: { in: roomIds }, userId: { not: me } },
       select: { roomId: true, userId: true },
     });
 

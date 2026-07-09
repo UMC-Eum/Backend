@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { ClubChatService } from './club-chat.service';
 import { ClubRepository } from '../../../club/repositories/club.repository';
+import { ClubMemberRemovedEvent } from '../../../club/events/club-member-removed.event';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
 import { RoomRepository } from '../../repositories/room.repository';
@@ -17,6 +18,7 @@ describe('ClubChatService', () => {
 
   const roomRepoMock: Partial<RoomRepository> = {
     ensureClubRoom: jest.fn(),
+    findClubRoomId: jest.fn(),
   };
 
   const participantRepoMock: Partial<ParticipantRepository> = {
@@ -30,6 +32,7 @@ describe('ClubChatService', () => {
 
   const chatGatewayMock: Partial<ChatGateway> = {
     emitChatMessage: jest.fn(),
+    evictUserFromRoom: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -168,5 +171,41 @@ describe('ClubChatService', () => {
 
     expect(res.created).toBe(false);
     expect(messageRepoMock.createSystemMessage).not.toHaveBeenCalled();
+  });
+
+  describe('onClubMemberRemoved (탈퇴/강퇴 시 소켓 퇴출)', () => {
+    it('클럽 룸이 있으면 해당 유저를 룸에서 퇴출한다', async () => {
+      (roomRepoMock.findClubRoomId as jest.Mock).mockResolvedValue(BigInt(101));
+
+      await service.onClubMemberRemoved(
+        new ClubMemberRemovedEvent(BigInt(7), BigInt(42)),
+      );
+
+      expect(roomRepoMock.findClubRoomId).toHaveBeenCalledWith(BigInt(7));
+      expect(chatGatewayMock.evictUserFromRoom).toHaveBeenCalledWith(101, 42);
+    });
+
+    it('클럽 룸이 없으면 게이트웨이를 호출하지 않는다', async () => {
+      (roomRepoMock.findClubRoomId as jest.Mock).mockResolvedValue(null);
+
+      await service.onClubMemberRemoved(
+        new ClubMemberRemovedEvent(BigInt(7), BigInt(42)),
+      );
+
+      expect(chatGatewayMock.evictUserFromRoom).not.toHaveBeenCalled();
+    });
+
+    it('퇴출 중 예외가 나도 전파하지 않는다(best-effort)', async () => {
+      (roomRepoMock.findClubRoomId as jest.Mock).mockResolvedValue(BigInt(101));
+      (chatGatewayMock.evictUserFromRoom as jest.Mock).mockRejectedValue(
+        new Error('boom'),
+      );
+
+      await expect(
+        service.onClubMemberRemoved(
+          new ClubMemberRemovedEvent(BigInt(7), BigInt(42)),
+        ),
+      ).resolves.toBeUndefined();
+    });
   });
 });

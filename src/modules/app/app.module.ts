@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
@@ -35,6 +36,7 @@ import { S3ObjectUrlModule } from 'src/common/s3/s3-object-url.module';
         return parsed.data;
       },
     }),
+    EventEmitterModule.forRoot(),
     S3ObjectUrlModule,
     HealthModule,
     PrismaModule,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClubAuthority,
   ClubUser,
@@ -9,6 +10,10 @@ import { AppException } from '../../../../common/errors/app.exception';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
 import { NotificationService } from '../../../notification/services/notification.service';
+import {
+  CLUB_MEMBER_REMOVED,
+  ClubMemberRemovedEvent,
+} from '../../events/club-member-removed.event';
 import {
   ClubMemberListItemDto,
   ClubMemberListResponseDto,
@@ -27,6 +32,7 @@ export class ClubMemberService {
     private readonly clubRepository: ClubRepository,
     private readonly clubMemberRepository: ClubMemberRepository,
     private readonly notificationService: NotificationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async requestJoin(
@@ -185,6 +191,12 @@ export class ClubMemberService {
       throw new AppException('SERVER_TEMPORARY_ERROR');
     }
 
+    // 트랜잭션 커밋 이후 발행 → chat 도메인이 실시간 소켓 룸에서 퇴출
+    this.eventEmitter.emit(
+      CLUB_MEMBER_REMOVED,
+      new ClubMemberRemovedEvent(clubId, userId),
+    );
+
     return {
       clubUserId: Number(left.id),
       clubId: Number(left.clubId),
@@ -222,6 +234,12 @@ export class ClubMemberService {
     if (!kicked.leftAt) {
       throw new AppException('SERVER_TEMPORARY_ERROR');
     }
+
+    // 트랜잭션 커밋 이후 발행 → chat 도메인이 실시간 소켓 룸에서 퇴출
+    this.eventEmitter.emit(
+      CLUB_MEMBER_REMOVED,
+      new ClubMemberRemovedEvent(clubId, targetUserId),
+    );
 
     return {
       clubUserId: Number(kicked.id),

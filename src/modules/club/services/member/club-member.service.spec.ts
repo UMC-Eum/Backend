@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClubAuthority,
   ClubUserStatus,
@@ -8,6 +9,7 @@ import { ClubMemberService } from './club-member.service';
 import { ClubRepository } from '../../repositories/club.repository';
 import { ClubMemberRepository } from '../../repositories/club-member.repository';
 import { NotificationService } from '../../../notification/services/notification.service';
+import { CLUB_MEMBER_REMOVED } from '../../events/club-member-removed.event';
 
 describe('ClubMemberService', () => {
   let service: ClubMemberService;
@@ -23,6 +25,7 @@ describe('ClubMemberService', () => {
   const kick = jest.fn();
   const delegateHost = jest.fn();
   const createNotification = jest.fn();
+  const emit = jest.fn();
 
   const clubId = 12n;
   const userId = 42n;
@@ -54,6 +57,7 @@ describe('ClubMemberService', () => {
     kick.mockReset();
     delegateHost.mockReset();
     createNotification.mockReset();
+    emit.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -78,6 +82,10 @@ describe('ClubMemberService', () => {
           useValue: {
             createNotification,
           },
+        },
+        {
+          provide: EventEmitter2,
+          useValue: { emit },
         },
       ],
     }).compile();
@@ -442,6 +450,11 @@ describe('ClubMemberService', () => {
       status: ClubUserStatus.LEFT,
       leftAt: leftAt.toISOString(),
     });
+    // 커밋 이후 멤버 제거 이벤트 발행 (chat 소켓 퇴출용)
+    expect(emit).toHaveBeenCalledWith(
+      CLUB_MEMBER_REMOVED,
+      expect.objectContaining({ clubId, userId }),
+    );
   });
 
   it('호스트는 권한 위임 전 탈퇴할 수 없다', async () => {
@@ -503,6 +516,11 @@ describe('ClubMemberService', () => {
       status: ClubUserStatus.KICKED,
       leftAt: leftAt.toISOString(),
     });
+    // 커밋 이후 멤버 제거 이벤트 발행 (chat 소켓 퇴출용)
+    expect(emit).toHaveBeenCalledWith(
+      CLUB_MEMBER_REMOVED,
+      expect.objectContaining({ clubId, userId }),
+    );
   });
 
   it('호스트가 아니면 강퇴할 수 없다', async () => {

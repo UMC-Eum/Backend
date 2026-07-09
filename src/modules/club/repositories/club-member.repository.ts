@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ClubAuthority, ClubUserStatus } from '@prisma/client';
+import {
+  ChatRoomType,
+  ClubAuthority,
+  ClubUserStatus,
+  MeetingMemberStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -162,34 +168,58 @@ export class ClubMemberRepository {
   }
 
   leave(clubId: bigint, userId: bigint) {
-    return this.prisma.clubUser.update({
-      where: {
-        userId_clubId: {
-          userId,
-          clubId,
+    return this.prisma.$transaction(async (tx) => {
+      const leftAt = new Date();
+      const left = await tx.clubUser.update({
+        where: {
+          userId_clubId: {
+            userId,
+            clubId,
+          },
         },
-      },
-      data: {
-        status: ClubUserStatus.LEFT,
-        authority: ClubAuthority.GENERAL,
-        leftAt: new Date(),
-      },
+        data: {
+          status: ClubUserStatus.LEFT,
+          authority: ClubAuthority.GENERAL,
+          leftAt,
+        },
+      });
+
+      await this.cleanupClubScopedParticipation(tx, {
+        clubId,
+        userId,
+        clubUserId: left.id,
+        endedAt: leftAt,
+      });
+
+      return left;
     });
   }
 
   kick(clubId: bigint, userId: bigint) {
-    return this.prisma.clubUser.update({
-      where: {
-        userId_clubId: {
-          userId,
-          clubId,
+    return this.prisma.$transaction(async (tx) => {
+      const leftAt = new Date();
+      const kicked = await tx.clubUser.update({
+        where: {
+          userId_clubId: {
+            userId,
+            clubId,
+          },
         },
-      },
-      data: {
-        status: ClubUserStatus.KICKED,
-        authority: ClubAuthority.GENERAL,
-        leftAt: new Date(),
-      },
+        data: {
+          status: ClubUserStatus.KICKED,
+          authority: ClubAuthority.GENERAL,
+          leftAt,
+        },
+      });
+
+      await this.cleanupClubScopedParticipation(tx, {
+        clubId,
+        userId,
+        clubUserId: kicked.id,
+        endedAt: leftAt,
+      });
+
+      return kicked;
     });
   }
 
@@ -229,6 +259,45 @@ export class ClubMemberRepository {
       });
 
       return nextHost;
+    });
+  }
+
+  private async cleanupClubScopedParticipation(
+    tx: Prisma.TransactionClient,
+    {
+      clubId,
+      userId,
+      clubUserId,
+      endedAt,
+    }: {
+      clubId: bigint;
+      userId: bigint;
+      clubUserId: bigint;
+      endedAt: Date;
+    },
+  ): Promise<void> {
+    await tx.meetingMember.updateMany({
+      where: {
+        clubUserId,
+        deletedAt: null,
+        status: {
+          in: [MeetingMemberStatus.ACTIVE, MeetingMemberStatus.PENDING],
+        },
+        meeting: { clubId },
+      },
+      data: { deletedAt: endedAt },
+    });
+
+    await tx.chatParticipant.updateMany({
+      where: {
+        userId,
+        endedAt: null,
+        room: {
+          type: ChatRoomType.CLUB,
+          clubId,
+        },
+      },
+      data: { endedAt },
     });
   }
 }

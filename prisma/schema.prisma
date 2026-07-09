@@ -130,6 +130,12 @@ enum ReportCategory {
   OTHERS
 }
 
+enum ReportTargetType {
+  USER
+  CLUB
+  ARTICLE
+}
+
 enum ChatRoomType {
   DIRECT
   CLUB
@@ -371,6 +377,9 @@ model Block {
 model Report {
   id           BigInt         @id @default(autoincrement()) @db.BigInt
   reportedById BigInt?        @db.BigInt
+  targetType   ReportTargetType?
+  targetId     BigInt?        @db.BigInt
+  chatRoomId   BigInt?        @db.BigInt
   reportedAt   DateTime       @db.Timestamp(6)
   reason       String         @db.VarChar(100)
   category     ReportCategory @default(OTHERS)
@@ -381,6 +390,8 @@ model Report {
   clubReport ClubReport?
 
   @@index([reportedById])
+  @@index([targetType, targetId])
+  @@index([chatRoomId])
   @@index([reportedAt])
 }
 

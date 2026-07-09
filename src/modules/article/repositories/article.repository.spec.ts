@@ -86,6 +86,25 @@ describe('ArticleRepository', () => {
         }),
       );
     });
+
+    it('counts only non-deleted comments', async () => {
+      articleModel.findMany.mockResolvedValue([]);
+
+      await repository.findArticlesByClub(20, {
+        sort: 'recent',
+        take: 20,
+      });
+
+      const findManyArgs = articleModel.findMany.mock.calls[0][0];
+
+      expect(findManyArgs.include?._count).toEqual({
+        select: {
+          comments: {
+            where: { deletedAt: null },
+          },
+        },
+      });
+    });
   });
 
   describe('pinArticle', () => {

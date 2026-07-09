@@ -21,7 +21,11 @@ type ArticleWithRelations = Prisma.ArticleGetPayload<{
     };
     _count: {
       select: {
-        comments: true;
+        comments: {
+          where: {
+            deletedAt: null;
+          };
+        };
       };
     };
   };
@@ -199,7 +203,11 @@ export class ArticleRepository {
         },
         _count: {
           select: {
-            comments: true,
+            comments: {
+              where: {
+                deletedAt: null,
+              },
+            },
           },
         },
       },
@@ -243,7 +251,11 @@ export class ArticleRepository {
         },
         _count: {
           select: {
-            comments: true,
+            comments: {
+              where: {
+                deletedAt: null,
+              },
+            },
           },
         },
       },

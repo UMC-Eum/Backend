@@ -463,7 +463,6 @@ export class MeetingService {
       profileImageUrl: string;
       authority: AttendeeListRow['authority'];
     };
-    joinMessage: string;
     requestedAt: string;
   } {
     return {
@@ -475,7 +474,6 @@ export class MeetingService {
         profileImageUrl: row.profileImageUrl,
         authority: row.authority,
       },
-      joinMessage: row.joinMessage,
       requestedAt: toKstIso(row.requestedAt),
     };
   }

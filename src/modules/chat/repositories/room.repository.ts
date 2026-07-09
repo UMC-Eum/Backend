@@ -209,6 +209,15 @@ export class RoomRepository {
     }
   }
 
+  // 클럽 채팅방 조회(생성 X). 방이 아직 없으면 null (퇴출 대상 없음).
+  async findClubRoomId(clubId: bigint): Promise<bigint | null> {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: { clubId, type: 'CLUB' },
+      select: { id: true },
+    });
+    return room?.id ?? null;
+  }
+
   getRoomsByIds(roomIds: bigint[]) {
     return this.prisma.chatRoom.findMany({
       where: { id: { in: roomIds }, endedAt: null, status: 'ACTIVE' },

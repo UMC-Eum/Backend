@@ -70,6 +70,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(uniqueRooms).emit(event, payload);
   }
 
+  // 클럽 탈퇴/강퇴 시 해당 유저의 소켓을 채팅 룸에서 퇴출한다.
+  // 룸 join은 입장 시점에만 인가하므로, 이미 join된 소켓은 명시적으로 빼주지 않으면
+  // message.new broadcast를 계속 수신한다. disconnect가 아니라 해당 룸에서만 leave해
+  // DIRECT/다른 클럽 룸 참여는 유지한다.
+  // NOTE(scale-out): 기본 인메모리 어댑터에서 fetchSockets/leave는 로컬 노드 소켓만 처리한다.
+  //   다중 인스턴스 배포 시 @socket.io/redis-adapter 도입 필요(코드 shape는 그대로 동작).
+  async evictUserFromRoom(chatRoomId: number, userId: number): Promise<void> {
+    if (!this.server) return;
+    const room = toChatRoom(chatRoomId);
+    const sockets = await this.server.in(room).fetchSockets();
+    for (const s of sockets) {
+      const socketUserId = (s.data as SocketData)?.userId;
+      if (Number(socketUserId) === userId) {
+        void s.leave(room);
+        s.emit('room.evicted', { chatRoomId });
+      }
+    }
+  }
+
   // REST(입장/퇴장 SYSTEM 메시지 등)에서 호출 — 방 전체에 message.new broadcast.
   emitChatMessage(chatRoomId: number, payload: unknown): void {
     this.emitToRooms([toChatRoom(chatRoomId)], 'message.new', payload);

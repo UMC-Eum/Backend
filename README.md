@@ -29,7 +29,7 @@ NestJS 기반으로 구성되어 있으며, 초기 프로젝트 세팅과 공통
 ```bash
 # 최초 세팅
 npm install                    # 의존성 설치 (postinstall로 prisma generate 자동 실행)
-npm run prisma:migrate:dev     # 로컬 DB 마이그레이션 적용
+npm run prisma:migrate:deploy     # 로컬 DB 마이그레이션 적용
 
 # 실행
 npm run start:dev              # 개발 모드 (watch) — 기본 포트 3000

@@ -498,7 +498,6 @@ Table MeetingMember {
   status MeetingMemberStatus [not null, default: 'ACTIVE']
   requestedAt DateTime [default: `now()`, not null]
   joinedAt DateTime
-  joinMessage String [not null, default: '']
   deletedAt DateTime
   meeting Meeting [not null]
   clubUser ClubUser [not null]

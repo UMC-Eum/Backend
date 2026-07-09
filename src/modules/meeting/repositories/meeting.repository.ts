@@ -48,7 +48,6 @@ export type PendingRequestRow = {
   meetingMemberId: bigint;
   clubUserId: bigint;
   requestedAt: Date;
-  joinMessage: string;
   userId: bigint;
   nickname: string;
   profileImageUrl: string;
@@ -339,7 +338,9 @@ export class MeetingRepository {
         where: { meetingId_clubUserId: { meetingId, clubUserId } },
         select: { id: true, status: true, deletedAt: true },
       });
-      // 이미 참석중이거나 승인 대기중이면 중복 처리 (REJECTED/취소 이력은 재신청 허용)
+      // 이미 참석중이면 중복 차단. 승인 대기중(PENDING)은 정책이 여전히 APPROVAL_REQUIRED일 때만
+      // 중복 신청으로 막고, AUTO로 바뀌었으면 아래 AUTO 경로로 흘려보내 정원 체크 후 ACTIVE로 승격한다.
+      // (REJECTED/취소 이력도 아래 경로에서 재신청/재참석 허용)
       if (existing && existing.deletedAt === null) {
         if (existing.status === MeetingMemberStatus.ACTIVE) {
           return {
@@ -350,7 +351,7 @@ export class MeetingRepository {
             alreadyRequested: false,
           };
         }
-        if (existing.status === MeetingMemberStatus.PENDING) {
+        if (existing.status === MeetingMemberStatus.PENDING && isApproval) {
           return {
             member: null,
             capacityExceeded: false,
@@ -445,6 +446,10 @@ export class MeetingRepository {
         meetingId,
         clubUserId,
         deletedAt: null,
+        // 참석(ACTIVE) 또는 승인 대기(PENDING)만 취소 대상. REJECTED 이력은 제외.
+        status: {
+          in: [MeetingMemberStatus.ACTIVE, MeetingMemberStatus.PENDING],
+        },
         meeting: { clubId },
       },
       data: { deletedAt },
@@ -520,7 +525,6 @@ export class MeetingRepository {
         id: true,
         clubUserId: true,
         requestedAt: true,
-        joinMessage: true,
         clubUser: {
           select: {
             authority: true,
@@ -535,7 +539,6 @@ export class MeetingRepository {
       meetingMemberId: r.id,
       clubUserId: r.clubUserId,
       requestedAt: r.requestedAt,
-      joinMessage: r.joinMessage,
       userId: r.clubUser.user.id,
       nickname: r.clubUser.user.nickname,
       profileImageUrl: r.clubUser.user.profileImageUrl,

@@ -744,7 +744,6 @@ describe('MeetingService', () => {
           meetingMemberId: 9001n,
           clubUserId: 777n,
           requestedAt: new Date('2026-05-01T11:05:00.000Z'),
-          joinMessage: '참석하고 싶어요',
           userId: 200n,
           nickname: '지원자',
           profileImageUrl: 'u-200',
@@ -764,7 +763,6 @@ describe('MeetingService', () => {
       expect(result.requests[0]).toMatchObject({
         meetingMemberId: 9001,
         clubUserId: 777,
-        joinMessage: '참석하고 싶어요',
         user: {
           userId: 200,
           nickname: '지원자',

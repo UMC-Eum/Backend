@@ -741,7 +741,6 @@ model MeetingMember {
   status      MeetingMemberStatus @default(ACTIVE) // 참석 상태 (승인정모: PENDING→ACTIVE/REJECTED)
   requestedAt DateTime            @default(now()) @db.Timestamp(6) // 참석 신청 시각
   joinedAt    DateTime?           @db.Timestamp(6) // 승인/참석 확정 시각 (PENDING이면 null)
-  joinMessage String              @default("") @db.VarChar(300) // 승인정모 신청 메시지 (선택)
   deletedAt   DateTime?           @db.Timestamp(6)
 
   meeting  Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade) // 미팅 삭제 시 함께 삭제

@@ -161,13 +161,17 @@ export class MeetingController {
   }
 
   @Delete(':meetingId/attendees/me')
-  @ApiOperation({ summary: '정모 참석 취소 (본인, 호스트 불가)' })
+  @ApiOperation({
+    summary: '정모 참석/신청 취소 (본인, 호스트 불가)',
+    description:
+      '참석(ACTIVE) 또는 승인 대기(PENDING) 상태를 취소합니다. 승인정모 신청 철회에도 사용됩니다.',
+  })
   @ApiOkResponse({
-    description: '정모 참석 취소 완료',
+    description: '정모 참석/신청 취소 완료',
     type: LeaveMeetingResponseDto,
   })
   @ApiNotFoundResponse({
-    description: '클럽/정모 없음 또는 참석 중인 정모가 아님',
+    description: '클럽/정모 없음 또는 참석·신청 중인 정모가 아님',
   })
   async leaveMeeting(
     @RequiredUserId() userId: number,

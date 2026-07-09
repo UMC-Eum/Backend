@@ -455,9 +455,6 @@ export class MeetingRequestItemDto {
   @ApiProperty({ type: AttendeeUserDto })
   user!: AttendeeUserDto;
 
-  @ApiProperty({ example: '참석하고 싶습니다!' })
-  joinMessage!: string;
-
   @ApiProperty({ example: '2026-05-01T20:05:00+09:00' })
   requestedAt!: string;
 }

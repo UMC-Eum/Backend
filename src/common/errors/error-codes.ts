@@ -347,7 +347,7 @@ export const ERROR_DEFINITIONS = {
   MEETING_NOT_JOINED: {
     status: HttpStatus.NOT_FOUND,
     code: 'MEETING-006',
-    message: '참석 중인 정모가 아니에요.',
+    message: '참석/신청 중인 정모가 아니에요.',
   },
   MEETING_HOST_CANNOT_LEAVE: {
     status: HttpStatus.FORBIDDEN,

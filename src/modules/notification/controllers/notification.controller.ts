@@ -148,7 +148,7 @@ export class NotificationController {
                 notificationId: '1',
                 type: 'COMMENT',
                 title: '회원님의 게시물에 댓글이 달렸어요.',
-                body: '[동작구 뜨개질 모임]야옹이님이 회원님의 게시물에 댓글을 남겼어요.',
+                body: '[동작구 뜨개질 모임] 야옹이님이 회원님의 게시물에 댓글을 남겼어요.',
                 isRead: false,
                 createdAt: '2025-12-30T04:00:00.000Z',
                 sender: {

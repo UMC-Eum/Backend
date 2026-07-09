@@ -194,7 +194,7 @@ export class CommentController {
   @ApiOperation({
     summary: '댓글 삭제',
     description:
-      '댓글 작성자만 삭제할 수 있습니다. 부모 댓글이 삭제되는 경우 대댓글도 함께 삭제됩니다.',
+      '댓글 작성자만 삭제할 수 있습니다. 대댓글이 있는 부모 댓글은 실제 삭제하지 않고 (삭제된 댓글입니다)로 표시되며, 대댓글은 유지됩니다.',
   })
   @ApiParam({ name: 'clubId', example: 1 })
   @ApiParam({ name: 'articleId', example: 1 })

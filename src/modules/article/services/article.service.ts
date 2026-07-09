@@ -365,7 +365,7 @@ export class ArticleService {
       Number(authorId),
       NotificationType.ARTICLE,
       '회원님의 게시물에 좋아요가 눌렸어요.',
-      `[${clubName}]${senderNickname}님이 회원님의 게시물에 좋아요를 눌렀어요.`,
+      `[${clubName}] ${senderNickname}님이 회원님의 게시물에 좋아요를 눌렀어요.`,
       senderId,
       {
         clubId: result.article.clubId.toString(),

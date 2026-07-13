@@ -1,24 +1,34 @@
 name: CD - Deploy to Staging (ECS)
 
 on:
-  push:
-    branches: ["dev"]
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: ['dev']
 
 concurrency:
   group: cd-staging
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   deploy:
     name: Deploy to Staging ECS
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'dev' &&
+       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    # 인증: OIDC 대신 임시로 IAM 액세스 키 사용 (secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).
-    #       추후 GitHub OIDC role로 교체 권장.
-    permissions:
-      contents: read
+    timeout-minutes: 35
+    environment: staging
 
     env:
       AWS_REGION: ap-northeast-2
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
       ECR_REGISTRY: 413790913159.dkr.ecr.ap-northeast-2.amazonaws.com
       ECR_REPOSITORY: eum-backend
       ECS_CLUSTER: eum-cluster
@@ -26,12 +36,40 @@ jobs:
       ECS_TASK_FAMILY: eum-backend
       CONTAINER_NAME: eum-backend
       HEALTH_URL: https://staging.eum-dating.com/api/v1/health
+      WS_URL: https://staging.eum-dating.com
+      WS_ACCESS_TOKEN: ${{ secrets.STAGING_WS_ACCESS_TOKEN }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Resolve validated commit
+        id: commit
+        env:
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          SHA="$WORKFLOW_SHA"
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::A full 40-character commit SHA is required"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Configure AWS credentials (access key)
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+
+      # AWS_ROLE_ARN을 staging Environment secret에 추가한 뒤에는 OIDC가 사용됩니다.
+      - name: Configure AWS credentials with OIDC
+        if: env.AWS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: github-actions-staging-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # OIDC 전환 중 배포 중단을 막기 위한 임시 fallback입니다. 전환 후 기존 키를 삭제합니다.
+      - name: Configure AWS credentials with access key (temporary fallback)
+        if: env.AWS_ROLE_ARN == ''
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -42,40 +80,53 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set image tag
-        id: tag
-        run: |
-          echo "image=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        id: image
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        run: echo "uri=${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push image to ECR
-        uses: docker/build-push-action@v5
+      - name: Build image locally
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ steps.tag.outputs.image }}
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          load: true
+          push: false
+          tags: ${{ steps.image.outputs.uri }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.uri }}
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Push immutable image
+        run: docker push "${{ steps.image.outputs.uri }}"
 
       - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_FAMILY }} \
+            --task-definition "$ECS_TASK_FAMILY" \
             --query taskDefinition > task-definition.json
 
-      - name: Render new task definition with new image
+      - name: Render task definition with new image
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.tag.outputs.image }}
+          image: ${{ steps.image.outputs.uri }}
 
-      - name: Run Prisma migrate (ECS one-off task)
+      - name: Run Prisma migration
         id: migrate
         env:
           RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
@@ -84,106 +135,134 @@ jobs:
 
           TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json "file://$RENDERED_TASK_DEF" \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
+            --query taskDefinition.taskDefinitionArn --output text)
           echo "td_arn=$TD_ARN" >> "$GITHUB_OUTPUT"
-          echo "Registered task def: $TD_ARN"
 
-          # CPU=0: 클러스터에 예약 CPU 여유가 없어도 배치되도록 (migrate는 짧고 I/O 중심)
-          # memoryReservation=256: 배치 판단용 최소 메모리만 잡고, 호스트 잔여로 흡수
           OVERRIDES=$(jq -nc \
-            --arg name "${{ env.CONTAINER_NAME }}" \
-            '{containerOverrides: [{name: $name, command: ["npx","prisma","migrate","deploy"], cpu: 0, memoryReservation: 256}]}')
+            --arg name "$CONTAINER_NAME" \
+            '{containerOverrides: [{name: $name, command: ["./node_modules/.bin/prisma","migrate","deploy"], cpu: 0, memoryReservation: 256}]}')
 
           RUN_OUT=$(aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
+            --cluster "$ECS_CLUSTER" \
             --launch-type EC2 \
             --task-definition "$TD_ARN" \
             --overrides "$OVERRIDES" \
             --output json)
 
-          TASK_ARN=$(echo "$RUN_OUT" | jq -r '.tasks[0].taskArn // empty')
+          TASK_ARN=$(jq -r '.tasks[0].taskArn // empty' <<< "$RUN_OUT")
           if [ -z "$TASK_ARN" ]; then
-            echo "::error::run-task가 마이그레이션 태스크를 시작하지 못했습니다 (배치 실패)"
-            echo "$RUN_OUT" | jq -r '.failures'
+            echo "::error::Failed to start migration task"
+            jq -r '.failures' <<< "$RUN_OUT"
             exit 1
           fi
-          echo "Migrate task: $TASK_ARN"
+          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
 
-          aws ecs wait tasks-stopped --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
 
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster ${{ env.ECS_CLUSTER }} --tasks "$TASK_ARN" \
-            --query 'tasks[0].containers[?name==`${{ env.CONTAINER_NAME }}`].exitCode | [0]' \
-            --output text)
+          TASK_INFO=$(aws ecs describe-tasks \
+            --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --output json)
+          EXIT_CODE=$(jq -r --arg name "$CONTAINER_NAME" \
+            '.tasks[0].containers[] | select(.name == $name) | .exitCode // -1' <<< "$TASK_INFO")
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error::Prisma migrate failed (exit=$EXIT_CODE)"
+            jq '.tasks[0] | {stoppedReason, containers: [.containers[] | {name, exitCode, reason}]}' <<< "$TASK_INFO"
             exit 1
           fi
-          echo "Prisma migrate completed"
 
-      - name: Deploy to ECS service
-        # migrate 스텝에서 등록한 동일 TD 리비전을 재사용 (중복 register 방지)
+      - name: Deploy with circuit breaker rollback
         env:
           TD_ARN: ${{ steps.migrate.outputs.td_arn }}
         run: |
           set -euo pipefail
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
-            --task-definition "$TD_ARN" > /dev/null
 
-          # `aws ecs wait services-stable`은 옛 deployment가 ACTIVE로 남아있는 동안 풀리지 않아
-          # 새 태스크가 멀쩡히 떠도 자주 타임아웃까지 끌려간다. 더 실용적으로,
-          # PRIMARY deployment의 rolloutState=COMPLETED만 확인한다 (= 새 태스크 healthy + desiredCount 도달).
-          # 이미지 pull(1~3분) + ALB healthcheck warmup(1~2.5분) + 컨테이너 부팅까지 합하면 7~12분이
-          # 일반적이라, 여유롭게 60회 × 15s = 15분으로 설정한다.
+          SERVICE=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0]' --output json)
+          CONTROLLER=$(jq -r '.deploymentController.type' <<< "$SERVICE")
+          if [ "$CONTROLLER" != "ECS" ]; then
+            echo "::error::ECS circuit breaker requires the ECS rolling deployment controller (current=$CONTROLLER)"
+            exit 1
+          fi
+
+          MIN_HEALTHY=$(jq -r '.deploymentConfiguration.minimumHealthyPercent' <<< "$SERVICE")
+          MAX_PERCENT=$(jq -r '.deploymentConfiguration.maximumPercent' <<< "$SERVICE")
+          DEPLOY_CONFIG=$(jq -nc \
+            --argjson min "$MIN_HEALTHY" \
+            --argjson max "$MAX_PERCENT" \
+            '{minimumHealthyPercent:$min,maximumPercent:$max,deploymentCircuitBreaker:{enable:true,rollback:true}}')
+
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TD_ARN" \
+            --deployment-configuration "$DEPLOY_CONFIG" > /dev/null
+
           MAX_ATTEMPTS=60
           INTERVAL=15
-          echo "Polling PRIMARY deployment rolloutState (max $((MAX_ATTEMPTS * INTERVAL / 60))min, ${INTERVAL}s 간격)..."
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
-            INFO=$(aws ecs describe-services \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --services ${{ env.ECS_SERVICE }} \
-              --query "services[0].deployments[?status=='PRIMARY'] | [0]" \
-              --output json)
-            STATE=$(echo "$INFO" | jq -r '.rolloutState // "UNKNOWN"')
-            RUNNING=$(echo "$INFO" | jq -r '.runningCount // 0')
-            DESIRED=$(echo "$INFO" | jq -r '.desiredCount // 0')
-            FAILED_TASKS=$(echo "$INFO" | jq -r '.failedTasks // 0')
-            echo "[$i/$MAX_ATTEMPTS] PRIMARY rolloutState=$STATE running=$RUNNING/$DESIRED failedTasks=$FAILED_TASKS"
+            DEPLOYMENTS=$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query 'services[0].deployments' --output json)
+            EXPECTED=$(jq -c --arg td "$TD_ARN" \
+              '[.[] | select(.taskDefinition == $td)] | first // empty' <<< "$DEPLOYMENTS")
+
+            if [ -z "$EXPECTED" ]; then
+              echo "::error::Expected deployment disappeared; ECS may have rolled it back"
+              exit 1
+            fi
+
+            STATE=$(jq -r '.rolloutState // "UNKNOWN"' <<< "$EXPECTED")
+            RUNNING=$(jq -r '.runningCount // 0' <<< "$EXPECTED")
+            DESIRED=$(jq -r '.desiredCount // 0' <<< "$EXPECTED")
+            FAILED_TASKS=$(jq -r '.failedTasks // 0' <<< "$EXPECTED")
+            echo "[$i/$MAX_ATTEMPTS] rolloutState=$STATE running=$RUNNING/$DESIRED failedTasks=$FAILED_TASKS"
+
             case "$STATE" in
-              COMPLETED)
-                echo "Deployment completed."
-                exit 0
-                ;;
+              COMPLETED) exit 0 ;;
               FAILED)
-                echo "::error::PRIMARY deployment FAILED"
-                aws ecs describe-services \
-                  --cluster ${{ env.ECS_CLUSTER }} \
-                  --services ${{ env.ECS_SERVICE }} \
-                  --query 'services[0].deployments' --output json
+                echo "::error::Deployment failed; ECS circuit breaker rollback was requested"
                 exit 1
                 ;;
             esac
             sleep "$INTERVAL"
           done
 
-          echo "::error::Timeout: PRIMARY rolloutState가 $((MAX_ATTEMPTS * INTERVAL / 60))분 안에 COMPLETED 도달 못 함"
-          aws ecs describe-services \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }} \
-            --query 'services[0].deployments' --output json
+          echo "::error::Deployment did not complete within 15 minutes"
           exit 1
 
-      - name: Smoke test (ALB health)
+      - name: REST smoke test
         run: |
           for i in {1..12}; do
-            if curl -fsS --max-time 5 "$HEALTH_URL" > /dev/null; then
-              echo "Health check passed"
+            if curl -fsS --max-time 5 "$HEALTH_URL" | jq -e '.status == "ok" or .success.data.status == "ok"' > /dev/null; then
+              echo "REST health check passed"
               exit 0
             fi
-            echo "attempt $i/12 failed, retrying in 5s"
+            echo "attempt $i/12 failed; retrying in 5 seconds"
             sleep 5
           done
-          echo "::error::Health check failed after 60s"
+          echo "::error::REST health check failed after 60 seconds"
           exit 1
+
+      - name: WebSocket smoke test
+        run: bash scripts/ws-smoke.sh "$WS_URL"
+
+      - name: Collect ECS diagnostics
+        if: failure()
+        run: |
+          set +e
+          echo "ECS service deployments and recent events"
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].{deployments:deployments,events:events[0:10]}' \
+            --output json
+
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" \
+            --desired-status STOPPED --max-items 10 \
+            --query 'taskArns' --output text)
+          if [ -n "$TASK_ARNS" ] && [ "$TASK_ARNS" != "None" ]; then
+            aws ecs describe-tasks \
+              --cluster "$ECS_CLUSTER" --tasks $TASK_ARNS \
+              --query 'tasks[].{taskArn:taskArn,taskDefinitionArn:taskDefinitionArn,stoppedReason:stoppedReason,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+              --output json
+          fi

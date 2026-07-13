@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  AuthProvider,
   ClubAuthority,
   ClubCategory,
   ClubUserStatus,
@@ -7,6 +8,7 @@ import {
 } from '@prisma/client';
 import { UserService } from './user.service';
 import { UserRepository } from '../../repositories/user.repository';
+import { AppleAuthService } from '../../../auth/services/apple-auth.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -28,10 +30,15 @@ describe('UserService', () => {
     updatePersonalities: jest.fn(),
     updateIdealPersonalities: jest.fn(),
     deactivateProfile: jest.fn(),
+    deleteAccount: jest.fn(),
+  };
+  const appleAuthServiceMock = {
+    revokeAuthorizationCode: jest.fn(),
   };
 
   beforeEach(async () => {
     Object.values(repositoryMock).forEach((mock) => mock.mockReset());
+    Object.values(appleAuthServiceMock).forEach((mock) => mock.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -39,6 +46,10 @@ describe('UserService', () => {
         {
           provide: UserRepository,
           useValue: repositoryMock,
+        },
+        {
+          provide: AppleAuthService,
+          useValue: appleAuthServiceMock,
         },
       ],
     }).compile();
@@ -491,5 +502,40 @@ describe('UserService', () => {
     expect(result).toBeNull();
     expect(repositoryMock.findActiveUserId).toHaveBeenCalledWith(7);
     expect(repositoryMock.createProfileVisitLog).not.toHaveBeenCalled();
+  });
+
+  it('Apple 로그인 사용자는 authorization code 없이 계정 삭제를 할 수 없다', async () => {
+    await expect(
+      service.deleteMe(7, AuthProvider.APPLE, {}),
+    ).rejects.toMatchObject({
+      internalCode: 'VALIDATION_REQUIRED_FIELD_MISSING',
+    });
+
+    expect(appleAuthServiceMock.revokeAuthorizationCode).not.toHaveBeenCalled();
+    expect(repositoryMock.deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('Apple 로그인 사용자는 Apple revoke 후 계정 데이터를 삭제한다', async () => {
+    repositoryMock.deleteAccount.mockResolvedValue({ count: 1 });
+
+    const result = await service.deleteMe(7, AuthProvider.APPLE, {
+      appleAuthorizationCode: 'apple-auth-code',
+    });
+
+    expect(result).toBeNull();
+    expect(appleAuthServiceMock.revokeAuthorizationCode).toHaveBeenCalledWith(
+      'apple-auth-code',
+    );
+    expect(repositoryMock.deleteAccount).toHaveBeenCalledWith(7);
+  });
+
+  it('Apple 외 로그인 사용자는 계정 데이터를 바로 삭제한다', async () => {
+    repositoryMock.deleteAccount.mockResolvedValue({ count: 1 });
+
+    const result = await service.deleteMe(7, AuthProvider.KAKAO, {});
+
+    expect(result).toBeNull();
+    expect(appleAuthServiceMock.revokeAuthorizationCode).not.toHaveBeenCalled();
+    expect(repositoryMock.deleteAccount).toHaveBeenCalledWith(7);
   });
 });

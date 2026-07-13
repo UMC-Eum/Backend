@@ -35,6 +35,11 @@ type AppleIdentityPayload = JwtPayload & {
   email?: string;
 };
 
+type AppleTokenResponse = {
+  access_token?: string;
+  refresh_token?: string;
+};
+
 @Injectable()
 export class AppleAuthService {
   private static readonly APPLE_ISSUER = 'https://appleid.apple.com';
@@ -251,45 +256,42 @@ export class AppleAuthService {
     return jwks;
   }
 
+  async revokeAuthorizationCode(
+    authorizationCode: string,
+    clientIdOverride?: string,
+  ): Promise<void> {
+    const clientId =
+      clientIdOverride ?? this.configService.get<string>('APPLE_CLIENT_ID');
+
+    if (!clientId) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Apple client ID is not configured.',
+      });
+    }
+
+    const tokenResponse = await this.exchangeAuthorizationCode(
+      authorizationCode,
+      clientId,
+    );
+    const token = tokenResponse.refresh_token ?? tokenResponse.access_token;
+    const tokenTypeHint = tokenResponse.refresh_token
+      ? 'refresh_token'
+      : 'access_token';
+
+    if (!token) {
+      throw new AppException('AUTH_APPLE_TOKEN_EXCHANGE_FAILED', {
+        message: 'Apple token response did not include a revocable token.',
+      });
+    }
+
+    await this.revokeToken(token, tokenTypeHint, clientId);
+  }
+
   private async exchangeAuthorizationCode(
     authorizationCode: string,
     clientId: string,
-  ): Promise<void> {
-    const teamId = this.configService.get<string>('APPLE_TEAM_ID');
-    const keyId = this.configService.get<string>('APPLE_KEY_ID');
-    const privateKey = this.normalizePrivateKey(
-      this.configService.get<string>('APPLE_PRIVATE_KEY'),
-    );
-
-    if (!teamId || !keyId || !privateKey) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: 'Apple token exchange credentials are not configured.',
-      });
-    }
-
-    let clientSecret: string;
-    try {
-      clientSecret = jwt.sign(
-        {
-          iss: teamId,
-          iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + 60 * 60,
-          aud: AppleAuthService.APPLE_ISSUER,
-          sub: clientId,
-        },
-        createPrivateKey(privateKey),
-        {
-          algorithm: 'ES256',
-          keyid: keyId,
-        },
-      );
-    } catch (error) {
-      throw new AppException('SERVER_TEMPORARY_ERROR', {
-        message: 'Apple private key is invalid.',
-        details: error,
-      });
-    }
-
+  ): Promise<AppleTokenResponse> {
+    const clientSecret = this.buildClientSecret(clientId);
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       code: authorizationCode,
@@ -300,6 +302,45 @@ export class AppleAuthService {
     let response: Response;
     try {
       response = await fetch('https://appleid.apple.com/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+    } catch (error) {
+      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      if (response.status === 400 || response.status === 401) {
+        throw new AppException('AUTH_APPLE_TOKEN_INVALID', { details: body });
+      }
+      throw new AppException('AUTH_APPLE_TOKEN_EXCHANGE_FAILED', {
+        details: body,
+      });
+    }
+
+    return (await response.json()) as AppleTokenResponse;
+  }
+
+  private async revokeToken(
+    token: string,
+    tokenTypeHint: 'access_token' | 'refresh_token',
+    clientId: string,
+  ): Promise<void> {
+    const clientSecret = this.buildClientSecret(clientId);
+    const params = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      token,
+      token_type_hint: tokenTypeHint,
+    });
+
+    let response: Response;
+    try {
+      response = await fetch('https://appleid.apple.com/auth/revoke', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -336,6 +377,42 @@ export class AppleAuthService {
       .replaceAll('\\\\n', '\n')
       .replaceAll('\\n', '\n')
       .replaceAll('\r\n', '\n');
+  }
+
+  private buildClientSecret(clientId: string): string {
+    const teamId = this.configService.get<string>('APPLE_TEAM_ID');
+    const keyId = this.configService.get<string>('APPLE_KEY_ID');
+    const privateKey = this.normalizePrivateKey(
+      this.configService.get<string>('APPLE_PRIVATE_KEY'),
+    );
+
+    if (!teamId || !keyId || !privateKey) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Apple token exchange credentials are not configured.',
+      });
+    }
+
+    try {
+      return jwt.sign(
+        {
+          iss: teamId,
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          aud: AppleAuthService.APPLE_ISSUER,
+          sub: clientId,
+        },
+        createPrivateKey(privateKey),
+        {
+          algorithm: 'ES256',
+          keyid: keyId,
+        },
+      );
+    } catch (error) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Apple private key is invalid.',
+        details: error,
+      });
+    }
   }
 
   private async rotateRefreshTokens(refreshToken: string, userId: number) {

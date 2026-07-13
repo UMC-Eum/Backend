@@ -164,4 +164,42 @@ describe('AppleAuthService', () => {
       expect.anything(),
     );
   });
+
+  it('authorization code를 Apple 토큰으로 교환한 뒤 revoke endpoint를 호출한다', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          refresh_token: 'apple-refresh-token',
+          access_token: 'apple-access-token',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: () => '',
+      });
+
+    await service.revokeAuthorizationCode('apple-auth-code');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://appleid.apple.com/auth/token',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://appleid.apple.com/auth/revoke',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+    const fetchCalls = fetchMock.mock.calls as unknown as Array<
+      [string, { body?: string }]
+    >;
+    const revokeBody = fetchCalls[1]?.[1]?.body ?? '';
+    expect(revokeBody).toContain('token=apple-refresh-token');
+    expect(revokeBody).toContain('token_type_hint=refresh_token');
+  });
 });

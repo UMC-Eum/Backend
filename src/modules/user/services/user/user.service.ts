@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { AuthProvider } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import { DeleteAccountRequestDto } from '../../dtos/delete-account-request.dto';
 import {
   UserClubsResponseDto,
   UserLikedClubsResponseDto,
@@ -13,6 +15,7 @@ import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
 import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
+import { AppleAuthService } from '../../../auth/services/apple-auth.service';
 
 type ProfileVisitorsCursor = {
   visitedAt: string;
@@ -24,7 +27,10 @@ export class UserService {
   private static readonly DEFAULT_VISITORS_PAGE_SIZE = 20;
   private static readonly MAX_VISITORS_PAGE_SIZE = 50;
 
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly appleAuthService: AppleAuthService,
+  ) {}
 
   async getMe(userId: number): Promise<UserMeResponseDto> {
     if (!userId) {
@@ -383,6 +389,35 @@ export class UserService {
     }
 
     const result = await this.userRepository.deactivateProfile(userId);
+
+    if (result.count === 0) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    return null;
+  }
+
+  async deleteMe(
+    userId: number,
+    provider: AuthProvider | null,
+    payload: DeleteAccountRequestDto,
+  ): Promise<null> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    if (provider === AuthProvider.APPLE) {
+      const authorizationCode = payload.appleAuthorizationCode?.trim();
+      if (!authorizationCode) {
+        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+          message:
+            'Apple 로그인 사용자는 탈퇴 전 Apple 재인증 authorization code가 필요합니다.',
+        });
+      }
+      await this.appleAuthService.revokeAuthorizationCode(authorizationCode);
+    }
+
+    const result = await this.userRepository.deleteAccount(userId);
 
     if (result.count === 0) {
       throw new AppException('AUTH_LOGIN_REQUIRED');

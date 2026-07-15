@@ -10,11 +10,13 @@ describe('ReportService', () => {
     createReport: jest.fn(),
     findActiveClubById: jest.fn(),
     findActiveArticleByClubId: jest.fn(),
+    findActiveCommentByArticleId: jest.fn(),
     countActiveClubReports: jest.fn(),
     countActiveUserReports: jest.fn(),
     deactivateClub: jest.fn(),
     createClubReport: jest.fn(),
     createArticleReport: jest.fn(),
+    createCommentReport: jest.fn(),
   };
   const notificationService = {
     createNotification: jest.fn(),
@@ -207,5 +209,96 @@ describe('ReportService', () => {
       }),
     ).rejects.toMatchObject({ internalCode: 'ARTICLE_NOT_FOUND' });
     expect(reportRepository.createArticleReport).not.toHaveBeenCalled();
+  });
+
+  it('댓글 신고를 생성한다', async () => {
+    reportRepository.findActiveArticleByClubId.mockResolvedValue({
+      id: 345n,
+      clubId: 12n,
+      userId: 88n,
+    });
+    reportRepository.findActiveCommentByArticleId.mockResolvedValue({
+      id: 678n,
+      articleId: 345n,
+      userId: 77n,
+    });
+    reportRepository.createCommentReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.ABUSE,
+      reason: '욕설입니다.',
+      clubId: 12,
+      articleId: 345,
+      commentId: 678,
+    });
+    const result = await service.createCommentReport('7', '12', '345', '678', {
+      category: ReportCategory.ABUSE,
+      reason: '욕설입니다.',
+    });
+
+    expect(reportRepository.findActiveArticleByClubId).toHaveBeenCalledWith(
+      '12',
+      '345',
+    );
+    expect(reportRepository.findActiveCommentByArticleId).toHaveBeenCalledWith(
+      '345',
+      '678',
+    );
+    expect(reportRepository.createCommentReport).toHaveBeenCalledWith(
+      '7',
+      '12',
+      '345',
+      '678',
+      '욕설입니다.',
+      ReportCategory.ABUSE,
+    );
+    expect(reportRepository.countActiveUserReports).not.toHaveBeenCalled();
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
+    expect(result.commentId).toBe(678);
+  });
+
+  it('댓글이 없으면 COMMENT_NOT_FOUND', async () => {
+    reportRepository.findActiveArticleByClubId.mockResolvedValue({
+      id: 345n,
+      clubId: 12n,
+      userId: 88n,
+    });
+    reportRepository.findActiveCommentByArticleId.mockResolvedValue(null);
+
+    await expect(
+      service.createCommentReport('7', '12', '345', '678', {
+        category: ReportCategory.ABUSE,
+        reason: '욕설입니다.',
+      }),
+    ).rejects.toMatchObject({ internalCode: 'COMMENT_NOT_FOUND' });
+    expect(reportRepository.createCommentReport).not.toHaveBeenCalled();
+  });
+
+  it('이미 신고한 댓글이면 SOCIAL_REPORT_EXISTS', async () => {
+    reportRepository.findActiveArticleByClubId.mockResolvedValue({
+      id: 345n,
+      clubId: 12n,
+      userId: 88n,
+    });
+    reportRepository.findActiveCommentByArticleId.mockResolvedValue({
+      id: 678n,
+      articleId: 345n,
+      userId: 77n,
+    });
+    reportRepository.createCommentReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.ABUSE,
+      reason: 'Already reported.',
+      clubId: 12,
+      articleId: 345,
+      commentId: 678,
+    });
+
+    await expect(
+      service.createCommentReport('7', '12', '345', '678', {
+        category: ReportCategory.ABUSE,
+        reason: '욕설입니다.',
+      }),
+    ).rejects.toMatchObject({ internalCode: 'SOCIAL_REPORT_EXISTS' });
+    expect(notificationService.createNotification).not.toHaveBeenCalled();
   });
 });

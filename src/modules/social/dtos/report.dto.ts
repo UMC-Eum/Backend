@@ -66,6 +66,9 @@ export class ReportCreatedResponseDto {
 
   @ApiPropertyOptional({ example: 345 })
   articleId?: number;
+
+  @ApiPropertyOptional({ example: 678 })
+  commentId?: number;
 }
 
 export interface ReportResponseDto {

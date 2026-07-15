@@ -76,30 +76,40 @@ export class CommentRepository {
     });
   }
 
-  countComments(articleId: bigint) {
+  countComments(articleId: bigint, viewerId: bigint) {
     return this.prisma.comment.count({
       where: {
         articleId,
         deletedAt: null,
+        AND: [
+          this.visibleCommentAuthorWhere(viewerId),
+          this.visibleCommentThreadWhere(viewerId),
+        ],
       },
     });
   }
 
-  findCommentCursor(articleId: bigint, commentId: bigint) {
+  findCommentCursor(articleId: bigint, commentId: bigint, viewerId: bigint) {
     return this.prisma.comment.findFirst({
       where: {
         id: commentId,
         articleId,
         parentCommentId: null,
         depth: 0,
-        OR: [
-          { deletedAt: null },
+        ...this.visibleCommentAuthorWhere(viewerId),
+        AND: [
           {
-            replies: {
-              some: {
-                deletedAt: null,
+            OR: [
+              { deletedAt: null },
+              {
+                replies: {
+                  some: {
+                    deletedAt: null,
+                    ...this.visibleCommentAuthorWhere(viewerId),
+                  },
+                },
               },
-            },
+            ],
           },
         ],
       },
@@ -113,6 +123,7 @@ export class CommentRepository {
   findCommentsWithReplies(params: {
     clubId: bigint;
     articleId: bigint;
+    viewerId: bigint;
     limit: number;
     cursor?: { id: bigint; createdAt: Date };
   }) {
@@ -121,6 +132,7 @@ export class CommentRepository {
         articleId: params.articleId,
         parentCommentId: null,
         depth: 0,
+        ...this.visibleCommentAuthorWhere(params.viewerId),
         AND: [
           {
             OR: [
@@ -129,6 +141,7 @@ export class CommentRepository {
                 replies: {
                   some: {
                     deletedAt: null,
+                    ...this.visibleCommentAuthorWhere(params.viewerId),
                   },
                 },
               },
@@ -168,6 +181,7 @@ export class CommentRepository {
           where: {
             depth: 1,
             deletedAt: null,
+            ...this.visibleCommentAuthorWhere(params.viewerId),
           },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           include: {
@@ -187,6 +201,46 @@ export class CommentRepository {
         },
       },
     });
+  }
+
+  private visibleCommentAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
+    return {
+      OR: [
+        { userId: null },
+        {
+          user: {
+            is: {
+              blocksReceived: {
+                none: {
+                  blockedById: viewerId,
+                  status: 'BLOCKED',
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  private visibleCommentThreadWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
+    return {
+      OR: [
+        { parentCommentId: null },
+        {
+          parentComment: {
+            is: {
+              ...this.visibleCommentAuthorWhere(viewerId),
+            },
+          },
+        },
+      ],
+    };
   }
 
   existsActiveReply(parentCommentId: bigint) {

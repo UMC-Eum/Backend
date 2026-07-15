@@ -93,4 +93,33 @@ export class ReportController {
       dto,
     );
   }
+
+  @Post('clubs/:clubId/articles/:articleId/comments/:commentId')
+  @ApiOperation({ summary: '동호회 게시글 댓글 신고 생성' })
+  @ApiParam({ name: 'clubId', example: 12 })
+  @ApiParam({ name: 'articleId', example: 345 })
+  @ApiParam({ name: 'commentId', example: 678 })
+  @ApiBody({ type: CreateReportRequestDto })
+  @ApiCreatedResponse({
+    description: '댓글 신고 접수 완료',
+    type: ReportCreatedResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiNotFoundResponse({ description: '게시글 또는 댓글을 찾을 수 없음' })
+  @ApiConflictResponse({ description: '이미 신고한 댓글' })
+  async createCommentReport(
+    @RequiredUserId() userId: number,
+    @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
+    @Param('articleId', new ParsePositiveIntPipe()) articleId: number,
+    @Param('commentId', new ParsePositiveIntPipe()) commentId: number,
+    @Body() dto: CreateReportRequestDto,
+  ): Promise<ReportCreatedResponseDto> {
+    return this.reportService.createCommentReport(
+      String(userId),
+      String(clubId),
+      String(articleId),
+      String(commentId),
+      dto,
+    );
+  }
 }

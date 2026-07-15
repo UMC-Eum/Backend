@@ -33,6 +33,20 @@ export class ReportRepository {
     });
   }
 
+  findActiveCommentByArticleId(articleId: string, commentId: string) {
+    return this.prisma.comment.findFirst({
+      where: {
+        id: BigInt(commentId),
+        articleId: BigInt(articleId),
+        deletedAt: null,
+        article: {
+          deletedAt: null,
+        },
+      },
+      select: { id: true, articleId: true, userId: true },
+    });
+  }
+
   countActiveClubReports(clubId: string) {
     return this.prisma.clubReport.count({
       where: {
@@ -303,6 +317,74 @@ export class ReportRepository {
       reason,
       clubId: Number(clubId),
       articleId: Number(articleId),
+    };
+  }
+
+  async createCommentReport(
+    userId: string,
+    clubId: string,
+    articleId: string,
+    commentId: string,
+    reason: string,
+    category: ReportCategory,
+  ): Promise<ReportCreatedResponseDto> {
+    const exist = await this.findExistingTargetReport(
+      userId,
+      ReportTargetType.COMMENT,
+      commentId,
+    );
+    if (exist != null) {
+      return {
+        reportId: Number(exist.id),
+        category,
+        reason: 'Already reported.',
+        clubId: Number(clubId),
+        articleId: Number(articleId),
+        commentId: Number(commentId),
+      };
+    }
+
+    const result = await this.createTargetReport({
+      userId,
+      targetType: ReportTargetType.COMMENT,
+      targetId: commentId,
+      reason,
+      category,
+      createLegacyTarget: async (tx, reportId) => {
+        const comment = await tx.comment.findUnique({
+          where: { id: BigInt(commentId) },
+          select: { userId: true },
+        });
+        if (!comment?.userId) {
+          return;
+        }
+
+        await tx.userReport.create({
+          data: {
+            reportId,
+            reportedUserId: comment.userId,
+          },
+        });
+      },
+    });
+    if (!result.created) {
+      return {
+        reportId: Number(result.report.id),
+        category,
+        reason: 'Already reported.',
+        clubId: Number(clubId),
+        articleId: Number(articleId),
+        commentId: Number(commentId),
+      };
+    }
+
+    return {
+      reportId: Number(result.report.id),
+      category,
+      reason,
+      clubId: Number(clubId),
+      articleId: Number(articleId),
+      commentId: Number(commentId),
     };
   }
 }

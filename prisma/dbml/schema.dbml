@@ -665,6 +665,7 @@ Enum ReportTargetType {
   USER
   CLUB
   ARTICLE
+  COMMENT
 }
 
 Enum ChatRoomType {

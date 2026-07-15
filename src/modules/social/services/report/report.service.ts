@@ -100,6 +100,47 @@ export class ReportService {
     return result;
   }
 
+  async createCommentReport(
+    userId: string,
+    clubId: string,
+    articleId: string,
+    commentId: string,
+    dto: CreateReportRequestDto,
+  ) {
+    const article = await this.reportRepository.findActiveArticleByClubId(
+      clubId,
+      articleId,
+    );
+    if (!article) {
+      throw new AppException('ARTICLE_NOT_FOUND');
+    }
+
+    const comment = await this.reportRepository.findActiveCommentByArticleId(
+      articleId,
+      commentId,
+    );
+    if (!comment) {
+      throw new AppException('COMMENT_NOT_FOUND');
+    }
+
+    const result = await this.reportRepository.createCommentReport(
+      userId,
+      clubId,
+      articleId,
+      commentId,
+      dto.reason,
+      dto.category,
+    );
+    if (result.reason === 'Already reported.') {
+      throw new AppException('SOCIAL_REPORT_EXISTS', {
+        message: ERROR_DEFINITIONS.SOCIAL_REPORT_EXISTS.message,
+        details: { field: 'commentId' },
+      });
+    }
+
+    return result;
+  }
+
   private async handleClubReportThreshold(
     reporterUserId: string,
     clubId: string,

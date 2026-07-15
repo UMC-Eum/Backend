@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ActiveStatus, ChatMediaType, NotificationType } from '@prisma/client';
-import type { Server } from 'socket.io';
+import type { Namespace, Server } from 'socket.io';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { PrismaService } from '../../../../infra/prisma/prisma.service';
@@ -84,7 +84,11 @@ export class ChatSocketService {
     return chatRoomId;
   }
 
-  async sendMessage(server: Server, userId: number, body: SendMessageBody) {
+  async sendMessage(
+    server: Server | Namespace,
+    userId: number,
+    body: SendMessageBody,
+  ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
     if (!chatRoomId) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
@@ -232,7 +236,7 @@ export class ChatSocketService {
   }
 
   private async notifyNewMessage(
-    server: Server,
+    server: Server | Namespace,
     params: {
       receiverUserIds: number[];
       senderUserId: number;

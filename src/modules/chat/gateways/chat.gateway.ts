@@ -6,6 +6,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import {
   Inject,
@@ -14,8 +15,18 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type { Server, Socket, DefaultEventsMap } from 'socket.io';
+import type {
+  Namespace,
+  Socket,
+  DefaultEventsMap,
+  ExtendedError,
+} from 'socket.io';
 
+import {
+  getErrorDefinition,
+  type ExternalErrorCode,
+  type InternalErrorCode,
+} from '../../../common/errors/error-codes';
 import { WsExceptionFilter } from '../../../common/filters/ws-exception.filter';
 import { WsAuthService } from '../../../infra/websocket/auth/ws-auth.service';
 import { WsUserGuard } from '../../../infra/websocket/guards/ws-user.guard';
@@ -44,13 +55,24 @@ type AuthedSocket = Socket<
   SocketData
 >;
 
+type ConnectionError = Error & { data: { code: ExternalErrorCode } };
+
+function createConnectionError(code: InternalErrorCode): ConnectionError {
+  const definition = getErrorDefinition(code);
+  const error = new Error(definition.message) as ConnectionError;
+  error.data = { code: definition.code };
+  return error;
+}
+
 @WebSocketGateway({
   namespace: '/chats',
   cors: { origin: true, credentials: true },
 })
 @UseFilters(new WsExceptionFilter())
 @Injectable()
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit<Namespace>, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(ChatGateway.name);
 
   constructor(
@@ -62,7 +84,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   @WebSocketServer()
-  server!: Server;
+  server!: Namespace;
+
+  afterInit(server: Namespace): void {
+    server.use((client: AuthedSocket, next) => {
+      void this.authenticateConnection(client, next);
+    });
+  }
+
+  private async authenticateConnection(
+    client: AuthedSocket,
+    next: (error?: ExtendedError) => void,
+  ): Promise<void> {
+    try {
+      const userId = await this.wsAuthService.attachUser(client);
+      if (!userId) {
+        next(createConnectionError('AUTH_LOGIN_REQUIRED'));
+        return;
+      }
+
+      next();
+    } catch (e) {
+      const stack = e instanceof Error ? e.stack : undefined;
+      this.logger.error(
+        `connection auth failed: socket=${client.id} error=${String(e)}`,
+        stack,
+      );
+      next(createConnectionError('SERVER_TEMPORARY_ERROR'));
+    }
+  }
 
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
     if (!this.server) return;
@@ -139,23 +189,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.emitToRooms([...rooms], 'message.deleted', payload);
   }
 
-  async handleConnection(client: AuthedSocket) {
-    try {
-      const userId = await this.wsAuthService.attachUser(client);
-      if (!userId) {
-        this.logger.warn('reject connection: auth failed');
-        client.disconnect(true);
-        return;
-      }
-
-      this.presenceStore.onConnect(userId, client.id);
-      void this.recordUserActivity(userId);
-
-      this.logger.log(`connected: socket=${client.id} userId=${userId}`);
-    } catch (e) {
-      this.logger.warn(`reject connection: ${String(e)}`);
+  handleConnection(client: AuthedSocket): void {
+    const userId = client.data.userId;
+    if (typeof userId !== 'number') {
+      this.logger.error(
+        `reject connection: authenticated user missing socket=${client.id}`,
+      );
       client.disconnect(true);
+      return;
     }
+
+    this.presenceStore.onConnect(userId, client.id);
+    void this.recordUserActivity(userId);
+
+    this.logger.log(`connected: socket=${client.id} userId=${userId}`);
   }
 
   handleDisconnect(client: AuthedSocket) {

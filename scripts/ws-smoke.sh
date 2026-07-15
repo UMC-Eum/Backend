@@ -37,7 +37,7 @@ connect_namespace() {
 UNAUTH_SID=$(open_session)
 connect_namespace "$UNAUTH_SID" '40/chats,'
 UNAUTH_RESPONSE=$(poll_session "$UNAUTH_SID")
-if [[ "$UNAUTH_RESPONSE" != *'44/chats,'* ]] || [[ "$UNAUTH_RESPONSE" != *'AUTH_LOGIN_REQUIRED'* ]]; then
+if [[ "$UNAUTH_RESPONSE" != *'44/chats,'* ]] || [[ "$UNAUTH_RESPONSE" != *'"code":"AUTH-001"'* ]]; then
   echo "::error::Unauthenticated /chats connection was not rejected as expected"
   exit 1
 fi

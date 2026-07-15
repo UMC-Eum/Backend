@@ -207,7 +207,6 @@ Table Report {
   reportedBy User
   userReport UserReport
   clubReport ClubReport
-  commentReport CommentReport
 }
 
 Table Notification {
@@ -353,7 +352,6 @@ Table Comment {
   article Article [not null]
   parentComment Comment
   replies Comment [not null]
-  commentReports CommentReport [not null]
 }
 
 Table ArticleLike {
@@ -527,14 +525,6 @@ Table UserReport {
   reportedUserId BigInt
   report Report [not null]
   user User
-}
-
-Table CommentReport {
-  id BigInt [pk, increment]
-  reportId BigInt [unique, not null]
-  reportedCommentId BigInt
-  report Report [not null]
-  comment Comment
 }
 
 Table RecentSearchKeyword {
@@ -800,10 +790,6 @@ Ref: ClubKeyword.keywordId > Personality.id [delete: Cascade]
 Ref: UserReport.reportId - Report.id [delete: Cascade]
 
 Ref: UserReport.reportedUserId > User.id [delete: Set Null]
-
-Ref: CommentReport.reportId - Report.id [delete: Cascade]
-
-Ref: CommentReport.reportedCommentId > Comment.id [delete: Set Null]
 
 Ref: RecentSearchKeyword.userId > User.id [delete: Cascade]
 

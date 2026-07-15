@@ -351,10 +351,18 @@ export class ReportRepository {
       reason,
       category,
       createLegacyTarget: async (tx, reportId) => {
-        await tx.commentReport.create({
+        const comment = await tx.comment.findUnique({
+          where: { id: BigInt(commentId) },
+          select: { userId: true },
+        });
+        if (!comment?.userId) {
+          return;
+        }
+
+        await tx.userReport.create({
           data: {
             reportId,
-            reportedCommentId: BigInt(commentId),
+            reportedUserId: comment.userId,
           },
         });
       },

@@ -217,7 +217,9 @@ describe('FcmPushService', () => {
       ),
     ).toBe(false);
     expect(
-      warnSpy.mock.calls.some((call) => String(call[0]).includes('valid-token')),
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('valid-token'),
+      ),
     ).toBe(false);
 
     warnSpy.mockRestore();

@@ -802,7 +802,9 @@ export class ArticleRepository {
     });
   }
 
-  private visibleArticleAuthorWhere(viewerId: bigint): Prisma.ArticleWhereInput {
+  private visibleArticleAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.ArticleWhereInput {
     return {
       OR: [
         { userId: null },
@@ -823,7 +825,9 @@ export class ArticleRepository {
     };
   }
 
-  private visibleCommentAuthorWhere(viewerId: bigint): Prisma.CommentWhereInput {
+  private visibleCommentAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
     return {
       OR: [
         { userId: null },
@@ -869,7 +873,9 @@ export class ArticleRepository {
     };
   }
 
-  private visibleCommentThreadWhere(viewerId: bigint): Prisma.CommentWhereInput {
+  private visibleCommentThreadWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
     return {
       OR: [
         { parentCommentId: null },

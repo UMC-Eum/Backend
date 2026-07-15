@@ -203,7 +203,9 @@ export class CommentRepository {
     });
   }
 
-  private visibleCommentAuthorWhere(viewerId: bigint): Prisma.CommentWhereInput {
+  private visibleCommentAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
     return {
       OR: [
         { userId: null },
@@ -224,7 +226,9 @@ export class CommentRepository {
     };
   }
 
-  private visibleCommentThreadWhere(viewerId: bigint): Prisma.CommentWhereInput {
+  private visibleCommentThreadWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
     return {
       OR: [
         { parentCommentId: null },

@@ -43,6 +43,7 @@ export class ArticleService {
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArticlesByClub(clubId, {
+      viewerId: userId,
       category: query.category,
       sort: query.sort ?? 'recent',
       cursor: this.normalizeCursor(query.cursor),
@@ -509,6 +510,7 @@ export class ArticleService {
 
     const take = query.limit ?? 20;
     const result = await this.articleRepository.findArchivePhotos(clubId, {
+      viewerId: userId,
       sort: query.sort ?? 'recent',
       cursor: this.normalizeCursor(query.cursor),
       take: take + 1, // fetch one extra to detect hasMore

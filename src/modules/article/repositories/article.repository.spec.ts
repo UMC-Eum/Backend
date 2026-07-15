@@ -74,6 +74,7 @@ describe('ArticleRepository', () => {
       articleModel.findMany.mockResolvedValue([]);
 
       await repository.findArticlesByClub(20, {
+        viewerId: 10,
         sort: 'recent',
         take: 20,
       });
@@ -82,7 +83,27 @@ describe('ArticleRepository', () => {
 
       expect(findManyArgs.include?.articlePhotos).toEqual(
         expect.objectContaining({
-          where: { deletedAt: null },
+          where: {
+            deletedAt: null,
+            OR: [
+              { clubUserId: null },
+              {
+                clubUser: {
+                  is: {
+                    user: {
+                      blocksReceived: {
+                        none: {
+                          blockedById: BigInt(10),
+                          status: 'BLOCKED',
+                          deletedAt: null,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
         }),
       );
     });
@@ -91,6 +112,7 @@ describe('ArticleRepository', () => {
       articleModel.findMany.mockResolvedValue([]);
 
       await repository.findArticlesByClub(20, {
+        viewerId: 10,
         sort: 'recent',
         take: 20,
       });
@@ -100,10 +122,92 @@ describe('ArticleRepository', () => {
       expect(findManyArgs.include?._count).toEqual({
         select: {
           comments: {
-            where: { deletedAt: null },
+            where: {
+              deletedAt: null,
+              AND: [
+                {
+                  OR: [
+                    { userId: null },
+                    {
+                      user: {
+                        is: {
+                          blocksReceived: {
+                            none: {
+                              blockedById: BigInt(10),
+                              status: 'BLOCKED',
+                              deletedAt: null,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+                {
+                  OR: [
+                    { parentCommentId: null },
+                    {
+                      parentComment: {
+                        is: {
+                          OR: [
+                            { userId: null },
+                            {
+                              user: {
+                                is: {
+                                  blocksReceived: {
+                                    none: {
+                                      blockedById: BigInt(10),
+                                      status: 'BLOCKED',
+                                      deletedAt: null,
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
           },
         },
       });
+    });
+
+    it('filters out articles owned by users blocked by the viewer', async () => {
+      articleModel.findMany.mockResolvedValue([]);
+
+      await repository.findArticlesByClub(20, {
+        viewerId: 10,
+        sort: 'recent',
+        take: 20,
+      });
+
+      const findManyArgs = articleModel.findMany.mock.calls[0][0];
+
+      expect(findManyArgs.where).toEqual(
+        expect.objectContaining({
+          OR: [
+            { userId: null },
+            {
+              user: {
+                is: {
+                  blocksReceived: {
+                    none: {
+                      blockedById: BigInt(10),
+                      status: 'BLOCKED',
+                      deletedAt: null,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        }),
+      );
     });
   });
 

@@ -162,6 +162,7 @@ export class CommentService {
       ? await this.commentRepository.findCommentCursor(
           BigInt(articleId),
           BigInt(cursorId),
+          BigInt(userId),
         )
       : null;
 
@@ -172,10 +173,11 @@ export class CommentService {
     }
 
     const [totalCount, comments] = await Promise.all([
-      this.commentRepository.countComments(BigInt(articleId)),
+      this.commentRepository.countComments(BigInt(articleId), BigInt(userId)),
       this.commentRepository.findCommentsWithReplies({
         clubId: BigInt(clubId),
         articleId: BigInt(articleId),
+        viewerId: BigInt(userId),
         limit,
         cursor: cursor ?? undefined,
       }),

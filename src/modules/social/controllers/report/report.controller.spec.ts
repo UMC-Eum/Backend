@@ -13,6 +13,7 @@ describe('ReportController', () => {
     createReport: jest.fn(),
     createClubReport: jest.fn(),
     createArticleReport: jest.fn(),
+    createCommentReport: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -93,6 +94,33 @@ describe('ReportController', () => {
       '7',
       '12',
       '345',
+      {
+        category: ReportCategory.ABUSE,
+        reason: '욕설입니다.',
+      },
+    );
+  });
+
+  it('동호회 게시글 댓글 신고 요청을 서비스로 위임한다', async () => {
+    reportService.createCommentReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.ABUSE,
+      reason: '욕설입니다.',
+      clubId: 12,
+      articleId: 345,
+      commentId: 678,
+    });
+
+    await controller.createCommentReport(7, 12, 345, 678, {
+      category: ReportCategory.ABUSE,
+      reason: '욕설입니다.',
+    });
+
+    expect(reportService.createCommentReport).toHaveBeenCalledWith(
+      '7',
+      '12',
+      '345',
+      '678',
       {
         category: ReportCategory.ABUSE,
         reason: '욕설입니다.',

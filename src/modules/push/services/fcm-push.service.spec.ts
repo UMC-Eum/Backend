@@ -216,9 +216,61 @@ describe('FcmPushService', () => {
         String(call[0]).includes('invalid-token'),
       ),
     ).toBe(false);
+    expect(
+      warnSpy.mock.calls.some((call) => String(call[0]).includes('valid-token')),
+    ).toBe(false);
 
     warnSpy.mockRestore();
     logSpy.mockRestore();
+  });
+
+  it('does not log raw FCM exception messages that may include tokens', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    repository.findActiveTokensByUserId.mockResolvedValue([
+      { token: 'sensitive-fcm-token' },
+    ]);
+    const error = Object.assign(
+      new Error('send failed for token sensitive-fcm-token'),
+      {
+        code: 'messaging/internal-error',
+      },
+    );
+    sendEachForMulticastMock.mockRejectedValue(error);
+
+    const service = new FcmPushService(
+      configService as unknown as ConfigService,
+      repository as unknown as PushDeviceTokenRepository,
+    );
+
+    await service.sendNotificationToUser(10, {
+      id: BigInt(1),
+      userId: BigInt(10),
+      type: NotificationType.CHAT,
+      isRead: false,
+      createdAt: new Date('2026-06-28T12:00:00.000Z'),
+      deletedAt: null,
+      title: '제목',
+      body: '본문',
+      sentById: null,
+    });
+
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('sensitive-fcm-token'),
+      ),
+    ).toBe(false);
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('send failed for token'),
+      ),
+    ).toBe(false);
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes('messaging/internal-error'),
+      ),
+    ).toBe(true);
+
+    warnSpy.mockRestore();
   });
 
   it('does not send when Firebase credentials are absent', async () => {

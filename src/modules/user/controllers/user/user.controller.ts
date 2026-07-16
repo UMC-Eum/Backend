@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -9,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { AuthProvider } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -33,6 +35,7 @@ import {
 import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
 import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { ActiveUsersResponseDto } from '../../dtos/user-active-response.dto';
+import { DeleteAccountRequestDto } from '../../dtos/delete-account-request.dto';
 import { UserService } from '../../services/user/user.service';
 import { UserActivityService } from '../../services/user/user-activity.service';
 
@@ -177,6 +180,18 @@ export class UserController {
   @ApiOkResponse({ schema: { example: null } })
   deactivateMe(@CurrentUser('userId') userId: number | null) {
     return this.userService.deactivateMe(userId ?? 0);
+  }
+
+  @Delete('me')
+  @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Delete my account and personal data' })
+  @ApiOkResponse({ schema: { example: null } })
+  deleteMe(
+    @CurrentUser('userId') userId: number | null,
+    @CurrentUser('provider') provider: AuthProvider | null,
+    @Body() body: DeleteAccountRequestDto,
+  ) {
+    return this.userService.deleteMe(userId ?? 0, provider, body);
   }
 
   @Put('me/interests')

@@ -713,6 +713,179 @@ export class UserRepository {
     });
   }
 
+  async deleteAccount(userId: number) {
+    const deletedAt = new Date();
+    const userBigIntId = BigInt(userId);
+    const anonymizedEmail = `deleted-user-${userId}@deleted.local`;
+
+    return this.prismaService.$transaction(async (tx) => {
+      const user = await tx.user.findFirst({
+        where: {
+          id: userBigIntId,
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (!user) {
+        return { count: 0 };
+      }
+
+      const articleIds = (
+        await tx.article.findMany({
+          where: { userId: userBigIntId },
+          select: { id: true },
+        })
+      ).map((article) => article.id);
+      const participantIds = (
+        await tx.chatParticipant.findMany({
+          where: { userId: userBigIntId },
+          select: { id: true },
+        })
+      ).map((participant) => participant.id);
+
+      await tx.refreshToken.deleteMany({ where: { userId: userBigIntId } });
+      await tx.pushDeviceToken.deleteMany({ where: { userId: userBigIntId } });
+      await tx.localAuthAccount.deleteMany({ where: { userId: userBigIntId } });
+
+      await tx.userPhoto.deleteMany({ where: { userId: userBigIntId } });
+      await tx.userInterest.deleteMany({ where: { userId: userBigIntId } });
+      await tx.userPersonality.deleteMany({ where: { userId: userBigIntId } });
+      await tx.userIdealPersonality.deleteMany({
+        where: { userId: userBigIntId },
+      });
+      await tx.userMarketingAgreement.deleteMany({
+        where: { userId: userBigIntId },
+      });
+      await tx.recentSearchKeyword.deleteMany({
+        where: { userId: userBigIntId },
+      });
+      await tx.userWatchLog.deleteMany({
+        where: {
+          OR: [{ visitedTo: userBigIntId }, { visitedBy: userBigIntId }],
+        },
+      });
+
+      await tx.heart.updateMany({
+        where: {
+          OR: [{ sentById: userBigIntId }, { sentToId: userBigIntId }],
+        },
+        data: {
+          sentById: null,
+          sentToId: null,
+          status: ActiveStatus.INACTIVE,
+          deletedAt,
+        },
+      });
+      await tx.block.deleteMany({
+        where: {
+          OR: [{ blockedById: userBigIntId }, { blockedId: userBigIntId }],
+        },
+      });
+      await tx.notification.deleteMany({ where: { userId: userBigIntId } });
+      await tx.notification.updateMany({
+        where: { sentById: userBigIntId },
+        data: { sentById: null },
+      });
+
+      await tx.report.updateMany({
+        where: { reportedById: userBigIntId },
+        data: { reportedById: null },
+      });
+      await tx.userReport.updateMany({
+        where: { reportedUserId: userBigIntId },
+        data: { reportedUserId: null },
+      });
+
+      await tx.articleLike.deleteMany({ where: { userId: userBigIntId } });
+      await tx.clubLike.deleteMany({ where: { userId: userBigIntId } });
+      await tx.club.updateMany({
+        where: { hostId: userBigIntId },
+        data: { hostId: null },
+      });
+      await tx.clubUser.deleteMany({ where: { userId: userBigIntId } });
+
+      if (articleIds.length > 0) {
+        await tx.articlePhoto.updateMany({
+          where: { articleId: { in: articleIds } },
+          data: {
+            photoUrl: '',
+            deletedAt,
+          },
+        });
+      }
+      await tx.comment.updateMany({
+        where: { userId: userBigIntId },
+        data: {
+          contents: '',
+          userId: null,
+          deletedAt,
+        },
+      });
+      await tx.article.updateMany({
+        where: { userId: userBigIntId },
+        data: {
+          title: '삭제된 게시물',
+          contents: '',
+          userId: null,
+          deletedAt,
+        },
+      });
+
+      if (participantIds.length > 0) {
+        await tx.chatMedia.deleteMany({
+          where: {
+            message: {
+              participantId: { in: participantIds },
+            },
+          },
+        });
+        await tx.chatMessage.updateMany({
+          where: { participantId: { in: participantIds } },
+          data: {
+            deletedAt,
+          },
+        });
+      }
+      await tx.chatRoom.updateMany({
+        where: { userId: userBigIntId },
+        data: { userId: null },
+      });
+      await tx.chatParticipant.updateMany({
+        where: { userId: userBigIntId },
+        data: {
+          userId: null,
+          endedAt: deletedAt,
+        },
+      });
+
+      const result = await tx.user.updateMany({
+        where: {
+          id: userBigIntId,
+          deletedAt: null,
+          status: ActiveStatus.ACTIVE,
+        },
+        data: {
+          email: anonymizedEmail,
+          nickname: '탈퇴한 사용자',
+          age: 0,
+          code: null,
+          introText: '',
+          introVoiceUrl: '',
+          profileImageUrl: '',
+          idealVoiceUrl: null,
+          provider: null,
+          providerUserId: null,
+          status: ActiveStatus.INACTIVE,
+          deletedAt,
+        },
+      });
+
+      return result;
+    });
+  }
+
   private async ensureDefaultAddress(defaultAddressCode: string) {
     await this.prismaService.address.upsert({
       where: { code: defaultAddressCode },

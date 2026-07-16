@@ -408,9 +408,8 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const authInfo = await this.userRepository.findActiveAuthProviderInfo(
-      userId,
-    );
+    const authInfo =
+      await this.userRepository.findActiveAuthProviderInfo(userId);
     if (!authInfo) {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }

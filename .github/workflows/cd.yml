@@ -61,7 +61,7 @@ jobs:
       # AWS_ROLE_ARN을 staging Environment secret에 추가한 뒤에는 OIDC가 사용됩니다.
       - name: Configure AWS credentials with OIDC
         if: env.AWS_ROLE_ARN != ''
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: github-actions-staging-${{ github.run_id }}
@@ -70,7 +70,7 @@ jobs:
       # OIDC 전환 중 배포 중단을 막기 위한 임시 fallback입니다. 전환 후 기존 키를 삭제합니다.
       - name: Configure AWS credentials with access key (temporary fallback)
         if: env.AWS_ROLE_ARN == ''
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

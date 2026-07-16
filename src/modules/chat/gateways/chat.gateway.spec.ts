@@ -1,9 +1,10 @@
 import { ChatGateway } from './chat.gateway';
 
 describe('ChatGateway handshake authentication', () => {
+  type ConnectError = Error & { data?: { code?: string } };
   type Middleware = (
     client: { id: string; data: { userId?: number } },
-    next: (error?: Error) => void,
+    next: (error?: ConnectError) => void,
   ) => void;
 
   const buildGateway = () => {
@@ -49,7 +50,7 @@ describe('ChatGateway handshake authentication', () => {
     middleware: Middleware,
     client: Parameters<Middleware>[0],
   ) =>
-    new Promise<Error | undefined>((resolve) => {
+    new Promise<ConnectError | undefined>((resolve) => {
       middleware(client, resolve);
     });
 
@@ -70,10 +71,11 @@ describe('ChatGateway handshake authentication', () => {
     gateway.handleConnection(client as never);
 
     expect(wsAuthService.attachUser).toHaveBeenCalledWith(client);
+    expect(wsAuthService.attachUser).toHaveBeenCalledTimes(1);
     expect(presenceStore.onConnect).toHaveBeenCalledWith(42, 'socket-1');
   });
 
-  it('인증 실패 시 AUTH_LOGIN_REQUIRED connect_error로 연결을 거부한다', async () => {
+  it('인증 실패 시 AUTH-001 connect_error로 연결을 거부한다', async () => {
     const { wsAuthService, presenceStore, middleware } = buildGateway();
     const client = { id: 'socket-1', data: {} };
     wsAuthService.attachUser.mockResolvedValue(null);
@@ -82,15 +84,12 @@ describe('ChatGateway handshake authentication', () => {
 
     expect(error).toMatchObject({
       message: '로그인이 필요한 서비스입니다. 로그인 후 이용해주세요.',
-      data: {
-        code: 'AUTH-001',
-        internalCode: 'AUTH_LOGIN_REQUIRED',
-      },
+      data: { code: 'AUTH-001' },
     });
     expect(presenceStore.onConnect).not.toHaveBeenCalled();
   });
 
-  it('인증 서비스가 예외를 던져도 인증 오류로 연결을 거부한다', async () => {
+  it('인증 서비스가 예외를 던지면 SYS-001로 연결을 거부한다', async () => {
     const { wsAuthService, middleware } = buildGateway();
     const client = { id: 'socket-1', data: {} };
     wsAuthService.attachUser.mockRejectedValue(new Error('database failed'));
@@ -98,10 +97,8 @@ describe('ChatGateway handshake authentication', () => {
     const error = await runMiddleware(middleware, client);
 
     expect(error).toMatchObject({
-      data: {
-        code: 'AUTH-001',
-        internalCode: 'AUTH_LOGIN_REQUIRED',
-      },
+      message: '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.',
+      data: { code: 'SYS-001' },
     });
     expect(error?.message).not.toContain('database failed');
   });

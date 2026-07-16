@@ -94,4 +94,16 @@ describe('WsAuthService.attachUser', () => {
     expect(client.data.userId).toBe(42);
     expect(client.join).toHaveBeenCalledWith('user:42');
   });
+
+  it('Prisma 조회 오류를 인증 실패로 숨기지 않고 전파한다', async () => {
+    const { service, prisma, jwtTokenService } = buildService();
+    const client = makeClient({ token: 'valid-token' });
+    const databaseError = new Error('database unavailable');
+    jwtTokenService.verify.mockReturnValue({ sub: '42' });
+    prisma.user.findFirst.mockRejectedValue(databaseError);
+
+    await expect(service.attachUser(client as never)).rejects.toBe(
+      databaseError,
+    );
+  });
 });

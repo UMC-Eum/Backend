@@ -4,9 +4,9 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
-  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import {
   Inject,
@@ -15,9 +15,18 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type { Server, Socket, DefaultEventsMap } from 'socket.io';
+import type {
+  Namespace,
+  Socket,
+  DefaultEventsMap,
+  ExtendedError,
+} from 'socket.io';
 
-import { getErrorDefinition } from '../../../common/errors/error-codes';
+import {
+  getErrorDefinition,
+  type ExternalErrorCode,
+  type InternalErrorCode,
+} from '../../../common/errors/error-codes';
 import { WsExceptionFilter } from '../../../common/filters/ws-exception.filter';
 import { WsAuthService } from '../../../infra/websocket/auth/ws-auth.service';
 import { WsUserGuard } from '../../../infra/websocket/guards/ws-user.guard';
@@ -39,19 +48,21 @@ import { UserActivityService } from '../../user/services/user/user-activity.serv
 
 type SocketData = { userId?: number };
 
-type SocketAuthError = Error & {
-  data: {
-    code: string;
-    internalCode: 'AUTH_LOGIN_REQUIRED';
-  };
-};
-
 type AuthedSocket = Socket<
   DefaultEventsMap,
   DefaultEventsMap,
   DefaultEventsMap,
   SocketData
 >;
+
+type ConnectionError = Error & { data: { code: ExternalErrorCode } };
+
+function createConnectionError(code: InternalErrorCode): ConnectionError {
+  const definition = getErrorDefinition(code);
+  const error = new Error(definition.message) as ConnectionError;
+  error.data = { code: definition.code };
+  return error;
+}
 
 @WebSocketGateway({
   namespace: '/chats',
@@ -60,7 +71,7 @@ type AuthedSocket = Socket<
 @UseFilters(new WsExceptionFilter())
 @Injectable()
 export class ChatGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit<Namespace>, OnGatewayConnection, OnGatewayDisconnect
 {
   private readonly logger = new Logger(ChatGateway.name);
 
@@ -73,41 +84,34 @@ export class ChatGateway
   ) {}
 
   @WebSocketServer()
-  server!: Server;
+  server!: Namespace;
 
-  afterInit(server: Server): void {
-    server.use((client, next) => {
-      void this.authenticateConnection(client as AuthedSocket, next);
+  afterInit(server: Namespace): void {
+    server.use((client: AuthedSocket, next) => {
+      void this.authenticateConnection(client, next);
     });
   }
 
   private async authenticateConnection(
     client: AuthedSocket,
-    next: (error?: Error) => void,
+    next: (error?: ExtendedError) => void,
   ): Promise<void> {
     try {
       const userId = await this.wsAuthService.attachUser(client);
       if (!userId) {
-        this.logger.warn('reject connection: auth failed');
-        next(this.createAuthError());
+        next(createConnectionError('AUTH_LOGIN_REQUIRED'));
         return;
       }
 
       next();
     } catch (e) {
-      this.logger.warn(`reject connection: ${String(e)}`);
-      next(this.createAuthError());
+      const stack = e instanceof Error ? e.stack : undefined;
+      this.logger.error(
+        `connection auth failed: socket=${client.id} error=${String(e)}`,
+        stack,
+      );
+      next(createConnectionError('SERVER_TEMPORARY_ERROR'));
     }
-  }
-
-  private createAuthError(): SocketAuthError {
-    const definition = getErrorDefinition('AUTH_LOGIN_REQUIRED');
-    const error = new Error(definition.message) as SocketAuthError;
-    error.data = {
-      code: definition.code,
-      internalCode: 'AUTH_LOGIN_REQUIRED',
-    };
-    return error;
   }
 
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
@@ -185,8 +189,15 @@ export class ChatGateway
     this.emitToRooms([...rooms], 'message.deleted', payload);
   }
 
-  handleConnection(client: AuthedSocket) {
-    const userId = client.data.userId as number;
+  handleConnection(client: AuthedSocket): void {
+    const userId = client.data.userId;
+    if (typeof userId !== 'number') {
+      this.logger.error(
+        `reject connection: authenticated user missing socket=${client.id}`,
+      );
+      client.disconnect(true);
+      return;
+    }
 
     this.presenceStore.onConnect(userId, client.id);
     void this.recordUserActivity(userId);

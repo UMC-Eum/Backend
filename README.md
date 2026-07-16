@@ -79,6 +79,9 @@ FASTAPI_TIMEOUT_MS=10000
 LOCAL_AUTH_SEED_PASSWORD=<local-test-password>
 ```
 
+> ⚠️ `npm run prisma:seed`는 기존 데이터를 유지하는 추가 작업이 아니라 DB를 초기화한 뒤 seed 데이터를 다시 넣습니다.
+> staging ECS 컨테이너에서 실행할 때는 `NODE_ENV=production` 안전장치 때문에 `ALLOW_PRODUCTION_SEED=true npm run prisma:seed`처럼 명시적인 허용이 필요합니다.
+
 ---
 
 ### 4️⃣ Run (Development)
@@ -211,23 +214,23 @@ GET /api/v1/health/fastapi
 
 * Install (`npm ci`)
 * Prisma generate
-* Prisma migrate deploy (서비스 컨테이너: `pgvector/pgvector:pg17`)
-* Lint
-* Typecheck
-* Unit tests
-* Build
+* Production dependency audit (`high` 이상 차단)
+* Lint / typecheck / unit tests + coverage artifact / production build
+* 빈 PostgreSQL(pgvector) DB에 Prisma migration 적용 후 e2e test
 
-**CD** — `dev` 브랜치에 머지되면 staging ECS로 자동 배포 (`.github/workflows/cd.yml`, 현재 **활성**):
+**CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd.yml`):
 
-* IAM Access Key로 AWS 인증 (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets, 추후 GitHub OIDC role로 교체 예정)
-* ECR로 이미지 build & push (`linux/amd64`, `:<sha>` + `:latest`, GHA cache 활용)
+* GitHub OIDC로 AWS 인증 (`AWS_ROLE_ARN` 설정 전까지 기존 Access Key를 임시 fallback으로 사용)
+* Docker image build 후 Trivy `HIGH`/`CRITICAL` 검사, 통과한 immutable `:<sha>`만 ECR push
 * 현재 task definition 기반으로 새 이미지 태그를 적용해 새 revision 등록
-* ECS one-off task(EC2 launch type)로 `npx prisma migrate deploy` 실행 — exit code 0이 아니면 배포 중단
-* 동일 revision으로 `eum-backend-service` `update-service`
-* `aws ecs wait services-stable` 대신 **PRIMARY deployment의 `rolloutState=COMPLETED` 폴링** (15초 × 60회 = 최대 15분, `FAILED` 시 즉시 실패)
-* ALB 헬스(`https://staging.eum-dating.com/api/v1/health`) 스모크 (5초 간격 × 최대 12회)
+* ECS one-off task(EC2 launch type)로 Prisma migration binary 실행 — exit code 0이 아니면 배포 중단
+* ECS circuit breaker + 자동 rollback으로 동일 revision 배포
+* 새 task definition의 `rolloutState`를 최대 15분간 추적하여 rollback을 성공으로 오인하지 않도록 검증
+* REST health 및 Socket.IO `/chats` 인증 smoke test
+* 실패 시 ECS deployment, service event, stopped task 진단 정보 출력
 
 > 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
+> GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/staging-cicd-setup.md`](docs/staging-cicd-setup.md)를 참고하세요.
 
 ---
 
@@ -237,7 +240,7 @@ GET /api/v1/health/fastapi
 .github/
 └─ workflows/
    ├─ ci.yml                 # PR/push 시 lint/test/build
-   ├─ cd.yml                 # dev push 시 staging ECS 배포 (비활성)
+   ├─ cd.yml                 # dev CI 성공 시 staging ECS 배포
    ├─ branch-check.yml       # 브랜치명 컨벤션 검증
    └─ notion-sync.yml        # 이슈/PR → Notion 동기화
 

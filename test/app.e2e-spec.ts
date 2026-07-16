@@ -4,6 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/modules/app/app.module';
 import type { ApiSuccessResponse } from '../src/common/dto/api-response.dto';
+import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+import { S3ObjectUrlService } from '../src/common/s3/s3-object-url.service';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -14,7 +16,15 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalInterceptors(
+      new ResponseInterceptor(app.get(S3ObjectUrlService)),
+    );
     await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('/api/v1 (GET)', async () => {

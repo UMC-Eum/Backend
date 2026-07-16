@@ -147,7 +147,7 @@ export class WsAuthService {
         `attachUser error: prisma query failed socket=${socketId} ip=${ip} sub=${subId.toString()} err=${info.name}:${info.message}`,
         info.stack,
       );
-      return null;
+      throw e;
     }
   }
 }

@@ -272,4 +272,40 @@ export class KakaoAuthService {
 
     return (await response.json()) as KakaoProfileResponse;
   }
+
+  async unlinkUser(providerUserId: string): Promise<void> {
+    const adminKey = this.configService.get<string>('KAKAO_ADMIN_KEY');
+    if (!adminKey) {
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: 'Kakao admin key is not configured.',
+      });
+    }
+
+    const params = new URLSearchParams({
+      target_id_type: 'user_id',
+      target_id: providerUserId,
+    });
+
+    let response: Response;
+    try {
+      response = await fetch('https://kapi.kakao.com/v1/user/unlink', {
+        method: 'POST',
+        headers: {
+          Authorization: `KakaoAK ${adminKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+        },
+        body: params.toString(),
+      });
+    } catch (error) {
+      throw new AppException('NETWORK_CONNECTION_FAILED', { details: error });
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new AppException('SERVER_TEMPORARY_ERROR', {
+        message: '카카오 연결 해제에 실패했습니다.',
+        details: body,
+      });
+    }
+  }
 }

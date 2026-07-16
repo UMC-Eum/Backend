@@ -9,6 +9,7 @@ import {
 import { UserService } from './user.service';
 import { UserRepository } from '../../repositories/user.repository';
 import { AppleAuthService } from '../../../auth/services/apple-auth.service';
+import { KakaoAuthService } from '../../../auth/services/kakao-auth.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -25,6 +26,7 @@ describe('UserService', () => {
     findActiveUserId: jest.fn(),
     findActiveHeartSentByUser: jest.fn(),
     createProfileVisitLog: jest.fn(),
+    findActiveAuthProviderInfo: jest.fn(),
     updateProfile: jest.fn(),
     updateKeywords: jest.fn(),
     updatePersonalities: jest.fn(),
@@ -35,10 +37,14 @@ describe('UserService', () => {
   const appleAuthServiceMock = {
     revokeAuthorizationCode: jest.fn(),
   };
+  const kakaoAuthServiceMock = {
+    unlinkUser: jest.fn(),
+  };
 
   beforeEach(async () => {
     Object.values(repositoryMock).forEach((mock) => mock.mockReset());
     Object.values(appleAuthServiceMock).forEach((mock) => mock.mockReset());
+    Object.values(kakaoAuthServiceMock).forEach((mock) => mock.mockReset());
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -50,6 +56,10 @@ describe('UserService', () => {
         {
           provide: AppleAuthService,
           useValue: appleAuthServiceMock,
+        },
+        {
+          provide: KakaoAuthService,
+          useValue: kakaoAuthServiceMock,
         },
       ],
     }).compile();
@@ -505,6 +515,11 @@ describe('UserService', () => {
   });
 
   it('Apple 로그인 사용자는 authorization code 없이 계정 삭제를 할 수 없다', async () => {
+    repositoryMock.findActiveAuthProviderInfo.mockResolvedValue({
+      provider: AuthProvider.APPLE,
+      providerUserId: 'apple-sub-123',
+    });
+
     await expect(
       service.deleteMe(7, AuthProvider.APPLE, {}),
     ).rejects.toMatchObject({
@@ -516,6 +531,10 @@ describe('UserService', () => {
   });
 
   it('Apple 로그인 사용자는 Apple revoke 후 계정 데이터를 삭제한다', async () => {
+    repositoryMock.findActiveAuthProviderInfo.mockResolvedValue({
+      provider: AuthProvider.APPLE,
+      providerUserId: 'apple-sub-123',
+    });
     repositoryMock.deleteAccount.mockResolvedValue({ count: 1 });
 
     const result = await service.deleteMe(7, AuthProvider.APPLE, {
@@ -526,16 +545,53 @@ describe('UserService', () => {
     expect(appleAuthServiceMock.revokeAuthorizationCode).toHaveBeenCalledWith(
       'apple-auth-code',
     );
+    expect(kakaoAuthServiceMock.unlinkUser).not.toHaveBeenCalled();
     expect(repositoryMock.deleteAccount).toHaveBeenCalledWith(7);
   });
 
-  it('Apple 외 로그인 사용자는 계정 데이터를 바로 삭제한다', async () => {
+  it('Kakao 로그인 사용자는 Kakao 연결 해제 후 계정 데이터를 삭제한다', async () => {
+    repositoryMock.findActiveAuthProviderInfo.mockResolvedValue({
+      provider: AuthProvider.KAKAO,
+      providerUserId: '12345',
+    });
     repositoryMock.deleteAccount.mockResolvedValue({ count: 1 });
 
     const result = await service.deleteMe(7, AuthProvider.KAKAO, {});
 
     expect(result).toBeNull();
     expect(appleAuthServiceMock.revokeAuthorizationCode).not.toHaveBeenCalled();
+    expect(kakaoAuthServiceMock.unlinkUser).toHaveBeenCalledWith('12345');
+    expect(repositoryMock.deleteAccount).toHaveBeenCalledWith(7);
+  });
+
+  it('Kakao 사용자 식별자가 없으면 계정 데이터를 삭제하지 않는다', async () => {
+    repositoryMock.findActiveAuthProviderInfo.mockResolvedValue({
+      provider: AuthProvider.KAKAO,
+      providerUserId: null,
+    });
+
+    await expect(
+      service.deleteMe(7, AuthProvider.KAKAO, {}),
+    ).rejects.toMatchObject({
+      internalCode: 'SERVER_TEMPORARY_ERROR',
+    });
+
+    expect(kakaoAuthServiceMock.unlinkUser).not.toHaveBeenCalled();
+    expect(repositoryMock.deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('Local 로그인 사용자는 계정 데이터를 바로 삭제한다', async () => {
+    repositoryMock.findActiveAuthProviderInfo.mockResolvedValue({
+      provider: AuthProvider.LOCAL,
+      providerUserId: null,
+    });
+    repositoryMock.deleteAccount.mockResolvedValue({ count: 1 });
+
+    const result = await service.deleteMe(7, AuthProvider.LOCAL, {});
+
+    expect(result).toBeNull();
+    expect(appleAuthServiceMock.revokeAuthorizationCode).not.toHaveBeenCalled();
+    expect(kakaoAuthServiceMock.unlinkUser).not.toHaveBeenCalled();
     expect(repositoryMock.deleteAccount).toHaveBeenCalledWith(7);
   });
 });

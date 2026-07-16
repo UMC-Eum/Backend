@@ -16,6 +16,7 @@ import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-res
 import { UserRepository } from '../../repositories/user.repository';
 import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
 import { AppleAuthService } from '../../../auth/services/apple-auth.service';
+import { KakaoAuthService } from '../../../auth/services/kakao-auth.service';
 
 type ProfileVisitorsCursor = {
   visitedAt: string;
@@ -30,6 +31,7 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly appleAuthService: AppleAuthService,
+    private readonly kakaoAuthService: KakaoAuthService,
   ) {}
 
   async getMe(userId: number): Promise<UserMeResponseDto> {
@@ -406,7 +408,16 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    if (provider === AuthProvider.APPLE) {
+    const authInfo = await this.userRepository.findActiveAuthProviderInfo(
+      userId,
+    );
+    if (!authInfo) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const effectiveProvider = authInfo.provider ?? provider;
+
+    if (effectiveProvider === AuthProvider.APPLE) {
       const authorizationCode = payload.appleAuthorizationCode?.trim();
       if (!authorizationCode) {
         throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
@@ -415,6 +426,15 @@ export class UserService {
         });
       }
       await this.appleAuthService.revokeAuthorizationCode(authorizationCode);
+    }
+
+    if (effectiveProvider === AuthProvider.KAKAO) {
+      if (!authInfo.providerUserId) {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: '카카오 사용자 식별자가 없어 연결 해제를 할 수 없습니다.',
+        });
+      }
+      await this.kakaoAuthService.unlinkUser(authInfo.providerUserId);
     }
 
     const result = await this.userRepository.deleteAccount(userId);

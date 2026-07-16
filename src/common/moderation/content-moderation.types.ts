@@ -1,9 +1,4 @@
-export type ModerationSurface =
-  | 'ARTICLE'
-  | 'COMMENT'
-  | 'USER_PROFILE'
-  | 'CLUB'
-  | 'CHAT';
+import type { ModerationSurface, ModerationTargetType } from '@prisma/client';
 
 export type ModerateContentOptions = {
   surface: ModerationSurface;
@@ -14,6 +9,9 @@ export type ModerateContentOptions = {
 export type ModerateContentInput = {
   userId?: number | null;
   surface: ModerationSurface;
+  targetType?: ModerationTargetType;
+  targetId?: number | null;
+  requestPath?: string | null;
   texts?: string[];
   imageUrls?: string[];
 };

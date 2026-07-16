@@ -1,11 +1,12 @@
 import { Global, Module } from '@nestjs/common';
+import { PrismaModule } from '../../infra/prisma/prisma.module';
 import { S3ObjectUrlModule } from '../s3/s3-object-url.module';
 import { ContentModerationInterceptor } from './content-moderation.interceptor';
 import { ContentModerationService } from './content-moderation.service';
 
 @Global()
 @Module({
-  imports: [S3ObjectUrlModule],
+  imports: [S3ObjectUrlModule, PrismaModule],
   providers: [ContentModerationService, ContentModerationInterceptor],
   exports: [ContentModerationService, ContentModerationInterceptor],
 })

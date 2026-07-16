@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ModerationDecision } from '@prisma/client';
+import { createHash } from 'crypto';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 import { AppException } from '../errors/app.exception';
 import { S3ObjectUrlService } from '../s3/s3-object-url.service';
 import type { ModerateContentInput } from './content-moderation.types';
@@ -12,6 +15,8 @@ type OpenAiModerationResult = {
 };
 
 type OpenAiModerationResponse = {
+  id?: string;
+  model?: string;
   results?: OpenAiModerationResult[];
 };
 
@@ -67,6 +72,7 @@ export class ContentModerationService {
   constructor(
     private readonly configService: ConfigService,
     private readonly s3ObjectUrlService: S3ObjectUrlService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async assertAllowed(input: ModerateContentInput): Promise<void> {
@@ -131,20 +137,24 @@ export class ContentModerationService {
     }
 
     const data = (await response.json()) as OpenAiModerationResponse;
-    const flagged = data.results?.find((result) => result.flagged);
+    const results = data.results ?? [];
+    const isFlagged = results.some((result) => result.flagged);
+    const violatedCategories = this.collectViolatedCategories(results);
 
-    if (!flagged) {
+    if (!isFlagged) {
       return;
     }
 
-    const categories = flagged.categories ?? {};
-    const violatedCategories = Object.entries(categories)
-      .filter(([, isViolated]) => isViolated)
-      .map(
-        ([category]) =>
-          VIOLATION_CATEGORY_LABELS[category] ??
-          (category as ModerationViolationCategory),
-      );
+    await this.recordModerationLog({
+      input,
+      model: data.model ?? model,
+      providerResponseId: data.id ?? null,
+      decision: ModerationDecision.BLOCK,
+      texts,
+      imageUrls,
+      violatedCategories,
+      categoryScores: this.collectCategoryScores(results),
+    });
 
     throw new AppException('CONTENT_POLICY_VIOLATION', {
       details: {
@@ -164,5 +174,91 @@ export class ContentModerationService {
     return (values ?? [])
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
+  }
+
+  private collectViolatedCategories(
+    results: OpenAiModerationResult[],
+  ): string[] {
+    const categories = new Set<string>();
+
+    for (const result of results) {
+      for (const [category, isViolated] of Object.entries(
+        result.categories ?? {},
+      )) {
+        if (!isViolated) {
+          continue;
+        }
+        categories.add(
+          VIOLATION_CATEGORY_LABELS[category] ??
+            (category as ModerationViolationCategory),
+        );
+      }
+    }
+
+    return [...categories];
+  }
+
+  private collectCategoryScores(
+    results: OpenAiModerationResult[],
+  ): Record<string, number> | null {
+    const scores: Record<string, number> = {};
+
+    for (const result of results) {
+      for (const [category, score] of Object.entries(
+        result.category_scores ?? {},
+      )) {
+        scores[category] = Math.max(scores[category] ?? 0, score);
+      }
+    }
+
+    return Object.keys(scores).length > 0 ? scores : null;
+  }
+
+  private buildContentHash(texts: string[], imageUrls: string[]): string {
+    return createHash('sha256')
+      .update(JSON.stringify({ texts, imageUrls }))
+      .digest('hex');
+  }
+
+  private async recordModerationLog(params: {
+    input: ModerateContentInput;
+    model: string;
+    providerResponseId: string | null;
+    decision: ModerationDecision;
+    texts: string[];
+    imageUrls: string[];
+    violatedCategories: string[];
+    categoryScores: Record<string, number> | null;
+  }): Promise<void> {
+    const inputTypes = [
+      ...(params.texts.length > 0 ? ['text'] : []),
+      ...(params.imageUrls.length > 0 ? ['image'] : []),
+    ];
+
+    try {
+      await this.prisma.contentModerationLog.create({
+        data: {
+          userId: params.input.userId ? BigInt(params.input.userId) : null,
+          surface: params.input.surface,
+          targetType: params.input.targetType,
+          targetId: params.input.targetId
+            ? BigInt(params.input.targetId)
+            : null,
+          decision: params.decision,
+          provider: 'OPENAI',
+          model: params.model,
+          providerResponseId: params.providerResponseId,
+          violatedCategories: params.violatedCategories,
+          inputTypes,
+          categoryScores: params.categoryScores ?? undefined,
+          contentHash: this.buildContentHash(params.texts, params.imageUrls),
+          requestPath: params.input.requestPath ?? null,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `content moderation log write failed surface=${params.input.surface} userId=${params.input.userId ?? 'N/A'}: ${String(error)}`,
+      );
+    }
   }
 }

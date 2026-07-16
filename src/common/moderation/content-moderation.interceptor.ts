@@ -46,6 +46,7 @@ export class ContentModerationInterceptor implements NestInterceptor {
     await this.moderationService.assertAllowed({
       userId: request.user?.userId ?? null,
       surface: options.surface,
+      requestPath: request.originalUrl || request.url,
       texts: this.collectStringValues(body, options.textFields),
       imageUrls: this.collectStringValues(body, options.imageFields),
     });

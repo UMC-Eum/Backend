@@ -1,10 +1,11 @@
 import { ChatGateway } from './chat.gateway';
 
-describe('ChatGateway connection authentication', () => {
+describe('ChatGateway handshake authentication', () => {
+  type ConnectError = Error & { data?: { code?: string } };
   type Middleware = (
-    client: unknown,
-    next: (error?: Error & { data?: { code?: string } }) => void,
-  ) => Promise<void>;
+    client: { id: string; data: { userId?: number } },
+    next: (error?: ConnectError) => void,
+  ) => void;
 
   const buildGateway = () => {
     const wsAuthService = { attachUser: jest.fn() };
@@ -25,83 +26,81 @@ describe('ChatGateway connection authentication', () => {
       userActivityService as never,
     );
     let middleware: Middleware | undefined;
-    const use = jest.fn((registered: Middleware) => {
-      middleware = registered;
+    const use = jest.fn((registeredMiddleware: Middleware) => {
+      middleware = registeredMiddleware;
     });
 
     gateway.afterInit({ use } as never);
 
     if (!middleware) {
-      throw new Error('Socket.IO middleware was not registered');
+      throw new Error('handshake middleware was not registered');
     }
 
     return {
       gateway,
-      middleware,
       wsAuthService,
       presenceStore,
       userActivityService,
+      middleware,
+      use,
     };
   };
 
-  const makeClient = () => ({
-    id: 'socket-1',
-    data: {} as { userId?: number },
-    disconnect: jest.fn(),
-  });
-
-  it('미인증 namespace 연결을 AUTH-001로 거부한다', async () => {
-    const { middleware, wsAuthService } = buildGateway();
-    const client = makeClient();
-    const next = jest.fn();
-    wsAuthService.attachUser.mockResolvedValue(null);
-
-    await middleware(client, next);
-
-    expect(next).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { code: 'AUTH-001' } }),
-    );
-  });
-
-  it('인증 처리 중 서버 오류를 SYS-001로 거부한다', async () => {
-    const { middleware, wsAuthService } = buildGateway();
-    const client = makeClient();
-    const next = jest.fn();
-    wsAuthService.attachUser.mockRejectedValue(
-      new Error('database unavailable'),
-    );
-
-    await middleware(client, next);
-
-    expect(next).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { code: 'SYS-001' } }),
-    );
-  });
-
-  it('인증 성공 시 연결을 허용한다', async () => {
-    const { middleware, wsAuthService } = buildGateway();
-    const client = makeClient();
-    const next = jest.fn();
-    wsAuthService.attachUser.mockImplementation(() => {
-      client.data.userId = 42;
-      return Promise.resolve(42);
+  const runMiddleware = (
+    middleware: Middleware,
+    client: Parameters<Middleware>[0],
+  ) =>
+    new Promise<ConnectError | undefined>((resolve) => {
+      middleware(client, resolve);
     });
 
-    await middleware(client, next);
+  it('네임스페이스 초기화 시 인증 미들웨어를 등록한다', () => {
+    const { use } = buildGateway();
 
-    expect(next).toHaveBeenCalledWith();
+    expect(use).toHaveBeenCalledTimes(1);
+    expect(use).toHaveBeenCalledWith(expect.any(Function));
   });
 
-  it('인증된 연결의 presence를 등록하며 인증을 반복하지 않는다', () => {
-    const { gateway, wsAuthService, presenceStore } = buildGateway();
-    const client = makeClient();
-    client.data.userId = 42;
+  it('인증 성공 시 연결을 허용하고 handleConnection에서 presence를 등록한다', async () => {
+    const { gateway, wsAuthService, presenceStore, middleware } =
+      buildGateway();
+    const client = { id: 'socket-1', data: { userId: 42 } };
+    wsAuthService.attachUser.mockResolvedValue(42);
 
+    await expect(runMiddleware(middleware, client)).resolves.toBeUndefined();
     gateway.handleConnection(client as never);
 
+    expect(wsAuthService.attachUser).toHaveBeenCalledWith(client);
+    expect(wsAuthService.attachUser).toHaveBeenCalledTimes(1);
     expect(presenceStore.onConnect).toHaveBeenCalledWith(42, 'socket-1');
-    expect(wsAuthService.attachUser).not.toHaveBeenCalled();
-    expect(client.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('인증 실패 시 AUTH-001 connect_error로 연결을 거부한다', async () => {
+    const { wsAuthService, presenceStore, middleware } = buildGateway();
+    const client = { id: 'socket-1', data: {} };
+    wsAuthService.attachUser.mockResolvedValue(null);
+
+    const error = await runMiddleware(middleware, client);
+
+    expect(error).toMatchObject({
+      message: '로그인이 필요한 서비스입니다. 로그인 후 이용해주세요.',
+      data: { code: 'AUTH-001' },
+    });
+    expect(presenceStore.onConnect).not.toHaveBeenCalled();
+  });
+
+  it('인증 서비스가 예외를 던지면 SYS-001로 연결을 거부한다', async () => {
+    const { wsAuthService, middleware } = buildGateway();
+    const client = { id: 'socket-1', data: {} };
+    wsAuthService.attachUser.mockRejectedValue(new Error('database failed'));
+
+    const error = await runMiddleware(middleware, client);
+
+    expect(error).toMatchObject({
+      message: '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.',
+      data: { code: 'SYS-001' },
+    });
+    expect(error?.message).not.toContain('database failed');
   });
 });
 

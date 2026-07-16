@@ -108,7 +108,6 @@ export class FcmPushService {
 
         response.responses.forEach((sendResponse, responseIndex) => {
           const errorCode = sendResponse.error?.code;
-          const errorMessage = sendResponse.error?.message;
 
           if (errorCode && INVALID_TOKEN_ERROR_CODES.has(errorCode)) {
             invalidTokens.push(tokenChunk[responseIndex]);
@@ -116,14 +115,14 @@ export class FcmPushService {
 
           if (errorCode) {
             this.logger.warn(
-              `FCM token send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenIndex=${responseIndex} tokenPrefix=${this.maskToken(tokenChunk[responseIndex])} errorCode=${errorCode} errorMessage=${errorMessage ?? ''}`,
+              `FCM token send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenIndex=${responseIndex} errorCode=${errorCode}`,
             );
           }
         });
       } catch (e) {
         failureCount += tokenChunk.length;
         this.logger.warn(
-          `FCM chunk send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenCount=${tokenChunk.length}: ${String(e)}`,
+          `FCM chunk send failed userId=${userId} notificationId=${notification.id.toString()} chunk=${chunkNumber} tokenCount=${tokenChunk.length} errorName=${this.getErrorName(e)} errorCode=${this.getErrorCode(e) ?? 'unknown'}`,
         );
       }
     }
@@ -169,14 +168,31 @@ export class FcmPushService {
 
       return getMessaging(app);
     } catch (e) {
-      this.logger.error(`FCM is disabled: ${String(e)}`);
+      this.logger.error(
+        `FCM is disabled errorName=${this.getErrorName(e)} errorCode=${this.getErrorCode(e) ?? 'unknown'}`,
+      );
       return null;
     }
   }
 
-  private maskToken(token: string): string {
-    return token.length <= 12
-      ? `${token.slice(0, 4)}...`
-      : `${token.slice(0, 8)}...${token.slice(-4)}`;
+  private getErrorCode(error: unknown): string | null {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof error.code === 'string'
+    ) {
+      return error.code;
+    }
+
+    return null;
+  }
+
+  private getErrorName(error: unknown): string {
+    if (error instanceof Error && error.name) {
+      return error.name;
+    }
+
+    return 'unknown';
   }
 }

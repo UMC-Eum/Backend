@@ -160,6 +160,7 @@ export class ArticleRepository {
   async findArticlesByClub(
     clubId: number,
     params: {
+      viewerId: number;
       category?: ArticleCategory;
       sort: ArticleSort;
       cursor?: bigint;
@@ -170,6 +171,7 @@ export class ArticleRepository {
       where: {
         clubId: BigInt(clubId),
         deletedAt: null,
+        ...this.visibleArticleAuthorWhere(BigInt(params.viewerId)),
         ...(params.category && { category: params.category }),
       },
       take: params.take,
@@ -195,7 +197,10 @@ export class ArticleRepository {
           },
         },
         articlePhotos: {
-          where: { deletedAt: null },
+          where: {
+            deletedAt: null,
+            ...this.visibleArticlePhotoUploaderWhere(BigInt(params.viewerId)),
+          },
           select: {
             id: true,
             photoUrl: true,
@@ -206,6 +211,10 @@ export class ArticleRepository {
             comments: {
               where: {
                 deletedAt: null,
+                AND: [
+                  this.visibleCommentAuthorWhere(BigInt(params.viewerId)),
+                  this.visibleCommentThreadWhere(BigInt(params.viewerId)),
+                ],
               },
             },
           },
@@ -276,6 +285,7 @@ export class ArticleRepository {
           id: BigInt(articleId),
           clubId: clubBigIntId,
           deletedAt: null,
+          ...this.visibleArticleAuthorWhere(viewerId),
         },
         include: {
           user: {
@@ -286,7 +296,10 @@ export class ArticleRepository {
             },
           },
           articlePhotos: {
-            where: { deletedAt: null },
+            where: {
+              deletedAt: null,
+              ...this.visibleArticlePhotoUploaderWhere(viewerId),
+            },
             select: {
               id: true,
               photoUrl: true,
@@ -299,7 +312,13 @@ export class ArticleRepository {
             },
           },
           comments: {
-            where: { deletedAt: null },
+            where: {
+              deletedAt: null,
+              AND: [
+                this.visibleCommentAuthorWhere(viewerId),
+                this.visibleCommentThreadWhere(viewerId),
+              ],
+            },
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
             include: {
               user: {
@@ -743,6 +762,7 @@ export class ArticleRepository {
   async findArchivePhotos(
     clubId: number,
     params: {
+      viewerId: number;
       sort: ArticleSort;
       cursor?: bigint;
       take: number;
@@ -755,7 +775,9 @@ export class ArticleRepository {
         article: {
           clubId: BigInt(clubId),
           deletedAt: null,
+          ...this.visibleArticleAuthorWhere(BigInt(params.viewerId)),
         },
+        ...this.visibleArticlePhotoUploaderWhere(BigInt(params.viewerId)),
         deletedAt: null,
       },
       take: params.take,
@@ -778,5 +800,93 @@ export class ArticleRepository {
         createdAt: true,
       },
     });
+  }
+
+  private visibleArticleAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.ArticleWhereInput {
+    return {
+      OR: [
+        { userId: null },
+        {
+          user: {
+            is: {
+              blocksReceived: {
+                none: {
+                  blockedById: viewerId,
+                  status: 'BLOCKED',
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  private visibleCommentAuthorWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
+    return {
+      OR: [
+        { userId: null },
+        {
+          user: {
+            is: {
+              blocksReceived: {
+                none: {
+                  blockedById: viewerId,
+                  status: 'BLOCKED',
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  private visibleArticlePhotoUploaderWhere(
+    viewerId: bigint,
+  ): Prisma.ArticlePhotoWhereInput {
+    return {
+      OR: [
+        { clubUserId: null },
+        {
+          clubUser: {
+            is: {
+              user: {
+                blocksReceived: {
+                  none: {
+                    blockedById: viewerId,
+                    status: 'BLOCKED',
+                    deletedAt: null,
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  private visibleCommentThreadWhere(
+    viewerId: bigint,
+  ): Prisma.CommentWhereInput {
+    return {
+      OR: [
+        { parentCommentId: null },
+        {
+          parentComment: {
+            is: {
+              ...this.visibleCommentAuthorWhere(viewerId),
+            },
+          },
+        },
+      ],
+    };
   }
 }

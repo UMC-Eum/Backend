@@ -79,6 +79,12 @@ export const ERROR_DEFINITIONS = {
     code: 'VALID-002',
     message: '필수 입력값이 누락되었습니다. 입력 내용을 확인해 주세요.',
   },
+  CONTENT_POLICY_VIOLATION: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    code: 'VALID-003',
+    message:
+      '커뮤니티 가이드라인에 맞지 않는 내용이 포함되어 있어 등록할 수 없습니다.',
+  },
   KEYWORD_NOT_FOUND: {
     status: HttpStatus.UNPROCESSABLE_ENTITY,
     code: 'KEYWORD-001',

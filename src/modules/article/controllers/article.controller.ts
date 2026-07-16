@@ -35,6 +35,7 @@ import {
 import { CreateArticleDto } from '../dtos/create-article.dto';
 import { ListArticlesQueryDto } from '../dtos/list-articles-query.dto';
 import { UpdateArticleDto } from '../dtos/update-article.dto';
+import { ModerateContent } from '../../../common/moderation/moderate-content.decorator';
 
 @ApiBearerAuth('access-token')
 @Controller('clubs/:clubId/articles')
@@ -126,6 +127,11 @@ export class ArticleController {
   @ApiOkResponse({ type: ArticleDto })
   @Post()
   @UseGuards(AccessTokenGuard)
+  @ModerateContent({
+    surface: 'ARTICLE',
+    textFields: ['title', 'contents'],
+    imageFields: ['photoUrls'],
+  })
   createArticle(
     @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,
@@ -141,6 +147,11 @@ export class ArticleController {
   @ApiOkResponse({ type: UpdateArticleResponseDto })
   @Patch(':articleId')
   @UseGuards(AccessTokenGuard)
+  @ModerateContent({
+    surface: 'ARTICLE',
+    textFields: ['title', 'contents'],
+    imageFields: ['photoUrls'],
+  })
   updateArticle(
     @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,

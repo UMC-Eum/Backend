@@ -38,6 +38,7 @@ import { ActiveUsersResponseDto } from '../../dtos/user-active-response.dto';
 import { DeleteAccountRequestDto } from '../../dtos/delete-account-request.dto';
 import { UserService } from '../../services/user/user.service';
 import { UserActivityService } from '../../services/user/user-activity.service';
+import { ModerateContent } from '../../../../common/moderation/moderate-content.decorator';
 
 @ApiTags('User')
 @ApiBearerAuth('access-token')
@@ -167,6 +168,11 @@ export class UserController {
   @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Update my profile' })
   @ApiOkResponse({ type: UserMeResponseDto })
+  @ModerateContent({
+    surface: 'USER_PROFILE',
+    textFields: ['nickname', 'introText'],
+    imageFields: ['profileImageUrl'],
+  })
   updateMe(
     @CurrentUser('userId') userId: number | null,
     @Body() body: UserProfileUpdateRequestDto,

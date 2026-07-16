@@ -49,6 +49,7 @@ Table User {
   clubLikes ClubLike [not null]
   userReports UserReport [not null]
   recentSearchKeywords RecentSearchKeyword [not null]
+  contentModerationLogs ContentModerationLog [not null]
 
   indexes {
     (provider, providerUserId) [unique]
@@ -207,6 +208,25 @@ Table Report {
   reportedBy User
   userReport UserReport
   clubReport ClubReport
+}
+
+Table ContentModerationLog {
+  id BigInt [pk, increment]
+  userId BigInt
+  surface ModerationSurface [not null]
+  targetType ModerationTargetType
+  targetId BigInt
+  decision ModerationDecision [not null]
+  provider String [not null, default: 'OPENAI']
+  model String [not null]
+  providerResponseId String
+  violatedCategories String[] [not null]
+  inputTypes String[] [not null]
+  categoryScores Json
+  contentHash String
+  requestPath String
+  createdAt DateTime [default: `now()`, not null]
+  user User
 }
 
 Table Notification {
@@ -668,6 +688,26 @@ Enum ReportTargetType {
   COMMENT
 }
 
+Enum ModerationSurface {
+  ARTICLE
+  COMMENT
+  USER_PROFILE
+  CLUB
+  CHAT
+}
+
+Enum ModerationTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+Enum ModerationDecision {
+  BLOCK
+  REVIEW
+}
+
 Enum ChatRoomType {
   DIRECT
   CLUB
@@ -714,6 +754,8 @@ Ref: Block.blockedById > User.id [delete: Cascade]
 Ref: Block.blockedId > User.id [delete: Cascade]
 
 Ref: Report.reportedById > User.id [delete: Set Null]
+
+Ref: ContentModerationLog.userId > User.id [delete: Set Null]
 
 Ref: Notification.userId > User.id [delete: Cascade]
 

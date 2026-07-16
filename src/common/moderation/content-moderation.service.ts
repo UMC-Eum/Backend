@@ -32,6 +32,12 @@ type OpenAiModerationInput =
       };
     };
 
+type ModerationCheckPayload = {
+  openAiInput: OpenAiModerationInput[];
+  texts: string[];
+  imageUrls: string[];
+};
+
 enum ModerationViolationCategory {
   Sexual = '성적 콘텐츠',
   SexualMinors = '미성년자 성적 콘텐츠',
@@ -90,53 +96,55 @@ export class ContentModerationService {
       });
     }
 
-    const moderationInput: OpenAiModerationInput[] = [
-      ...texts.map((text) => ({ type: 'text' as const, text })),
-      ...(await Promise.all(
-        imageUrls.map(async (imageUrl) => ({
-          type: 'image_url' as const,
-          image_url: {
-            url:
-              (await this.s3ObjectUrlService.toClientUrl(imageUrl)) ?? imageUrl,
-          },
-        })),
-      )),
-    ];
-
     const model = this.configService.get<string>(
       'OPENAI_MODERATION_MODEL',
       'omni-moderation-latest',
     );
 
-    let response: Response;
-    try {
-      response = await fetch(this.moderationUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+    if (texts.length > 0) {
+      await this.assertPayloadAllowed({
+        input,
+        apiKey,
+        model,
+        payload: {
+          openAiInput: texts.map((text) => ({ type: 'text' as const, text })),
+          texts,
+          imageUrls: [],
         },
-        body: JSON.stringify({
-          model,
-          input: moderationInput,
-        }),
       });
-    } catch (error) {
-      this.logger.warn(
-        `OpenAI moderation request failed surface=${input.surface} userId=${input.userId ?? 'N/A'}: ${String(error)}`,
-      );
-      throw new AppException('SERVER_TEMPORARY_ERROR');
     }
 
-    if (!response.ok) {
-      const message = await response.text().catch(() => '');
-      this.logger.warn(
-        `OpenAI moderation rejected status=${response.status} surface=${input.surface} userId=${input.userId ?? 'N/A'} body=${message.slice(0, 300)}`,
-      );
-      throw new AppException('SERVER_TEMPORARY_ERROR');
-    }
+    for (const imageUrl of imageUrls) {
+      const clientUrl =
+        (await this.s3ObjectUrlService.toClientUrl(imageUrl)) ?? imageUrl;
 
-    const data = (await response.json()) as OpenAiModerationResponse;
+      await this.assertPayloadAllowed({
+        input,
+        apiKey,
+        model,
+        payload: {
+          openAiInput: [
+            {
+              type: 'image_url',
+              image_url: {
+                url: clientUrl,
+              },
+            },
+          ],
+          texts: [],
+          imageUrls: [imageUrl],
+        },
+      });
+    }
+  }
+
+  private async assertPayloadAllowed(params: {
+    input: ModerateContentInput;
+    apiKey: string;
+    model: string;
+    payload: ModerationCheckPayload;
+  }): Promise<void> {
+    const data = await this.requestModeration(params);
     const results = data.results ?? [];
     const isFlagged = results.some((result) => result.flagged);
     const violatedCategories = this.collectViolatedCategories(results);
@@ -146,22 +154,59 @@ export class ContentModerationService {
     }
 
     await this.recordModerationLog({
-      input,
-      model: data.model ?? model,
+      input: params.input,
+      model: data.model ?? params.model,
       providerResponseId: data.id ?? null,
       decision: ModerationDecision.BLOCK,
-      texts,
-      imageUrls,
+      texts: params.payload.texts,
+      imageUrls: params.payload.imageUrls,
       violatedCategories,
       categoryScores: this.collectCategoryScores(results),
     });
 
     throw new AppException('CONTENT_POLICY_VIOLATION', {
       details: {
-        surface: input.surface,
+        surface: params.input.surface,
         violatedCategories,
       },
     });
+  }
+
+  private async requestModeration(params: {
+    input: ModerateContentInput;
+    apiKey: string;
+    model: string;
+    payload: ModerationCheckPayload;
+  }): Promise<OpenAiModerationResponse> {
+    let response: Response;
+    try {
+      response = await fetch(this.moderationUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: params.model,
+          input: params.payload.openAiInput,
+        }),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `OpenAI moderation request failed surface=${params.input.surface} userId=${params.input.userId ?? 'N/A'} inputTypes=${this.describeInputTypes(params.payload)}: ${String(error)}`,
+      );
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
+
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      this.logger.warn(
+        `OpenAI moderation rejected status=${response.status} surface=${params.input.surface} userId=${params.input.userId ?? 'N/A'} inputTypes=${this.describeInputTypes(params.payload)} body=${message.slice(0, 300)}`,
+      );
+      throw new AppException('SERVER_TEMPORARY_ERROR');
+    }
+
+    return (await response.json()) as OpenAiModerationResponse;
   }
 
   private normalizeTexts(values?: string[]): string[] {
@@ -174,6 +219,15 @@ export class ContentModerationService {
     return (values ?? [])
       .map((value) => value.trim())
       .filter((value) => value.length > 0);
+  }
+
+  private describeInputTypes(payload: ModerationCheckPayload): string {
+    return [
+      ...(payload.texts.length > 0 ? [`text:${payload.texts.length}`] : []),
+      ...(payload.imageUrls.length > 0
+        ? [`image:${payload.imageUrls.length}`]
+        : []),
+    ].join(',');
   }
 
   private collectViolatedCategories(

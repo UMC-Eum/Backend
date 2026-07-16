@@ -56,6 +56,7 @@
 - 텍스트 필드: `{ type: 'text', text }`
 - 이미지 필드: `{ type: 'image_url', image_url: { url } }`
 - `s3://...` 형태의 S3 참조값은 `S3ObjectUrlService`를 통해 presigned URL로 변환한 뒤 OpenAI에 전달합니다.
+- 이미지는 여러 장을 한 요청에 묶지 않고, 이미지별로 한 장씩 개별 moderation 요청을 보냅니다.
 
 ## 차단 기준
 
@@ -182,6 +183,7 @@ OPENAI_MODERATION_MODEL=omni-moderation-latest
 - OpenAI `category_scores`는 현재 클라이언트에 노출하지 않습니다.
 - 새로 검사해야 하는 request body 필드가 생기면 DTO, Swagger 문서, `@ModerateContent(...)` 설정을 함께 맞춰야 합니다.
 - 하나의 요청에 텍스트와 이미지가 함께 들어오면, 둘 중 하나라도 `flagged: true`일 경우 전체 요청을 차단합니다.
+- 이미지가 여러 장인 경우 각 이미지를 개별 검사하며, 한 장이라도 차단되면 전체 요청을 차단합니다.
 - 통과된 콘텐츠는 DB에 기록하지 않고, 차단된 콘텐츠만 `ContentModerationLog`에 저장합니다.
 - 모더레이션은 service/repository 저장 전에 수행됩니다.
 - S3 업로드 자체를 막는 구조는 아닙니다. 파일은 S3에 이미 업로드되어 있을 수 있지만, 모더레이션에 걸리면 해당 URL이 앱 콘텐츠로 저장되지 않습니다.

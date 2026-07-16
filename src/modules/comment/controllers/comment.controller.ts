@@ -34,6 +34,7 @@ import {
 } from '../dtos/comment.dto';
 import { AccessTokenGuard } from '../../auth/guards/access-token.guard';
 import { RequiredUserId } from '../../auth/decorators';
+import { ModerateContent } from '../../../common/moderation/moderate-content.decorator';
 
 type ApiSuccessExample<T> = {
   resultType: 'SUCCESS';
@@ -181,6 +182,10 @@ export class CommentController {
   })
   @ApiUnprocessableEntityResponse({ description: '입력값 형식 오류' })
   @ApiBadRequestResponse({ description: '대댓글까지만 작성 가능' })
+  @ModerateContent({
+    surface: 'COMMENT',
+    textFields: ['contents'],
+  })
   async createComment(
     @RequiredUserId() userId: number,
     @Param('clubId', new ParsePositiveIntPipe()) clubId: number,

@@ -12,6 +12,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { AppException } from './common/errors/app.exception';
 import { setupSwagger } from './swagger';
 import { S3ObjectUrlService } from './common/s3/s3-object-url.service';
+import { ContentModerationInterceptor } from './common/moderation/content-moderation.interceptor';
 
 import { SocketIoAdapter } from './infra/websocket/socket-io.adapter';
 
@@ -85,6 +86,7 @@ async function bootstrap() {
   );
 
   app.useGlobalInterceptors(
+    app.get(ContentModerationInterceptor),
     new ResponseInterceptor(app.get(S3ObjectUrlService)),
   );
   app.useGlobalFilters(new GlobalExceptionFilter(logger));

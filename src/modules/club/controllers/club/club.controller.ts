@@ -48,6 +48,7 @@ import { RecentClubSearchService } from '../../services/club/recent-club-search.
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import { RequiredUserId } from '../../../auth/decorators';
 import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-int.pipe';
+import { ModerateContent } from '../../../../common/moderation/moderate-content.decorator';
 
 @ApiTags('Club')
 @Controller('clubs')
@@ -61,6 +62,11 @@ export class ClubController {
 
   @Post()
   @UseGuards(AccessTokenGuard)
+  @ModerateContent({
+    surface: 'CLUB',
+    textFields: ['name', 'introText'],
+    imageFields: ['thumbnailUrl', 'imageUrls'],
+  })
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: '클럽 생성',
@@ -415,6 +421,10 @@ export class ClubController {
 
   @Patch(':clubId')
   @UseGuards(AccessTokenGuard)
+  @ModerateContent({
+    surface: 'CLUB',
+    textFields: ['name', 'introText'],
+  })
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: '클럽 정보 부분 수정',

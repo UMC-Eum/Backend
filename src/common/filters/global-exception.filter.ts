@@ -31,6 +31,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let code: ExternalErrorCode = 'SYS-001';
     let message = '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
     let detailsForLog: unknown;
+    let detailsForClient: unknown;
 
     // 1) AppException
     if (exception instanceof AppException) {
@@ -46,6 +47,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
         if (body.details !== undefined) {
           detailsForLog = body.details;
+          if (exception.internalCode === 'CONTENT_POLICY_VIOLATION') {
+            detailsForClient = body.details;
+          }
         }
       } else if (typeof body === 'string') {
         message = body;
@@ -79,7 +83,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const responseBody: ApiFailResponse = {
       resultType: 'FAIL',
       success: null,
-      error: { code, message },
+      error: {
+        code,
+        message,
+        ...(detailsForClient !== undefined
+          ? { details: detailsForClient }
+          : {}),
+      },
       meta: { timestamp, path },
     };
 

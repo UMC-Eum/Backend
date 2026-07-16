@@ -28,6 +28,7 @@ describe('ChatSocketService', () => {
   };
   const chatMediaServiceMock: Partial<ChatMediaService> = {
     toClientUrl: jest.fn(),
+    normalizeChatMediaRef: jest.fn(),
   };
   const notificationServiceMock: Partial<NotificationService> = {
     createNotification: jest.fn(),

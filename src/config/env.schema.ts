@@ -58,6 +58,8 @@ export const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().min(1).optional(),
   FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
   FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENAI_MODERATION_MODEL: z.string().min(1).default('omni-moderation-latest'),
 });
 
 export type Env = z.infer<typeof envSchema>;

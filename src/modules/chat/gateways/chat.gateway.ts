@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/common';
 import type { Server, Socket, DefaultEventsMap } from 'socket.io';
 
+import { getErrorDefinition } from '../../../common/errors/error-codes';
 import { WsExceptionFilter } from '../../../common/filters/ws-exception.filter';
 import { WsAuthService } from '../../../infra/websocket/auth/ws-auth.service';
 import { WsUserGuard } from '../../../infra/websocket/guards/ws-user.guard';
@@ -37,6 +39,13 @@ import { UserActivityService } from '../../user/services/user/user-activity.serv
 
 type SocketData = { userId?: number };
 
+type SocketAuthError = Error & {
+  data: {
+    code: string;
+    internalCode: 'AUTH_LOGIN_REQUIRED';
+  };
+};
+
 type AuthedSocket = Socket<
   DefaultEventsMap,
   DefaultEventsMap,
@@ -50,7 +59,9 @@ type AuthedSocket = Socket<
 })
 @UseFilters(new WsExceptionFilter())
 @Injectable()
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(ChatGateway.name);
 
   constructor(
@@ -63,6 +74,41 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @WebSocketServer()
   server!: Server;
+
+  afterInit(server: Server): void {
+    server.use((client, next) => {
+      void this.authenticateConnection(client as AuthedSocket, next);
+    });
+  }
+
+  private async authenticateConnection(
+    client: AuthedSocket,
+    next: (error?: Error) => void,
+  ): Promise<void> {
+    try {
+      const userId = await this.wsAuthService.attachUser(client);
+      if (!userId) {
+        this.logger.warn('reject connection: auth failed');
+        next(this.createAuthError());
+        return;
+      }
+
+      next();
+    } catch (e) {
+      this.logger.warn(`reject connection: ${String(e)}`);
+      next(this.createAuthError());
+    }
+  }
+
+  private createAuthError(): SocketAuthError {
+    const definition = getErrorDefinition('AUTH_LOGIN_REQUIRED');
+    const error = new Error(definition.message) as SocketAuthError;
+    error.data = {
+      code: definition.code,
+      internalCode: 'AUTH_LOGIN_REQUIRED',
+    };
+    return error;
+  }
 
   private emitToRooms(rooms: string[], event: string, payload: unknown): void {
     if (!this.server) return;
@@ -139,23 +185,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.emitToRooms([...rooms], 'message.deleted', payload);
   }
 
-  async handleConnection(client: AuthedSocket) {
-    try {
-      const userId = await this.wsAuthService.attachUser(client);
-      if (!userId) {
-        this.logger.warn('reject connection: auth failed');
-        client.disconnect(true);
-        return;
-      }
+  handleConnection(client: AuthedSocket) {
+    const userId = client.data.userId as number;
 
-      this.presenceStore.onConnect(userId, client.id);
-      void this.recordUserActivity(userId);
+    this.presenceStore.onConnect(userId, client.id);
+    void this.recordUserActivity(userId);
 
-      this.logger.log(`connected: socket=${client.id} userId=${userId}`);
-    } catch (e) {
-      this.logger.warn(`reject connection: ${String(e)}`);
-      client.disconnect(true);
-    }
+    this.logger.log(`connected: socket=${client.id} userId=${userId}`);
   }
 
   handleDisconnect(client: AuthedSocket) {

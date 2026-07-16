@@ -33,6 +33,11 @@ import { UserRepository } from '../user/repositories/user.repository';
     AuthRepository,
     UserRepository,
   ],
-  exports: [JwtTokenService, AccessTokenGuard, AppleAuthService],
+  exports: [
+    JwtTokenService,
+    AccessTokenGuard,
+    AppleAuthService,
+    KakaoAuthService,
+  ],
 })
 export class AuthModule {}

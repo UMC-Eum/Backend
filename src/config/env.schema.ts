@@ -44,6 +44,7 @@ export const envSchema = z.object({
   FASTAPI_HEALTH_PATH: z.string().min(1).default('/health'),
   KAKAO_CLIENT_ID: z.string().min(1),
   KAKAO_CLIENT_SECRET: z.string().min(1),
+  KAKAO_ADMIN_KEY: z.string().min(1).optional(),
   APPLE_TEAM_ID: z.string().min(1),
   APPLE_KEY_ID: z.string().min(1),
   APPLE_CLIENT_ID: z.string().min(1),

@@ -11,6 +11,8 @@ import {
   ReportResponseDto,
 } from '../dtos/report.dto';
 
+const COMMENT_REPORT_TARGET: ReportTargetType = 'COMMENT';
+
 @Injectable()
 export class ReportRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -330,7 +332,7 @@ export class ReportRepository {
   ): Promise<ReportCreatedResponseDto> {
     const exist = await this.findExistingTargetReport(
       userId,
-      ReportTargetType.COMMENT,
+      COMMENT_REPORT_TARGET,
       commentId,
     );
     if (exist != null) {
@@ -346,7 +348,7 @@ export class ReportRepository {
 
     const result = await this.createTargetReport({
       userId,
-      targetType: ReportTargetType.COMMENT,
+      targetType: COMMENT_REPORT_TARGET,
       targetId: commentId,
       reason,
       category,

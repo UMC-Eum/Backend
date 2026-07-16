@@ -14,6 +14,31 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+function getErrorDetailsForLog(error: Error) {
+  const details: Record<string, unknown> = {
+    name: error.name,
+    message: error.message,
+  };
+
+  if (isRecord(error)) {
+    if (typeof error.code === 'string') {
+      details.code = error.code;
+    }
+    if (error.meta !== undefined) {
+      details.meta = error.meta;
+    }
+    if (typeof error.clientVersion === 'string') {
+      details.clientVersion = error.clientVersion;
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    details.stack = error.stack;
+  }
+
+  return details;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   constructor(private readonly logger?: PinoLogger) {}
@@ -72,8 +97,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // 3) 일반 Error
     else if (exception instanceof Error) {
-      detailsForLog =
-        process.env.NODE_ENV === 'production' ? undefined : exception.stack;
+      detailsForLog = getErrorDetailsForLog(exception);
 
       if (process.env.NODE_ENV !== 'production' && exception.message) {
         message = exception.message;

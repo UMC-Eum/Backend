@@ -446,6 +446,20 @@ export class UserRepository {
     });
   }
 
+  findActiveAuthProviderInfo(userId: number) {
+    return this.prismaService.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+        status: ActiveStatus.ACTIVE,
+      },
+      select: {
+        provider: true,
+        providerUserId: true,
+      },
+    });
+  }
+
   findActiveUserAreaById(userId: number) {
     return this.prismaService.user.findFirst({
       where: {
@@ -801,8 +815,8 @@ export class UserRepository {
       await tx.articleLike.deleteMany({ where: { userId: userBigIntId } });
       await tx.clubLike.deleteMany({ where: { userId: userBigIntId } });
       await tx.club.updateMany({
-        where: { hostId: userBigIntId },
-        data: { hostId: null },
+        where: { hostId: userBigIntId, deletedAt: null },
+        data: { deletedAt },
       });
       await tx.clubUser.deleteMany({ where: { userId: userBigIntId } });
 

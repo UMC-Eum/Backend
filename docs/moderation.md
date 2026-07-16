@@ -140,6 +140,41 @@ OPENAI_MODERATION_MODEL=omni-moderation-latest
 
 `OPENAI_API_KEY`가 없는 상태에서 모더레이션 대상 API가 호출되면 `SERVER_TEMPORARY_ERROR`로 응답합니다. 이는 OpenAI 설정 누락으로 인해 검수되지 않은 UGC가 저장되는 것을 막기 위한 fail-closed 정책입니다.
 
+## DB 기록
+
+모더레이션 결과는 `ContentModerationLog` 테이블에 저장합니다.
+
+원문 텍스트나 이미지 URL 전체를 저장하지 않고, 운영 조회와 감사에 필요한 메타데이터만 저장합니다.
+
+주요 컬럼은 다음과 같습니다.
+
+| 컬럼                 | 설명                                         |
+| -------------------- | -------------------------------------------- |
+| `userId`             | 요청 사용자 ID. 유저 삭제 시 `null` 처리     |
+| `surface`            | 검사 영역. 예: `ARTICLE`, `COMMENT`, `CLUB`  |
+| `targetType`         | 저장된 대상 타입. 예: `ARTICLE`, `CLUB`      |
+| `targetId`           | 저장된 대상 ID. 사전 차단 로그는 `null` 가능 |
+| `decision`           | `BLOCK`, `REVIEW`                            |
+| `provider`           | 현재는 `OPENAI`                              |
+| `model`              | 사용한 moderation 모델                       |
+| `providerResponseId` | OpenAI moderation 응답 ID                    |
+| `violatedCategories` | 실제 위반된 한국어 카테고리 배열             |
+| `inputTypes`         | 검사 입력 타입. 예: `text`, `image`          |
+| `categoryScores`     | OpenAI 카테고리 점수 JSON                    |
+| `contentHash`        | 원문 대신 저장하는 SHA-256 해시              |
+| `requestPath`        | 요청 경로                                    |
+| `createdAt`          | 생성 시각                                    |
+
+조회 효율을 위해 아래 인덱스를 둡니다.
+
+| 인덱스                           | 목적                                       |
+| -------------------------------- | ------------------------------------------ |
+| `[userId, createdAt]`            | 특정 유저의 모더레이션 이력 조회           |
+| `[decision, surface, createdAt]` | 차단/검토 내역을 영역별 최신순으로 조회    |
+| `[targetType, targetId]`         | 특정 게시글/댓글/클럽 관련 로그 조회       |
+| `[createdAt]`                    | 기간 조회 및 보관 기간 만료 데이터 정리    |
+| `violatedCategories GIN`         | 특정 위반 카테고리가 포함된 로그 빠른 조회 |
+
 ## 팀원 공유 사항
 
 - 공개 또는 반공개 UGC를 저장하는 새 API를 만들 때는 `@ModerateContent(...)` 적용 여부를 반드시 검토해야 합니다.
@@ -147,6 +182,7 @@ OPENAI_MODERATION_MODEL=omni-moderation-latest
 - OpenAI `category_scores`는 현재 클라이언트에 노출하지 않습니다.
 - 새로 검사해야 하는 request body 필드가 생기면 DTO, Swagger 문서, `@ModerateContent(...)` 설정을 함께 맞춰야 합니다.
 - 하나의 요청에 텍스트와 이미지가 함께 들어오면, 둘 중 하나라도 `flagged: true`일 경우 전체 요청을 차단합니다.
+- 통과된 콘텐츠는 DB에 기록하지 않고, 차단된 콘텐츠만 `ContentModerationLog`에 저장합니다.
 - 모더레이션은 service/repository 저장 전에 수행됩니다.
 - S3 업로드 자체를 막는 구조는 아닙니다. 파일은 S3에 이미 업로드되어 있을 수 있지만, 모더레이션에 걸리면 해당 URL이 앱 콘텐츠로 저장되지 않습니다.
 

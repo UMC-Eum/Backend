@@ -137,6 +137,26 @@ enum ReportTargetType {
   COMMENT
 }
 
+enum ModerationSurface {
+  ARTICLE
+  COMMENT
+  USER_PROFILE
+  CLUB
+  CHAT
+}
+
+enum ModerationTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+enum ModerationDecision {
+  BLOCK
+  REVIEW
+}
+
 enum ChatRoomType {
   DIRECT
   CLUB
@@ -201,6 +221,7 @@ model User {
   clubLikes              ClubLike[]
   userReports            UserReport[]
   recentSearchKeywords   RecentSearchKeyword[]
+  contentModerationLogs  ContentModerationLog[]
 
   @@unique([provider, providerUserId])
   @@index([status])
@@ -376,24 +397,49 @@ model Block {
 }
 
 model Report {
-  id           BigInt         @id @default(autoincrement()) @db.BigInt
-  reportedById BigInt?        @db.BigInt
+  id           BigInt            @id @default(autoincrement()) @db.BigInt
+  reportedById BigInt?           @db.BigInt
   targetType   ReportTargetType?
-  targetId     BigInt?        @db.BigInt
-  chatRoomId   BigInt?        @db.BigInt
-  reportedAt   DateTime       @db.Timestamp(6)
-  reason       String         @db.VarChar(100)
-  category     ReportCategory @default(OTHERS)
-  deletedAt    DateTime?      @db.Timestamp(6)
+  targetId     BigInt?           @db.BigInt
+  chatRoomId   BigInt?           @db.BigInt
+  reportedAt   DateTime          @db.Timestamp(6)
+  reason       String            @db.VarChar(100)
+  category     ReportCategory    @default(OTHERS)
+  deletedAt    DateTime?         @db.Timestamp(6)
 
   reportedBy User?       @relation(name: "UserReportsBy", fields: [reportedById], references: [id], onDelete: SetNull) //신고한 사람이 삭제되는 경우 신고당한 기록은 남겨둬야 함.
-  userReport    UserReport?
-  clubReport    ClubReport?
+  userReport UserReport?
+  clubReport ClubReport?
 
   @@index([reportedById])
   @@index([targetType, targetId])
   @@index([chatRoomId])
   @@index([reportedAt])
+}
+
+model ContentModerationLog {
+  id                 BigInt                @id @default(autoincrement()) @db.BigInt
+  userId             BigInt?               @db.BigInt
+  surface            ModerationSurface
+  targetType         ModerationTargetType?
+  targetId           BigInt?               @db.BigInt
+  decision           ModerationDecision
+  provider           String                @default("OPENAI") @db.VarChar(30)
+  model              String                @db.VarChar(80)
+  providerResponseId String?               @db.VarChar(100)
+  violatedCategories String[]              @default([])
+  inputTypes         String[]              @default([])
+  categoryScores     Json?
+  contentHash        String?               @db.VarChar(64)
+  requestPath        String?               @db.VarChar(255)
+  createdAt          DateTime              @default(now()) @db.Timestamp(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([decision, surface, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model Notification {

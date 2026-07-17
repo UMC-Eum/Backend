@@ -9,7 +9,8 @@ Create an environment named `staging` and add:
 - `AWS_ROLE_ARN`: ARN of the OIDC role created below.
 - `STAGING_WS_ACCESS_TOKEN` (optional): access token for a stable staging smoke-test user. Without it, the workflow still verifies that unauthenticated WebSocket connections are rejected.
 
-Do not add required reviewers to staging. After one successful OIDC deployment, remove the repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; the workflow contains an access-key fallback only for the transition.
+Do not add required reviewers to staging. The workflow requires OIDC and does
+not support long-lived AWS access-key credentials.
 
 ## 2. AWS GitHub OIDC role
 
@@ -38,7 +39,10 @@ Add the GitHub provider `token.actions.githubusercontent.com` with audience `sts
 
 Attach a least-privilege policy allowing:
 
-- ECR authorization and push access only to `eum-backend`.
+- ECR authorization, push, `ecr:DescribeImages`, `ecr:BatchGetImage`, and
+  `ecr:PutImage` access only to `eum-backend`. The last three permissions let
+  the workflow add the immutable `staging-approved-<commit-sha>` tag only after
+  deployment and smoke tests pass.
 - `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:RunTask`, `ecs:DescribeTasks`, `ecs:ListTasks`, `ecs:DescribeServices`, and `ecs:UpdateService` for the staging task/service/cluster.
 - `iam:PassRole` only for the execution role and task role referenced by the `eum-backend` task definition.
 
@@ -65,3 +69,15 @@ ALLOW_PRODUCTION_SEED=true npm run prisma:seed
 ```
 
 This is intentionally blocked without `ALLOW_PRODUCTION_SEED=true` because `prisma/seed.ts` calls `resetDatabase()` before inserting data. It replaces the staging database contents; it is not an incremental seed command. Do not set `ALLOW_PRODUCTION_SEED` permanently in the ECS task definition.
+
+## 6. Staging approval marker
+
+The final successful CD step adds `staging-approved-<commit-sha>` to the exact
+ECR manifest deployed to staging. Production CD requires both the original
+`<commit-sha>` tag and this approval tag to resolve to the same digest. Do not
+create approval tags manually.
+
+Enable immutable tags on the `eum-backend` ECR repository before production CD
+is enabled. Existing unique SHA and approval tags continue to work; attempts to
+move a tag to another image fail. If the same staging run is retried, CD reuses
+and rescans the existing immutable SHA image instead of pushing that tag again.

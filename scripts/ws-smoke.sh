@@ -44,7 +44,7 @@ fi
 echo "WebSocket unauthenticated rejection passed"
 
 if [ -z "${WS_ACCESS_TOKEN:-}" ]; then
-  echo "STAGING_WS_ACCESS_TOKEN is not configured; authenticated WebSocket smoke test skipped"
+  echo "WS_ACCESS_TOKEN is not configured; authenticated WebSocket smoke test skipped"
   exit 0
 fi
 

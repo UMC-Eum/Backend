@@ -220,17 +220,29 @@ GET /api/v1/health/fastapi
 
 **CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd.yml`):
 
-* GitHub OIDC로 AWS 인증 (`AWS_ROLE_ARN` 설정 전까지 기존 Access Key를 임시 fallback으로 사용)
+* GitHub OIDC와 staging Environment의 `AWS_ROLE_ARN`으로 AWS 인증
 * Docker image build 후 Trivy `HIGH`/`CRITICAL` 검사, 통과한 immutable `:<sha>`만 ECR push
 * 현재 task definition 기반으로 새 이미지 태그를 적용해 새 revision 등록
 * ECS one-off task(EC2 launch type)로 Prisma migration binary 실행 — exit code 0이 아니면 배포 중단
 * ECS circuit breaker + 자동 rollback으로 동일 revision 배포
 * 새 task definition의 `rolloutState`를 최대 15분간 추적하여 rollback을 성공으로 오인하지 않도록 검증
 * REST health 및 Socket.IO `/chats` 인증 smoke test
+* 모든 검증 성공 후 동일 ECR digest에 `staging-approved-<sha>` 태그 추가
 * 실패 시 ECS deployment, service event, stopped task 진단 정보 출력
 
 > 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
 > GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/staging-cicd-setup.md`](docs/staging-cicd-setup.md)를 참고하세요.
+
+**Production CD** — main에 포함된 annotated `vMAJOR.MINOR.PATCH` 태그를 승인 후 production ECS에 배포 (`.github/workflows/cd-production.yml`):
+
+* production에서 이미지를 다시 빌드하지 않고 staging 승인 SHA의 ECR digest를 그대로 승격
+* GitHub `production` Environment 승인자 1명과 별도 AWS OIDC role 사용
+* Prisma migration 성공 후 ECS rolling deployment 수행
+* ECS circuit breaker와 CloudWatch alarm rollback 적용
+* REST/Socket.IO smoke 실패 시 배포 직전 task definition으로 복구
+* 이전 태그 재배포를 위한 수동 `workflow_dispatch` 지원
+
+> Production Environment 변수, tag ruleset, ECR immutability, OIDC/IAM, 릴리스 및 롤백 절차는 [`docs/production-cd-setup.md`](docs/production-cd-setup.md)를 참고하세요.
 
 ---
 

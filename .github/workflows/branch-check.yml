@@ -13,7 +13,14 @@ jobs:
       - name: Check branch name format
         env:
           BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
         run: |
+          # Release PRs promote the already validated dev branch to main.
+          if [ "$BRANCH" = "dev" ] && [ "$BASE_BRANCH" = "main" ]; then
+            echo "✅ Release branch OK: dev -> main"
+            exit 0
+          fi
+
           # Allowed: (feat|fix|chore|refactor|docs|test|style|perf)/EUM-<digits>
           # 뒤에 부가 설명은 선택 (-anything) — 보통 EUM-N만 적음
           if echo "$BRANCH" | grep -qE '^(feat|fix|chore|refactor|docs|test|style|perf)/EUM-[0-9]+(-.*)?$'; then

@@ -218,7 +218,7 @@ GET /api/v1/health/fastapi
 * Lint / typecheck / unit tests + coverage artifact / production build
 * 빈 PostgreSQL(pgvector) DB에 Prisma migration 적용 후 e2e test
 
-**CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd.yml`):
+**CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd-staging.yml`):
 
 * GitHub OIDC와 staging Environment의 `AWS_ROLE_ARN`으로 AWS 인증
 * Docker image build 후 Trivy `HIGH`/`CRITICAL` 검사, 통과한 immutable `:<sha>`만 ECR push
@@ -231,7 +231,7 @@ GET /api/v1/health/fastapi
 * 실패 시 ECS deployment, service event, stopped task 진단 정보 출력
 
 > 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
-> GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/staging-cicd-setup.md`](docs/staging-cicd-setup.md)를 참고하세요.
+> GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/cd-staging-setup.md`](docs/cd-staging-setup.md)를 참고하세요.
 
 **Production CD** — main에 포함된 annotated `vMAJOR.MINOR.PATCH` 태그를 승인 후 production ECS에 배포 (`.github/workflows/cd-production.yml`):
 
@@ -242,7 +242,7 @@ GET /api/v1/health/fastapi
 * REST/Socket.IO smoke 실패 시 배포 직전 task definition으로 복구
 * 이전 태그 재배포를 위한 수동 `workflow_dispatch` 지원
 
-> Production Environment 변수, tag ruleset, ECR immutability, OIDC/IAM, 릴리스 및 롤백 절차는 [`docs/production-cd-setup.md`](docs/production-cd-setup.md)를 참고하세요.
+> Production Environment 변수, tag ruleset, ECR immutability, OIDC/IAM, 릴리스 및 롤백 절차는 [`docs/cd-production-setup.md`](docs/cd-production-setup.md)를 참고하세요.
 
 ---
 
@@ -252,7 +252,8 @@ GET /api/v1/health/fastapi
 .github/
 └─ workflows/
    ├─ ci.yml                 # PR/push 시 lint/test/build
-   ├─ cd.yml                 # dev CI 성공 시 staging ECS 배포
+   ├─ cd-staging.yml         # dev CI 성공 시 staging ECS 배포
+   ├─ cd-production.yml      # SemVer 태그 승인 후 production ECS 배포
    ├─ branch-check.yml       # 브랜치명 컨벤션 검증
    └─ notion-sync.yml        # 이슈/PR → Notion 동기화
 

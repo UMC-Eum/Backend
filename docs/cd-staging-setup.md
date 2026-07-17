@@ -2,9 +2,29 @@
 
 Repository workflows enforce CI before deployment, scan the container image, and enable ECS circuit-breaker rollback. The following one-time GitHub and AWS settings complete the setup.
 
-## 1. GitHub staging environment
+## 1. GitHub Actions variables and staging environment
 
-Create an environment named `staging` and add:
+Under `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`, add
+these repository variables once. Both staging and production inherit them:
+
+| Variable         | Value                                                     |
+| ---------------- | --------------------------------------------------------- |
+| `AWS_REGION`     | `ap-northeast-2`                                          |
+| `ECR_REGISTRY`   | `413790913159.dkr.ecr.ap-northeast-2.amazonaws.com`       |
+| `ECR_REPOSITORY` | ECR repository shared by both environments: `eum-backend` |
+
+Create an environment named `staging` and add these environment variables:
+
+| Variable          | Value                                              |
+| ----------------- | -------------------------------------------------- |
+| `ECS_CLUSTER`     | Staging ECS cluster name                           |
+| `ECS_SERVICE`     | Staging ECS service name                           |
+| `ECS_TASK_FAMILY` | Task-definition family used by the staging service |
+| `CONTAINER_NAME`  | Application container name in that task definition |
+| `HEALTH_URL`      | Staging `/api/v1/health` URL                       |
+| `WS_URL`          | Staging origin used by the Socket.IO smoke test    |
+
+Add these staging environment secrets:
 
 - `AWS_ROLE_ARN`: ARN of the OIDC role created below.
 - `STAGING_WS_ACCESS_TOKEN` (optional): access token for a stable staging smoke-test user. Without it, the workflow still verifies that unauthenticated WebSocket connections are rejected.

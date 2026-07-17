@@ -233,10 +233,10 @@ GET /api/v1/health/fastapi
 > 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
 > GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/cd-staging-setup.md`](docs/cd-staging-setup.md)를 참고하세요.
 
-**Production CD** — main에 포함된 annotated `vMAJOR.MINOR.PATCH` 태그를 승인 후 production ECS에 배포 (`.github/workflows/cd-production.yml`):
+**Production CD** — main에 포함된 annotated `vMAJOR.MINOR.PATCH` 태그를 검증 후 production ECS에 배포 (`.github/workflows/cd-production.yml`):
 
 * production에서 이미지를 다시 빌드하지 않고 staging 승인 SHA의 ECR digest를 그대로 승격
-* GitHub `production` Environment 승인자 1명과 별도 AWS OIDC role 사용
+* GitHub `production` Environment의 main/tag 제한과 별도 AWS OIDC role 사용
 * Prisma migration 성공 후 ECS rolling deployment 수행
 * ECS circuit breaker와 CloudWatch alarm rollback 적용
 * REST/Socket.IO smoke 실패 시 배포 직전 task definition으로 복구
@@ -253,7 +253,7 @@ GET /api/v1/health/fastapi
 └─ workflows/
    ├─ ci.yml                 # PR/push 시 lint/test/build
    ├─ cd-staging.yml         # dev CI 성공 시 staging ECS 배포
-   ├─ cd-production.yml      # SemVer 태그 승인 후 production ECS 배포
+   ├─ cd-production.yml      # SemVer 태그 검증 후 production ECS 배포
    ├─ branch-check.yml       # 브랜치명 컨벤션 검증
    └─ notion-sync.yml        # 이슈/PR → Notion 동기화
 

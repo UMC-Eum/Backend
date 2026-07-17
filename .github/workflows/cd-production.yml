@@ -37,12 +37,17 @@ jobs:
         id: release
         env:
           EVENT_NAME: ${{ github.event_name }}
+          RUN_REF: ${{ github.ref }}
           PUSH_TAG: ${{ github.ref_name }}
           DISPATCH_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$RUN_REF" != "refs/heads/main" ]; then
+              echo "::error::Manual production deployments must run from the main branch"
+              exit 1
+            fi
             RELEASE_TAG="$DISPATCH_TAG"
           else
             RELEASE_TAG="$PUSH_TAG"

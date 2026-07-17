@@ -27,19 +27,35 @@ jobs:
     environment: staging
 
     env:
-      AWS_REGION: ap-northeast-2
+      AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      ECR_REGISTRY: 413790913159.dkr.ecr.ap-northeast-2.amazonaws.com
-      ECR_REPOSITORY: eum-backend
-      ECS_CLUSTER: eum-cluster
-      ECS_SERVICE: eum-backend-service
-      ECS_TASK_FAMILY: eum-backend
-      CONTAINER_NAME: eum-backend
-      HEALTH_URL: https://staging.eum-dating.com/api/v1/health
-      WS_URL: https://staging.eum-dating.com
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+      WS_URL: ${{ vars.WS_URL }}
       WS_ACCESS_TOKEN: ${{ secrets.STAGING_WS_ACCESS_TOKEN }}
 
     steps:
+      - name: Validate staging configuration
+        run: |
+          set -euo pipefail
+
+          REQUIRED_VARIABLES=(
+            AWS_REGION AWS_ROLE_ARN ECR_REGISTRY ECR_REPOSITORY
+            ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY CONTAINER_NAME
+            HEALTH_URL WS_URL
+          )
+          for name in "${REQUIRED_VARIABLES[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Staging configuration $name is required"
+              exit 1
+            fi
+          done
+
       - name: Resolve validated commit
         id: commit
         env:

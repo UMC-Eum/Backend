@@ -2,29 +2,35 @@
 
 Production releases promote the exact container digest that passed staging.
 Pushing an annotated stable SemVer tag such as `v1.2.3` starts validation. The
-AWS deployment job starts only after one reviewer approves the protected
-`production` GitHub Environment.
+AWS deployment job starts automatically after validation succeeds.
 
-## 1. GitHub production environment
+## 1. GitHub Actions variables and production environment
 
-Create an environment named `production` with one required reviewer. Enable
-`Prevent self-review` when the team has at least two release operators, disable
-administrator bypass, and restrict deployment tags to `v*.*.*`.
+Under `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`, add
+these repository variables once. Both staging and production inherit them:
+
+| Variable         | Value                                                     |
+| ---------------- | --------------------------------------------------------- |
+| `AWS_REGION`     | `ap-northeast-2`                                          |
+| `ECR_REGISTRY`   | `413790913159.dkr.ecr.ap-northeast-2.amazonaws.com`       |
+| `ECR_REPOSITORY` | ECR repository shared by both environments: `eum-backend` |
+
+Create an environment named `production` without required reviewers or a wait
+timer. Under `Deployment branches and tags`, choose `Selected branches and
+tags`, then allow only branch `main` and tags matching `v*.*.*`. Tag pushes use
+the tag rule, while manual redeployments use the `main` branch rule.
 
 Add these environment variables:
 
-| Variable                | Value                                                       |
-| ----------------------- | ----------------------------------------------------------- |
-| `AWS_REGION`            | `ap-northeast-2`                                            |
-| `ECR_REGISTRY`          | `<aws-account-id>.dkr.ecr.ap-northeast-2.amazonaws.com`     |
-| `ECR_REPOSITORY`        | ECR repository shared with staging, currently `eum-backend` |
-| `ECS_CLUSTER`           | Production ECS cluster name                                 |
-| `ECS_SERVICE`           | Production ECS service name                                 |
-| `ECS_TASK_FAMILY`       | Task-definition family used by the production service       |
-| `CONTAINER_NAME`        | Application container name in that task definition          |
-| `ECS_DEPLOYMENT_ALARMS` | Comma-separated CloudWatch alarm names, without spaces      |
-| `HEALTH_URL`            | Production `/api/v1/health` URL                             |
-| `WS_URL`                | Production origin used by the Socket.IO smoke test          |
+| Variable                | Value                                                  |
+| ----------------------- | ------------------------------------------------------ |
+| `ECS_CLUSTER`           | Production ECS cluster name                            |
+| `ECS_SERVICE`           | Production ECS service name                            |
+| `ECS_TASK_FAMILY`       | Task-definition family used by the production service  |
+| `CONTAINER_NAME`        | Application container name in that task definition     |
+| `ECS_DEPLOYMENT_ALARMS` | Comma-separated CloudWatch alarm names, without spaces |
+| `HEALTH_URL`            | Production `/api/v1/health` URL                        |
+| `WS_URL`                | Production origin used by the Socket.IO smoke test     |
 
 Add these environment secrets:
 
@@ -33,8 +39,10 @@ Add these environment secrets:
   user. Without it, the workflow still checks that unauthenticated WebSocket
   access is rejected.
 
-The workflow intentionally has no access-key fallback. Environment approval
-happens before GitHub releases the OIDC token and environment secrets.
+The workflow intentionally has no access-key fallback. Environment approval is
+not required; the environment scopes production-specific variables, secrets,
+and the OIDC trust subject to production deployment jobs. Repository variables
+contain only values intentionally shared with staging.
 
 ## 2. GitHub tag and main protection
 
@@ -138,9 +146,9 @@ alarm list short and deployment-specific.
    git push origin v1.0.0
    ```
 
-4. In GitHub Actions, inspect the `Validate production release` job. A required
-   reviewer then checks the tag, commit, and release PR before approving the
-   `production` Environment.
+4. In GitHub Actions, inspect the `Validate production release` job. After tag,
+   commit, main ancestry, and staging approval validation succeed, the
+   production deployment starts automatically.
 5. Confirm the job summary records the release, commit, image digest, migration
    task, previous task definition, deployed task definition, and both smoke
    tests.
@@ -164,7 +172,7 @@ expand/contract pattern so the previous and new application revisions both work
 against the migrated schema.
 
 To redeploy an earlier automated release, run `CD - Deploy to Production (ECS)`
-manually from the `main` branch and enter its existing release tag. The same
-production approval and staging-digest validation run again. A manually deployed
-legacy revision without a staging approval marker must be restored directly in
-ECS using its saved task definition.
+manually from the `main` branch and enter its existing release tag. The workflow
+rejects manual runs from other refs, and the same staging-digest validation runs
+again. A manually deployed legacy revision without a staging approval marker
+must be restored directly in ECS using its saved task definition.

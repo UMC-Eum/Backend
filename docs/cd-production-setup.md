@@ -51,7 +51,6 @@ Protect `main`, require pull requests, and require the CI checks already used by
 
 - `Quality, Unit Tests & Build`
 - `Database Migration & E2E`
-- `Validate branch name`
 
 Create an active tag ruleset targeting `v*.*.*`. Restrict tag creation to the
 release operators and prevent updates, deletions, and force pushes. Production

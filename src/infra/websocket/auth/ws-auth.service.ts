@@ -94,10 +94,7 @@ export class WsAuthService {
       return null;
     }
 
-    const secret = this.configService.get<string>(
-      'JWT_ACCESS_SECRET',
-      'dev-access-secret',
-    );
+    const secret = this.configService.getOrThrow<string>('JWT_ACCESS_SECRET');
 
     let subId: bigint | null = null;
 
@@ -141,7 +138,7 @@ export class WsAuthService {
       const userId = Number(userRecord.id);
 
       client.data.userId = userId;
-      client.join(toUserRoom(userId));
+      await client.join(toUserRoom(userId));
 
       return userId;
     } catch (e) {
@@ -150,7 +147,7 @@ export class WsAuthService {
         `attachUser error: prisma query failed socket=${socketId} ip=${ip} sub=${subId.toString()} err=${info.name}:${info.message}`,
         info.stack,
       );
-      return null;
+      throw e;
     }
   }
 }

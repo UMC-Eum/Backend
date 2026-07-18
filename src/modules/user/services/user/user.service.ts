@@ -1,15 +1,38 @@
 import { Injectable } from '@nestjs/common';
+import { AuthProvider } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
 import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import { DeleteAccountRequestDto } from '../../dtos/delete-account-request.dto';
+import {
+  UserClubsResponseDto,
+  UserLikedClubsResponseDto,
+} from '../../dtos/user-clubs-response.dto';
+import { UserVisitorsResponseDto } from '../../dtos/user-visitors-response.dto';
+import { UserPublicProfileResponseDto } from '../../dtos/user-public-profile-response.dto';
 import { UserRepository } from '../../repositories/user.repository';
+import { normalizeS3ObjectRef } from '../../../../common/s3/s3-object-url.service';
+import { AppleAuthService } from '../../../auth/services/apple-auth.service';
+import { KakaoAuthService } from '../../../auth/services/kakao-auth.service';
+
+type ProfileVisitorsCursor = {
+  visitedAt: string;
+  logId: string;
+};
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  private static readonly DEFAULT_VISITORS_PAGE_SIZE = 20;
+  private static readonly MAX_VISITORS_PAGE_SIZE = 50;
+
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly appleAuthService: AppleAuthService,
+    private readonly kakaoAuthService: KakaoAuthService,
+  ) {}
 
   async getMe(userId: number): Promise<UserMeResponseDto> {
     if (!userId) {
@@ -22,7 +45,9 @@ export class UserService {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    const areaName = user.address.sigunguName ?? user.address.fullName;
+    // TODO(schema-nullable): User.address가 nullable로 변경됨 (Address?). 주소 없는 유저 케이스 UX 정책 결정 필요.
+    // 임시로 빈 문자열 fallback.
+    const areaName = user.address?.sigunguName ?? user.address?.fullName ?? '';
     const keywords = user.interests
       .map((interest) => interest.interest.body)
       .filter((body): body is string => Boolean(body));
@@ -40,7 +65,8 @@ export class UserService {
       gender: user.sex,
       age,
       area: {
-        code: user.address.code,
+        // TODO(schema-nullable): address가 null일 때 code도 없음. 빈 문자열 fallback.
+        code: user.address?.code ?? '',
         name: areaName,
       },
       introText: user.introText,
@@ -71,7 +97,8 @@ export class UserService {
       introText: user.introText,
       introVoiceUrl: user.introVoiceUrl,
       address: {
-        fullName: user.address.fullName,
+        // TODO(schema-nullable): User.address가 nullable. 빈 문자열 fallback.
+        fullName: user.address?.fullName ?? '',
       },
       interests: user.interests.map((item) => ({
         interestId: Number(item.interestId),
@@ -86,6 +113,191 @@ export class UserService {
         },
       })),
     };
+  }
+
+  async getMyClubs(userId: number): Promise<UserClubsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const memberships = await this.userRepository.findMyClubs(userId);
+
+    return {
+      items: memberships.map((membership) => ({
+        clubId: Number(membership.club.id),
+        name: membership.club.name,
+        thumbnailUrl: membership.club.thumbnailUrl,
+        category: membership.club.category,
+        capacity: membership.club.capacity,
+        code: membership.club.code,
+        introText: membership.club.introText,
+        memberCount: membership.club.clubUsers.length,
+        authority: membership.authority,
+        status: membership.status,
+        joinedAt: membership.joinedAt?.toISOString() ?? null,
+      })),
+    };
+  }
+
+  async getMyLikedClubs(userId: number): Promise<UserLikedClubsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const likes = await this.userRepository.findMyLikedClubs(userId);
+
+    return {
+      items: likes.map((like) => ({
+        clubId: Number(like.club.id),
+        name: like.club.name,
+        thumbnailUrl: like.club.thumbnailUrl,
+        category: like.club.category,
+        capacity: like.club.capacity,
+        code: like.club.code,
+        introText: like.club.introText,
+        memberCount: like.club.clubUsers.length,
+        likedAt: like.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async getMyVisitors(
+    userId: number,
+    query: { cursor?: string; size?: string } = {},
+  ): Promise<UserVisitorsResponseDto> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const size = this.parseVisitorsPageSize(query.size);
+    const cursor = query.cursor
+      ? this.decodeProfileVisitorsCursor(query.cursor)
+      : null;
+    const visitors = await this.userRepository.findMyLatestProfileVisitors({
+      userId,
+      cursor,
+      take: size + 1,
+    });
+    const hasNext = visitors.length > size;
+    const page = hasNext ? visitors.slice(0, size) : visitors;
+    const nextCursor =
+      hasNext && page.length > 0
+        ? this.encodeProfileVisitorsCursor({
+            visitedAt: page[page.length - 1].visitedAtCursor,
+            logId: page[page.length - 1].logId.toString(),
+          })
+        : null;
+
+    return {
+      nextCursor,
+      items: page.map(({ user, visitedAt }) => ({
+        userId: Number(user.id),
+        nickname: user.nickname,
+        gender: user.sex,
+        age: user.age,
+        areaName: user.address?.sigunguName ?? user.address?.fullName ?? null,
+        introText: user.introText,
+        profileImageUrl: user.profileImageUrl,
+        visitedAt: visitedAt.toISOString(),
+      })),
+    };
+  }
+
+  async getPublicProfile(
+    viewerUserId: number,
+    targetUserId: number,
+  ): Promise<UserPublicProfileResponseDto> {
+    if (!viewerUserId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const user = await this.userRepository.findPublicProfileById(targetUserId);
+    if (!user) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        details: { targetUserId },
+      });
+    }
+
+    const sentHeart = await this.userRepository.findActiveHeartSentByUser({
+      sentById: viewerUserId,
+      sentToId: targetUserId,
+    });
+
+    if (viewerUserId !== targetUserId) {
+      await this.userRepository.createProfileVisitLog({
+        visitedBy: viewerUserId,
+        visitedTo: targetUserId,
+      });
+    }
+
+    const hostingClubIds = new Set(user.clubs.map((club) => club.id));
+    for (const membership of user.clubUsers) {
+      if (membership.authority === 'HOST') {
+        hostingClubIds.add(membership.club.id);
+      }
+    }
+
+    const participatingClubs = user.clubUsers
+      .filter((membership) => !hostingClubIds.has(membership.club.id))
+      .map((membership) => this.mapPublicProfileClub(membership.club));
+    const hostingClubsById = new Map(
+      [
+        ...user.clubs.map((club) => this.mapPublicProfileClub(club)),
+        ...user.clubUsers
+          .filter((membership) => membership.authority === 'HOST')
+          .map((membership) => this.mapPublicProfileClub(membership.club)),
+      ].map((club) => [club.clubId, club]),
+    );
+
+    return {
+      userId: Number(user.id),
+      nickname: user.nickname,
+      age: user.age,
+      gender: user.sex,
+      area: {
+        name: user.address?.sigunguName ?? user.address?.fullName ?? '',
+      },
+      introText: user.introText,
+      interests: user.interests
+        .map((item) => item.interest.body)
+        .filter((body): body is string => Boolean(body)),
+      idealPersonalities: user.idealPersonalities
+        .map((item) => item.personality.body)
+        .filter((body): body is string => Boolean(body)),
+      participatingClubs,
+      hostingClubs: Array.from(hostingClubsById.values()),
+      hasSentHeart: Boolean(sentHeart),
+      sentHeartId: sentHeart ? Number(sentHeart.id) : null,
+      profileImageUrl: user.profileImageUrl,
+    };
+  }
+
+  async markProfileVisit(
+    visitorUserId: number,
+    visitedUserId: number,
+  ): Promise<null> {
+    if (!visitorUserId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const targetUser =
+      await this.userRepository.findActiveUserId(visitedUserId);
+    if (!targetUser) {
+      throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND', {
+        details: { targetUserId: visitedUserId },
+      });
+    }
+
+    if (visitorUserId === visitedUserId) {
+      return null;
+    }
+
+    await this.userRepository.createProfileVisitLog({
+      visitedBy: visitorUserId,
+      visitedTo: visitedUserId,
+    });
+
+    return null;
   }
 
   async updateMe(
@@ -135,11 +347,13 @@ export class UserService {
     }
 
     if (payload.introAudioUrl !== undefined) {
-      updateData.introVoiceUrl = payload.introAudioUrl;
+      updateData.introVoiceUrl = normalizeS3ObjectRef(payload.introAudioUrl);
     }
 
     if (payload.profileImageUrl !== undefined) {
-      updateData.profileImageUrl = payload.profileImageUrl;
+      updateData.profileImageUrl = normalizeS3ObjectRef(
+        payload.profileImageUrl,
+      );
     }
 
     if (Object.keys(updateData).length > 0) {
@@ -177,6 +391,52 @@ export class UserService {
     }
 
     const result = await this.userRepository.deactivateProfile(userId);
+
+    if (result.count === 0) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    return null;
+  }
+
+  async deleteMe(
+    userId: number,
+    provider: AuthProvider | null,
+    payload: DeleteAccountRequestDto,
+  ): Promise<null> {
+    if (!userId) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const authInfo =
+      await this.userRepository.findActiveAuthProviderInfo(userId);
+    if (!authInfo) {
+      throw new AppException('AUTH_LOGIN_REQUIRED');
+    }
+
+    const effectiveProvider = authInfo.provider ?? provider;
+
+    if (effectiveProvider === AuthProvider.APPLE) {
+      const authorizationCode = payload.appleAuthorizationCode?.trim();
+      if (!authorizationCode) {
+        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
+          message:
+            'Apple 로그인 사용자는 탈퇴 전 Apple 재인증 authorization code가 필요합니다.',
+        });
+      }
+      await this.appleAuthService.revokeAuthorizationCode(authorizationCode);
+    }
+
+    if (effectiveProvider === AuthProvider.KAKAO) {
+      if (!authInfo.providerUserId) {
+        throw new AppException('SERVER_TEMPORARY_ERROR', {
+          message: '카카오 사용자 식별자가 없어 연결 해제를 할 수 없습니다.',
+        });
+      }
+      await this.kakaoAuthService.unlinkUser(authInfo.providerUserId);
+    }
+
+    const result = await this.userRepository.deleteAccount(userId);
 
     if (result.count === 0) {
       throw new AppException('AUTH_LOGIN_REQUIRED');
@@ -338,5 +598,74 @@ export class UserService {
       return Number(entry!.id);
     });
     await this.userRepository.updateIdealPersonalities(userId, ids);
+  }
+
+  private parseVisitorsPageSize(size?: string): number {
+    if (!size) {
+      return UserService.DEFAULT_VISITORS_PAGE_SIZE;
+    }
+
+    const parsed = Number(size);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return UserService.DEFAULT_VISITORS_PAGE_SIZE;
+    }
+
+    return Math.min(parsed, UserService.MAX_VISITORS_PAGE_SIZE);
+  }
+
+  private encodeProfileVisitorsCursor(payload: ProfileVisitorsCursor): string {
+    return Buffer.from(JSON.stringify(payload), 'utf8')
+      .toString('base64')
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
+  }
+
+  private decodeProfileVisitorsCursor(cursor: string): ProfileVisitorsCursor {
+    try {
+      const padLen = (4 - (cursor.length % 4)) % 4;
+      const padded = cursor + '='.repeat(padLen);
+      const json = Buffer.from(
+        padded.replaceAll('-', '+').replaceAll('_', '/'),
+        'base64',
+      ).toString('utf8');
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+
+      if (
+        typeof parsed.visitedAt !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$/.test(
+          parsed.visitedAt,
+        ) ||
+        typeof parsed.logId !== 'string' ||
+        !/^\d+$/.test(parsed.logId)
+      ) {
+        throw new Error('invalid profile visitors cursor');
+      }
+
+      return {
+        visitedAt: parsed.visitedAt,
+        logId: parsed.logId,
+      };
+    } catch {
+      throw new AppException('VALIDATION_INVALID_FORMAT', {
+        message: 'cursor 형식이 올바르지 않습니다.',
+      });
+    }
+  }
+
+  private mapPublicProfileClub(club: {
+    id: bigint;
+    name: string;
+    thumbnailUrl: string | null;
+    category: UserPublicProfileResponseDto['participatingClubs'][number]['category'];
+    introText: string | null;
+  }): UserPublicProfileResponseDto['participatingClubs'][number] {
+    return {
+      clubId: Number(club.id),
+      name: club.name,
+      thumbnailUrl: club.thumbnailUrl,
+      category: club.category,
+      introText: club.introText,
+    };
   }
 }

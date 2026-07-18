@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envSchema } from '../../config/env.schema';
@@ -12,7 +13,13 @@ import { ChatModule } from '../chat/chat.module';
 import { AgreementModule } from '../agreements/agreement.module';
 import { NotificationModule } from '../notification/notification.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { ClubModule } from '../club/club.module';
+import { MeetingModule } from '../meeting/meeting.module';
 import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.module';
+import { ArticleModule } from '../article/article.module';
+import { CommentModule } from '../comment/comment.module';
+import { S3ObjectUrlModule } from 'src/common/s3/s3-object-url.module';
+import { ContentModerationModule } from '../../common/moderation/content-moderation.module';
 
 @Module({
   imports: [
@@ -30,6 +37,9 @@ import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.modu
         return parsed.data;
       },
     }),
+    EventEmitterModule.forRoot(),
+    S3ObjectUrlModule,
+    ContentModerationModule,
     HealthModule,
     PrismaModule,
     WebsocketCommonModule,
@@ -38,8 +48,12 @@ import { WebsocketCommonModule } from 'src/infra/websocket/websocket-common.modu
     AgreementModule,
     NotificationModule,
     OnboardingModule,
+    ClubModule,
+    MeetingModule,
+    CommentModule,
     AuthModule,
     UserModule,
+    ArticleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

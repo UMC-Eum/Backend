@@ -12,6 +12,7 @@ const USER_BASIC_SELECT = {
   id: true,
   nickname: true,
   profileImageUrl: true,
+  status: true,
 } as const;
 
 const USER_DETAIL_SELECT = {
@@ -57,7 +58,7 @@ export class RoomRepository {
       where: {
         roomId: { in: roomIds },
         userId: target,
-        // endedAt 조건 제거 (상대가 나갔어도 방은 존재해야 함)
+        room: { type: 'DIRECT' },
       },
       select: { roomId: true },
     });
@@ -71,6 +72,7 @@ export class RoomRepository {
   ): Promise<bigint | null> {
     const room = await this.prisma.chatRoom.findFirst({
       where: {
+        type: 'DIRECT',
         AND: [
           { participants: { some: { userId: me } } },
           { participants: { some: { userId: target } } },
@@ -96,29 +98,21 @@ export class RoomRepository {
         select: { id: true },
       });
 
+      // 재입장 시 읽음 커서를 now로 리셋 → joinedAt 이전 백로그는 unread로 잡히지 않음.
       await tx.chatParticipant.upsert({
         where: { roomId_userId: { roomId, userId } },
         update: {
           joinedAt: now,
           endedAt: null,
+          lastReadAt: now,
         },
         create: {
           roomId,
           userId,
           joinedAt: now,
           endedAt: null,
+          lastReadAt: now,
         },
-      });
-
-      await tx.chatMessage.updateMany({
-        where: {
-          roomId,
-          sentToId: userId,
-          readAt: null,
-          deletedAt: null,
-          sentAt: { lt: now },
-        },
-        data: { readAt: now },
       });
 
       return roomId;
@@ -183,10 +177,67 @@ export class RoomRepository {
     });
   }
 
+  // 클럽 채팅방 find-or-create (클럽당 1방, @@unique([clubId]))로 동시 생성 race 방지).
+  async ensureClubRoom(clubId: bigint, hostId: bigint | null): Promise<bigint> {
+    const existing = await this.prisma.chatRoom.findFirst({
+      where: { clubId, type: 'CLUB' },
+      select: { id: true, status: true, endedAt: true },
+    });
+    if (existing) {
+      if (existing.status !== 'ACTIVE' || existing.endedAt !== null) {
+        await this.prisma.chatRoom.update({
+          where: { id: existing.id },
+          data: { status: 'ACTIVE', endedAt: null },
+        });
+      }
+      return existing.id;
+    }
+
+    try {
+      const room = await this.prisma.chatRoom.create({
+        data: { clubId, type: 'CLUB', userId: hostId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      return room.id;
+    } catch {
+      // unique(clubId) 충돌 = 동시 첫 입장 → 재조회
+      const room = await this.prisma.chatRoom.findFirstOrThrow({
+        where: { clubId, type: 'CLUB' },
+        select: { id: true },
+      });
+      return room.id;
+    }
+  }
+
+  // 클럽 채팅방 조회(생성 X). 방이 아직 없으면 null (퇴출 대상 없음).
+  async findClubRoomId(clubId: bigint): Promise<bigint | null> {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: { clubId, type: 'CLUB' },
+      select: { id: true },
+    });
+    return room?.id ?? null;
+  }
+
   getRoomsByIds(roomIds: bigint[]) {
     return this.prisma.chatRoom.findMany({
       where: { id: { in: roomIds }, endedAt: null, status: 'ACTIVE' },
-      select: { id: true, startedAt: true },
+      select: {
+        id: true,
+        startedAt: true,
+        type: true,
+        clubId: true,
+      },
+    });
+  }
+
+  // 단일 방의 타입/클럽 정보 (DIRECT/CLUB 분기용).
+  async getRoomTypeInfo(roomId: bigint): Promise<{
+    type: 'DIRECT' | 'CLUB';
+    clubId: bigint | null;
+  } | null> {
+    return this.prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { type: true, clubId: true },
     });
   }
 

@@ -17,7 +17,11 @@ export interface ApiSuccessResponse<T> {
 export interface ApiFailResponse {
   resultType: 'FAIL';
   success: null;
-  error: { code: ExternalErrorCode; message: string };
+  error: {
+    code: ExternalErrorCode;
+    message: string;
+    details?: unknown;
+  };
   meta: ApiMeta;
 }
 

@@ -1,0 +1,342 @@
+name: CD - Deploy to Staging (ECS)
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: ['dev']
+
+concurrency:
+  group: cd-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy to Staging ECS
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'dev' &&
+       github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: staging
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+      WS_URL: ${{ vars.WS_URL }}
+      WS_ACCESS_TOKEN: ${{ secrets.STAGING_WS_ACCESS_TOKEN }}
+
+    steps:
+      - name: Validate staging configuration
+        run: |
+          set -euo pipefail
+
+          REQUIRED_VARIABLES=(
+            AWS_REGION AWS_ROLE_ARN ECR_REGISTRY ECR_REPOSITORY
+            ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY CONTAINER_NAME
+            HEALTH_URL WS_URL
+          )
+          for name in "${REQUIRED_VARIABLES[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Staging configuration $name is required"
+              exit 1
+            fi
+          done
+
+      - name: Resolve validated commit
+        id: commit
+        env:
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          SHA="$WORKFLOW_SHA"
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::A full 40-character commit SHA is required"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout validated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: github-actions-staging-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: image
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}"
+          EXISTING_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$COMMIT_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          echo "uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          if [ -n "$EXISTING_DIGEST" ] && [ "$EXISTING_DIGEST" != "None" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing immutable image $IMAGE_URI@$EXISTING_DIGEST"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image locally
+        if: steps.image.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: ${{ steps.image.outputs.uri }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.uri }}
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Push immutable image
+        if: steps.image.outputs.exists != 'true'
+        run: docker push "${{ steps.image.outputs.uri }}"
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.image.outputs.uri }}
+
+      - name: Run Prisma migration
+        id: migrate
+        env:
+          RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
+        run: |
+          set -euo pipefail
+
+          TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://$RENDERED_TASK_DEF" \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "td_arn=$TD_ARN" >> "$GITHUB_OUTPUT"
+
+          OVERRIDES=$(jq -nc \
+            --arg name "$CONTAINER_NAME" \
+            '{containerOverrides: [{name: $name, command: ["./node_modules/.bin/prisma","migrate","deploy"], cpu: 0, memoryReservation: 256}]}')
+
+          RUN_OUT=$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --launch-type EC2 \
+            --task-definition "$TD_ARN" \
+            --overrides "$OVERRIDES" \
+            --output json)
+
+          TASK_ARN=$(jq -r '.tasks[0].taskArn // empty' <<< "$RUN_OUT")
+          if [ -z "$TASK_ARN" ]; then
+            echo "::error::Failed to start migration task"
+            jq -r '.failures' <<< "$RUN_OUT"
+            exit 1
+          fi
+          echo "task_arn=$TASK_ARN" >> "$GITHUB_OUTPUT"
+
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
+
+          TASK_INFO=$(aws ecs describe-tasks \
+            --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --output json)
+          EXIT_CODE=$(jq -r --arg name "$CONTAINER_NAME" \
+            '.tasks[0].containers[] | select(.name == $name) | .exitCode // -1' <<< "$TASK_INFO")
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Prisma migrate failed (exit=$EXIT_CODE)"
+            jq '.tasks[0] | {stoppedReason, containers: [.containers[] | {name, exitCode, reason}]}' <<< "$TASK_INFO"
+            exit 1
+          fi
+
+      - name: Deploy with circuit breaker rollback
+        env:
+          TD_ARN: ${{ steps.migrate.outputs.td_arn }}
+        run: |
+          set -euo pipefail
+
+          SERVICE=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0]' --output json)
+          CONTROLLER=$(jq -r '.deploymentController.type' <<< "$SERVICE")
+          if [ "$CONTROLLER" != "ECS" ]; then
+            echo "::error::ECS circuit breaker requires the ECS rolling deployment controller (current=$CONTROLLER)"
+            exit 1
+          fi
+
+          MIN_HEALTHY=$(jq -r '.deploymentConfiguration.minimumHealthyPercent' <<< "$SERVICE")
+          MAX_PERCENT=$(jq -r '.deploymentConfiguration.maximumPercent' <<< "$SERVICE")
+          DEPLOY_CONFIG=$(jq -nc \
+            --argjson min "$MIN_HEALTHY" \
+            --argjson max "$MAX_PERCENT" \
+            '{minimumHealthyPercent:$min,maximumPercent:$max,deploymentCircuitBreaker:{enable:true,rollback:true}}')
+
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TD_ARN" \
+            --deployment-configuration "$DEPLOY_CONFIG" > /dev/null
+
+          MAX_ATTEMPTS=60
+          INTERVAL=15
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            DEPLOYMENTS=$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query 'services[0].deployments' --output json)
+            EXPECTED=$(jq -c --arg td "$TD_ARN" \
+              '[.[] | select(.taskDefinition == $td)] | first // empty' <<< "$DEPLOYMENTS")
+
+            if [ -z "$EXPECTED" ]; then
+              echo "::error::Expected deployment disappeared; ECS may have rolled it back"
+              exit 1
+            fi
+
+            STATE=$(jq -r '.rolloutState // "UNKNOWN"' <<< "$EXPECTED")
+            RUNNING=$(jq -r '.runningCount // 0' <<< "$EXPECTED")
+            DESIRED=$(jq -r '.desiredCount // 0' <<< "$EXPECTED")
+            FAILED_TASKS=$(jq -r '.failedTasks // 0' <<< "$EXPECTED")
+            echo "[$i/$MAX_ATTEMPTS] rolloutState=$STATE running=$RUNNING/$DESIRED failedTasks=$FAILED_TASKS"
+
+            case "$STATE" in
+              COMPLETED) exit 0 ;;
+              FAILED)
+                echo "::error::Deployment failed; ECS circuit breaker rollback was requested"
+                exit 1
+                ;;
+            esac
+            sleep "$INTERVAL"
+          done
+
+          echo "::error::Deployment did not complete within 15 minutes"
+          exit 1
+
+      - name: REST smoke test
+        run: |
+          for i in {1..12}; do
+            if curl -fsS --max-time 5 "$HEALTH_URL" | jq -e '.status == "ok" or .success.data.status == "ok"' > /dev/null; then
+              echo "REST health check passed"
+              exit 0
+            fi
+            echo "attempt $i/12 failed; retrying in 5 seconds"
+            sleep 5
+          done
+          echo "::error::REST health check failed after 60 seconds"
+          exit 1
+
+      - name: WebSocket smoke test
+        run: bash scripts/ws-smoke.sh "$WS_URL"
+
+      - name: Mark image as staging-approved
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          SOURCE_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$COMMIT_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          if [ -z "$SOURCE_DIGEST" ] || [ "$SOURCE_DIGEST" = "None" ]; then
+            echo "::error::Could not resolve the deployed image digest"
+            exit 1
+          fi
+
+          APPROVED_TAG="staging-approved-$COMMIT_SHA"
+          APPROVED_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$APPROVED_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          if [ -n "$APPROVED_DIGEST" ] && [ "$APPROVED_DIGEST" != "None" ]; then
+            if [ "$APPROVED_DIGEST" != "$SOURCE_DIGEST" ]; then
+              echo "::error::$APPROVED_TAG already points to a different digest"
+              exit 1
+            fi
+            echo "$APPROVED_TAG already points to $SOURCE_DIGEST"
+            exit 0
+          fi
+
+          IMAGE_MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageDigest=$SOURCE_DIGEST" \
+            --accepted-media-types \
+              application/vnd.docker.distribution.manifest.v2+json \
+              application/vnd.oci.image.manifest.v1+json \
+            --query 'images[0].imageManifest' \
+            --output text)
+          if [ -z "$IMAGE_MANIFEST" ] || [ "$IMAGE_MANIFEST" = "None" ]; then
+            echo "::error::Could not load the deployed image manifest"
+            exit 1
+          fi
+
+          aws ecr put-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-tag "$APPROVED_TAG" \
+            --image-manifest "$IMAGE_MANIFEST" > /dev/null
+          echo "Marked $SOURCE_DIGEST as $APPROVED_TAG"
+
+      - name: Collect ECS diagnostics
+        if: failure()
+        run: |
+          set +e
+          echo "ECS service deployments and recent events"
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].{deployments:deployments,events:events[0:10]}' \
+            --output json
+
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster "$ECS_CLUSTER" --service-name "$ECS_SERVICE" \
+            --desired-status STOPPED --max-items 10 \
+            --query 'taskArns' --output text)
+          if [ -n "$TASK_ARNS" ] && [ "$TASK_ARNS" != "None" ]; then
+            aws ecs describe-tasks \
+              --cluster "$ECS_CLUSTER" --tasks $TASK_ARNS \
+              --query 'tasks[].{taskArn:taskArn,taskDefinitionArn:taskDefinitionArn,stoppedReason:stoppedReason,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+              --output json
+          fi

@@ -10,6 +10,7 @@ describe('NotificationController', () => {
     markAsRead: jest.fn(),
     findAll: jest.fn(),
     update: jest.fn(),
+    readAllClubNotifications: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,5 +32,11 @@ describe('NotificationController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('marks all club notifications as read', async () => {
+    await controller.readAllClubNotifications(1);
+
+    expect(serviceMock.readAllClubNotifications).toHaveBeenCalledWith(1);
   });
 });

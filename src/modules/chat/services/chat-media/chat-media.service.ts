@@ -16,6 +16,8 @@ import type {
   CreateChatMediaPresignRes,
 } from '../../dtos/chat-media.dto';
 import { ParticipantRepository } from '../../repositories/participant.repository';
+import { RoomRepository } from '../../repositories/room.repository';
+import { ClubRepository } from '../../../club/repositories/club.repository';
 
 type ParsedS3Ref = {
   bucket: string;
@@ -200,6 +202,8 @@ export class ChatMediaService {
   constructor(
     private readonly configService: ConfigService,
     private readonly participantRepo: ParticipantRepository,
+    private readonly roomRepo: RoomRepository,
+    private readonly clubRepo: ClubRepository,
   ) {
     this.region = this.configService.get<string>(
       'AWS_REGION',
@@ -207,16 +211,11 @@ export class ChatMediaService {
     );
     this.s3 = new S3Client({ region: this.region });
 
-    this.chatBucket = this.configService.get<string>(
-      'CHAT_MEDIA_BUCKET',
-      'eum-chat-media',
-    );
+    this.chatBucket =
+      this.configService.getOrThrow<string>('CHAT_MEDIA_BUCKET');
 
     // 기존 프로필 음성 업로드 버킷까지 허용(기존 데이터/재사용을 위해)
-    this.voiceBucket = this.configService.get<string>(
-      'VOICE_UPLOAD_BUCKET',
-      'eum-voice-upload',
-    );
+    this.voiceBucket = this.configService.getOrThrow<string>('AWS_S3_BUCKET');
 
     this.putExpiresSec = this.configService.get<number>(
       'MEDIA_PUT_PRESIGN_EXPIRES_SEC',
@@ -294,14 +293,28 @@ export class ChatMediaService {
     const ok = await this.participantRepo.isParticipant(me, roomId);
     if (!ok) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
-    if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (!roomInfo) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
 
-    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
-      me,
-      peerUserId,
-    );
-    if (isBlocked) throw new AppException('CHAT_MESSAGE_BLOCKED');
+    if (roomInfo.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+    } else {
+      const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
+      if (!peerUserId) throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+
+      const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+        me,
+        peerUserId,
+      );
+      if (isBlocked) throw new AppException('CHAT_MESSAGE_BLOCKED');
+    }
 
     if (!isAllowedContentType(dto.type, dto.contentType)) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {

@@ -1,13 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.repository';
+import { FcmPushService } from '../../push/services/fcm-push.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
   const repositoryMock = {
-    create: jest.fn(),
+    createNotification: jest.fn(),
     markAsRead: jest.fn(),
     findAll: jest.fn(),
+    readAllClubNotifications: jest.fn(),
+  };
+  const fcmPushServiceMock = {
+    sendNotificationToUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -15,6 +20,7 @@ describe('NotificationService', () => {
       providers: [
         NotificationService,
         { provide: NotificationRepository, useValue: repositoryMock },
+        { provide: FcmPushService, useValue: fcmPushServiceMock },
       ],
     }).compile();
 
@@ -23,5 +29,11 @@ describe('NotificationService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('marks all club notifications as read', async () => {
+    await service.readAllClubNotifications(1);
+
+    expect(repositoryMock.readAllClubNotifications).toHaveBeenCalledWith(1);
   });
 });

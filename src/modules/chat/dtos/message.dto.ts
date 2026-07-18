@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -13,15 +13,18 @@ import {
 
 import { ChatMediaType } from '@prisma/client';
 
+export const CHAT_SEND_TYPES = ['TEXT', 'AUDIO', 'PHOTO', 'VIDEO'] as const;
+export type ChatSendType = (typeof CHAT_SEND_TYPES)[number];
+
 export class SendMessageDto {
   @ApiProperty({
-    enum: ChatMediaType,
+    enum: CHAT_SEND_TYPES,
     example: 'AUDIO',
     description: '메시지 타입 (TEXT/AUDIO/PHOTO/VIDEO)',
   })
-  @IsEnum(ChatMediaType)
+  @IsIn(CHAT_SEND_TYPES)
   @IsNotEmpty()
-  type!: ChatMediaType;
+  type!: ChatSendType;
 
   @ApiPropertyOptional({
     example: null,
@@ -34,7 +37,7 @@ export class SendMessageDto {
   text?: string | null;
 
   @ApiPropertyOptional({
-    example: 's3://eum-chat-media/chat/101/1/1700000000000_uuid_photo.jpg',
+    example: 's3://eum-chat-staging/chat/101/1/1700000000000_uuid_photo.jpg',
     description:
       'TEXT를 제외한 타입일 때 필수. presign 응답의 mediaRef 또는 S3 객체 URL(https)을 전달합니다.',
   })
@@ -81,6 +84,13 @@ export class ListMessagesQueryDto {
   size?: number;
 }
 
+export type MessageSender = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  isWithdrawn: boolean;
+};
+
 export type MessageItem = {
   messageId: number;
   type: ChatMediaType;
@@ -91,6 +101,11 @@ export type MessageItem = {
   sentAt: string;
   readAt: string | null;
   isMine: boolean;
+  // SYSTEM(입장/퇴장 공지) 메시지 여부. true면 가운데 정렬, isMine=false로 내려간다.
+  isSystem: boolean;
+  // CLUB(그룹)에서만 채워짐: 메시지별 발신자 신원 + 읽은 인원수(발신자 제외).
+  sender?: MessageSender | null;
+  readCount?: number;
 };
 
 export type PeerInfo = {
@@ -98,14 +113,32 @@ export type PeerInfo = {
   nickname: string;
   age: number;
   areaName: string | null;
+  isWithdrawn: boolean;
 };
 
-export type ListMessagesRes = {
+export type ClubBrief = {
+  clubId: number;
+  name: string;
+  thumbnailUrl: string | null;
+};
+
+export type DirectListMessagesRes = {
   chatRoomId: number;
+  type: 'DIRECT';
   peer: PeerInfo;
   items: MessageItem[];
   nextCursor: string | null;
 };
+
+export type ClubListMessagesRes = {
+  chatRoomId: number;
+  type: 'CLUB';
+  club: ClubBrief;
+  items: MessageItem[];
+  nextCursor: string | null;
+};
+
+export type ListMessagesRes = DirectListMessagesRes | ClubListMessagesRes;
 
 export type SendMessageRes = {
   messageId: number;

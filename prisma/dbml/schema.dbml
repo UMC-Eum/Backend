@@ -9,6 +9,7 @@ Table User {
   email String [unique, not null]
   sex Sex [not null, default: 'M']
   createdAt DateTime [default: `now()`, not null]
+  lastActiveAt DateTime
   nickname String [not null]
   updatedAt DateTime [not null]
   deletedAt DateTime
@@ -17,11 +18,10 @@ Table User {
   introText String [not null]
   profileImageUrl String [not null]
   status ActiveStatus [not null, default: 'ACTIVE']
-  code String [not null]
+  code String
   provider AuthProvider
   providerUserId String
-  vibeVector Json [not null]
-  address Address [not null]
+  address Address
   sentHearts Heart [not null]
   receivedHearts Heart [not null]
   photos UserPhoto [not null]
@@ -30,20 +30,41 @@ Table User {
   personalities UserPersonality [not null]
   notifications Notification [not null]
   notificationsFrom Notification [not null]
+  pushDeviceTokens PushDeviceToken [not null]
   chatRooms ChatRoom [not null]
   chatParticipations ChatParticipant [not null]
-  sentMessages ChatMessage [not null]
-  receivedMessages ChatMessage [not null]
   userMarketingAgreement UserMarketingAgreement [not null]
   refreshTokens RefreshToken [not null]
+  localAuthAccounts LocalAuthAccount [not null]
   blocksInitiated Block [not null]
   blocksReceived Block [not null]
   reportsFiled Report [not null]
-  reportsReceived Report [not null]
+  visitedLogsTo UserWatchLog [not null]
+  visitedLogsBy UserWatchLog [not null]
+  articles Article [not null]
+  comments Comment [not null]
+  articleLikes ArticleLike [not null]
+  clubs Club [not null]
+  clubUsers ClubUser [not null]
+  clubLikes ClubLike [not null]
+  userReports UserReport [not null]
+  recentSearchKeywords RecentSearchKeyword [not null]
+  contentModerationLogs ContentModerationLog [not null]
 
   indexes {
     (provider, providerUserId) [unique]
   }
+}
+
+Table LocalAuthAccount {
+  id BigInt [pk, increment]
+  username String [unique, not null]
+  passwordHash String [not null]
+  userId BigInt [not null]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  user User [not null]
 }
 
 Table RefreshToken {
@@ -67,13 +88,13 @@ Table UserPhoto {
 
 Table Heart {
   id BigInt [pk, increment]
-  sentById BigInt [not null]
-  sentToId BigInt [not null]
+  sentById BigInt
+  sentToId BigInt
   createdAt DateTime [default: `now()`, not null]
   deletedAt DateTime
   status ActiveStatus [not null, default: 'ACTIVE']
-  sentBy User [not null]
-  sentTo User [not null]
+  sentBy User
+  sentTo User
 
   indexes {
     (sentById, sentToId) [unique]
@@ -106,6 +127,7 @@ Table Personality {
   body String [unique, not null]
   userIdealPersonalities UserIdealPersonality [not null]
   userPersonalities UserPersonality [not null]
+  clubKeywords ClubKeyword [not null]
 }
 
 Table UserIdealPersonality {
@@ -154,6 +176,7 @@ Table Address {
   parent Address
   parents Address [not null]
   users User [not null]
+  clubs Club [not null]
 }
 
 Table Block {
@@ -174,19 +197,36 @@ Table Block {
 
 Table Report {
   id BigInt [pk, increment]
-  reportedById BigInt [not null]
-  reportedId BigInt [not null]
+  reportedById BigInt
+  targetType ReportTargetType
+  targetId BigInt
+  chatRoomId BigInt
   reportedAt DateTime [not null]
   reason String [not null]
-  category String
-  chatRoomId BigInt
+  category ReportCategory [not null, default: 'OTHERS']
   deletedAt DateTime
-  reportedBy User [not null]
-  reported User [not null]
+  reportedBy User
+  userReport UserReport
+  clubReport ClubReport
+}
 
-  indexes {
-    (reportedById, reportedId) [unique]
-  }
+Table ContentModerationLog {
+  id BigInt [pk, increment]
+  userId BigInt
+  surface ModerationSurface [not null]
+  targetType ModerationTargetType
+  targetId BigInt
+  decision ModerationDecision [not null]
+  provider String [not null, default: 'OPENAI']
+  model String [not null]
+  providerResponseId String
+  violatedCategories String[] [not null]
+  inputTypes String[] [not null]
+  categoryScores Json
+  contentHash String
+  requestPath String
+  createdAt DateTime [default: `now()`, not null]
+  user User
 }
 
 Table Notification {
@@ -203,25 +243,44 @@ Table Notification {
   sentBy User
 }
 
-Table ChatRoom {
+Table PushDeviceToken {
   id BigInt [pk, increment]
   userId BigInt [not null]
+  token String [unique, not null]
+  platform PushPlatform [not null]
+  deviceId String
+  appVersion String
+  lastSeenAt DateTime [default: `now()`, not null]
+  revokedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  user User [not null]
+}
+
+Table ChatRoom {
+  id BigInt [pk, increment]
+  userId BigInt
   startedAt DateTime [default: `now()`, not null]
   endedAt DateTime
   status ChatRoomStatus [not null, default: 'ACTIVE']
+  type ChatRoomType [not null, default: 'DIRECT']
+  clubId BigInt [unique]
   participants ChatParticipant [not null]
-  messages ChatMessage [not null]
-  user User [not null]
+  user User
+  club Club
 }
 
 Table ChatParticipant {
   id BigInt [pk, increment]
   joinedAt DateTime [default: `now()`, not null]
-  userId BigInt [not null]
+  userId BigInt
   roomId BigInt [not null]
   endedAt DateTime
+  role ClubAuthority [not null, default: 'GENERAL']
+  lastReadAt DateTime
   room ChatRoom [not null]
-  user User [not null]
+  user User
+  chatMessages ChatMessage [not null]
 
   indexes {
     (roomId, userId) [unique]
@@ -234,12 +293,8 @@ Table ChatMessage {
   updatedAt DateTime [not null]
   readAt DateTime
   deletedAt DateTime
-  sentById BigInt [not null]
-  sentToId BigInt [not null]
-  roomId BigInt [not null]
-  room ChatRoom [not null]
-  sentBy User [not null]
-  sentTo User [not null]
+  participantId BigInt [not null]
+  participant ChatParticipant [not null]
   chatMedia ChatMedia [not null]
 }
 
@@ -274,6 +329,244 @@ Table UserMarketingAgreement {
   }
 }
 
+Table UserWatchLog {
+  id BigInt [pk, increment]
+  visitedAt DateTime [default: `now()`, not null]
+  visitedTo BigInt [not null]
+  visitedBy BigInt [not null]
+  userVisitedTo User [not null]
+  userVisitedBy User [not null]
+}
+
+Table Article {
+  id BigInt [pk, increment]
+  title String [not null]
+  contents String [not null]
+  category ArticleCategory [not null, default: 'FREE']
+  userId BigInt
+  clubId BigInt [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  updatedAt DateTime [not null]
+  isPinned Boolean [not null, default: false]
+  view Int [not null, default: 0]
+  likes Int [not null, default: 0]
+  isPublic Boolean [not null, default: true]
+  user User
+  club Club [not null]
+  comments Comment [not null]
+  articleLikes ArticleLike [not null]
+  articlePhotos ArticlePhoto [not null]
+}
+
+Table Comment {
+  id BigInt [pk, increment]
+  contents String [not null]
+  userId BigInt
+  articleId BigInt [not null]
+  parentCommentId BigInt
+  depth Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  user User
+  article Article [not null]
+  parentComment Comment
+  replies Comment [not null]
+}
+
+Table ArticleLike {
+  id BigInt [pk, increment]
+  createdAt DateTime [default: `now()`, not null]
+  articleId BigInt [not null]
+  userId BigInt [not null]
+  article Article [not null]
+  user User [not null]
+
+  indexes {
+    (articleId, userId) [unique]
+  }
+}
+
+Table ArticlePhoto {
+  id BigInt [pk, increment]
+  photoUrl String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  articleId BigInt [not null]
+  clubUserId BigInt
+  article Article [not null]
+  clubUser ClubUser
+}
+
+Table Club {
+  id BigInt [pk, increment]
+  hostId BigInt
+  name String [not null]
+  introVoiceUrl String
+  introText String
+  category ClubCategory [not null, default: 'OTHERS']
+  capacity Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime
+  deletedAt DateTime
+  code String
+  likes Int [not null]
+  thumbnailUrl String
+  approvalRequired Boolean [not null, default: false]
+  boardPublic Boolean [not null, default: true]
+  user User
+  address Address
+  chatRooms ChatRoom [not null]
+  articles Article [not null]
+  clubUsers ClubUser [not null]
+  clubLikes ClubLike [not null]
+  meetings Meeting [not null]
+  clubImages ClubImage [not null]
+  clubKeywords ClubKeyword [not null]
+  clubReports ClubReport [not null]
+}
+
+Table ClubImage {
+  clubImageId BigInt [pk, increment]
+  clubId BigInt [not null]
+  imageUrl String [not null]
+  sortOrder Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  club Club [not null]
+}
+
+Table ClubUser {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  clubId BigInt [not null]
+  requestedAt DateTime [default: `now()`, not null]
+  joinedAt DateTime
+  leftAt DateTime
+  authority ClubAuthority [not null, default: 'GENERAL']
+  status ClubUserStatus [not null, default: 'PENDING']
+  joinMessage String [not null, default: '']
+  user User [not null]
+  club Club [not null]
+  articlePhotos ArticlePhoto [not null]
+  clubUserBadges ClubUserBadge [not null]
+  meetingMembers MeetingMember [not null]
+
+  indexes {
+    (userId, clubId) [unique]
+  }
+}
+
+Table Badge {
+  id BigInt [pk, increment]
+  name String [not null]
+  clubUserBadges ClubUserBadge [not null]
+}
+
+Table ClubUserBadge {
+  id BigInt [pk, increment]
+  clubUserId BigInt [not null]
+  badgeId BigInt [not null]
+  createdAt DateTime [default: `now()`, not null]
+  clubUser ClubUser [not null]
+  badge Badge [not null]
+
+  indexes {
+    (clubUserId, badgeId) [unique]
+  }
+}
+
+Table ClubLike {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  clubId BigInt [not null]
+  createdAt DateTime [default: `now()`, not null]
+  user User [not null]
+  club Club [not null]
+
+  indexes {
+    (userId, clubId) [unique]
+  }
+}
+
+Table Meeting {
+  id BigInt [pk, increment]
+  name String [not null]
+  introText String [not null]
+  spot String [not null]
+  capacity Int [not null]
+  cost String
+  joinPolicy MeetingJoinPolicy [not null, default: 'AUTO']
+  isRegular Boolean [not null, default: true]
+  recurrenceType RecurrenceType [not null]
+  daysOfWeek DayOfWeek[] [not null]
+  dayOfMonth Int
+  hour Int [not null]
+  minute Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  updatedAt DateTime
+  clubId BigInt [not null]
+  club Club [not null]
+  meetingMembers MeetingMember [not null]
+}
+
+Table MeetingMember {
+  id BigInt [pk, increment]
+  meetingId BigInt [not null]
+  clubUserId BigInt [not null]
+  status MeetingMemberStatus [not null, default: 'ACTIVE']
+  requestedAt DateTime [default: `now()`, not null]
+  joinedAt DateTime
+  deletedAt DateTime
+  meeting Meeting [not null]
+  clubUser ClubUser [not null]
+
+  indexes {
+    (meetingId, clubUserId) [unique]
+  }
+}
+
+Table ClubKeyword {
+  id BigInt [pk, increment]
+  clubId BigInt [not null]
+  keywordId BigInt [not null]
+  club Club [not null]
+  personality Personality [not null]
+
+  indexes {
+    (clubId, keywordId) [unique]
+  }
+}
+
+Table UserReport {
+  id BigInt [pk, increment]
+  reportId BigInt [unique, not null]
+  reportedUserId BigInt
+  report Report [not null]
+  user User
+}
+
+Table RecentSearchKeyword {
+  id BigInt [pk, increment]
+  userId BigInt [not null]
+  keyword String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  user User [not null]
+
+  indexes {
+    (userId, keyword) [unique]
+  }
+}
+
+Table ClubReport {
+  id BigInt [pk, increment]
+  reportId BigInt [unique, not null]
+  reportedClubId BigInt
+  report Report [not null]
+  club Club
+}
+
 Enum Sex {
   M
   F
@@ -298,6 +591,8 @@ Enum BlockStatus {
 
 Enum AuthProvider {
   KAKAO
+  APPLE
+  LOCAL
 }
 
 Enum ChatMediaType {
@@ -305,6 +600,7 @@ Enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM
 }
 
 Enum ChatRoomStatus {
@@ -316,61 +612,229 @@ Enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
+  CLUB
 }
 
-Ref: User.code > Address.code
+Enum PushPlatform {
+  IOS
+  ANDROID
+}
+
+Enum ArticleCategory {
+  NOTICE
+  REVIEW
+  CHECKIN
+  FREE
+}
+
+Enum ClubAuthority {
+  GENERAL
+  HOST
+}
+
+Enum ClubUserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  KICKED
+  LEFT
+}
+
+Enum MeetingJoinPolicy {
+  AUTO
+  APPROVAL_REQUIRED
+}
+
+Enum MeetingMemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+Enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+Enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+Enum ReportCategory {
+  INAPPROPRIATE
+  SEXUAL_HARASSMENT
+  MONEY_REQUEST
+  ABUSE
+  SPAM
+  OTHERS
+}
+
+Enum ReportTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+Enum ModerationSurface {
+  ARTICLE
+  COMMENT
+  USER_PROFILE
+  CLUB
+  CHAT
+}
+
+Enum ModerationTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+Enum ModerationDecision {
+  BLOCK
+  REVIEW
+}
+
+Enum ChatRoomType {
+  DIRECT
+  CLUB
+}
+
+Enum ClubCategory {
+  SPORTS
+  HOBBY
+  CULTURE_ART
+  VOLUNTEER
+  FOOD
+  STUDY
+  OTHERS
+}
+
+Ref: User.code > Address.code [delete: Set Null]
+
+Ref: LocalAuthAccount.userId > User.id [delete: Cascade]
 
 Ref: RefreshToken.userId > User.id [delete: Cascade]
 
 Ref: UserPhoto.userId > User.id [delete: Cascade]
 
-Ref: Heart.sentById > User.id [delete: Cascade]
+Ref: Heart.sentById > User.id [delete: Set Null]
 
-Ref: Heart.sentToId > User.id [delete: Cascade]
+Ref: Heart.sentToId > User.id [delete: Set Null]
 
-Ref: UserInterest.interestId > Interest.id
+Ref: UserInterest.interestId > Interest.id [delete: Cascade]
 
 Ref: UserInterest.userId > User.id [delete: Cascade]
 
 Ref: UserIdealPersonality.userId > User.id [delete: Cascade]
 
-Ref: UserIdealPersonality.personalityId > Personality.id
+Ref: UserIdealPersonality.personalityId > Personality.id [delete: Cascade]
 
 Ref: UserPersonality.userId > User.id [delete: Cascade]
 
-Ref: UserPersonality.personalityId > Personality.id
+Ref: UserPersonality.personalityId > Personality.id [delete: Cascade]
 
-Ref: Address.parentCode - Address.code
+Ref: Address.parentCode - Address.code [delete: Set Null]
 
 Ref: Block.blockedById > User.id [delete: Cascade]
 
 Ref: Block.blockedId > User.id [delete: Cascade]
 
-Ref: Report.reportedById > User.id [delete: Cascade]
+Ref: Report.reportedById > User.id [delete: Set Null]
 
-Ref: Report.reportedId > User.id [delete: Cascade]
+Ref: ContentModerationLog.userId > User.id [delete: Set Null]
 
 Ref: Notification.userId > User.id [delete: Cascade]
 
 Ref: Notification.sentById > User.id [delete: Cascade]
 
-Ref: ChatRoom.userId > User.id [delete: Cascade]
+Ref: PushDeviceToken.userId > User.id [delete: Cascade]
 
-Ref: ChatParticipant.roomId > ChatRoom.id
+Ref: ChatRoom.userId > User.id [delete: Set Null]
 
-Ref: ChatParticipant.userId > User.id [delete: Cascade]
+Ref: ChatRoom.clubId > Club.id [delete: Set Null]
 
-Ref: ChatMessage.roomId > ChatRoom.id
+Ref: ChatParticipant.roomId > ChatRoom.id [delete: Cascade]
 
-Ref: ChatMessage.sentById > User.id [delete: Cascade]
+Ref: ChatParticipant.userId > User.id [delete: Set Null]
 
-Ref: ChatMessage.sentToId > User.id [delete: Cascade]
+Ref: ChatMessage.participantId > ChatParticipant.id [delete: Cascade]
 
-Ref: ChatMedia.messageId > ChatMessage.id
+Ref: ChatMedia.messageId > ChatMessage.id [delete: Cascade]
 
 Ref: UserMarketingAgreement.userId > User.id [delete: Cascade]
 
-Ref: UserMarketingAgreement.marketingAgreementId > MarketingAgreement.id
+Ref: UserMarketingAgreement.marketingAgreementId > MarketingAgreement.id [delete: Cascade]
+
+Ref: UserWatchLog.visitedTo > User.id [delete: Cascade]
+
+Ref: UserWatchLog.visitedBy > User.id [delete: Cascade]
+
+Ref: Article.userId > User.id [delete: Set Null]
+
+Ref: Article.clubId > Club.id [delete: Cascade]
+
+Ref: Comment.userId > User.id [delete: Set Null]
+
+Ref: Comment.articleId > Article.id [delete: Cascade]
+
+Ref: Comment.parentCommentId - Comment.id [delete: Cascade]
+
+Ref: ArticleLike.articleId > Article.id [delete: Cascade]
+
+Ref: ArticleLike.userId > User.id [delete: Cascade]
+
+Ref: ArticlePhoto.articleId > Article.id [delete: Cascade]
+
+Ref: ArticlePhoto.clubUserId > ClubUser.id [delete: Set Null]
+
+Ref: Club.hostId > User.id [delete: Set Null]
+
+Ref: Club.code > Address.code [delete: Set Null]
+
+Ref: ClubImage.clubId > Club.id [delete: Cascade]
+
+Ref: ClubUser.userId > User.id [delete: Cascade]
+
+Ref: ClubUser.clubId > Club.id [delete: Cascade]
+
+Ref: ClubUserBadge.clubUserId > ClubUser.id [delete: Cascade]
+
+Ref: ClubUserBadge.badgeId > Badge.id [delete: Cascade]
+
+Ref: ClubLike.userId > User.id [delete: Cascade]
+
+Ref: ClubLike.clubId > Club.id [delete: Cascade]
+
+Ref: Meeting.clubId > Club.id [delete: Cascade]
+
+Ref: MeetingMember.meetingId > Meeting.id [delete: Cascade]
+
+Ref: MeetingMember.clubUserId > ClubUser.id [delete: Cascade]
+
+Ref: ClubKeyword.clubId > Club.id [delete: Cascade]
+
+Ref: ClubKeyword.keywordId > Personality.id [delete: Cascade]
+
+Ref: UserReport.reportId - Report.id [delete: Cascade]
+
+Ref: UserReport.reportedUserId > User.id [delete: Set Null]
+
+Ref: RecentSearchKeyword.userId > User.id [delete: Cascade]
+
+Ref: ClubReport.reportId - Report.id [delete: Cascade]
+
+Ref: ClubReport.reportedClubId > Club.id [delete: Set Null]

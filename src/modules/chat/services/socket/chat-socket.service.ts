@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ActiveStatus, ChatMediaType, NotificationType } from '@prisma/client';
-import type { Server } from 'socket.io';
+import type { Namespace, Server } from 'socket.io';
 
 import { AppException } from '../../../../common/errors/app.exception';
 import { PrismaService } from '../../../../infra/prisma/prisma.service';
+import { ClubRepository } from '../../../club/repositories/club.repository';
 import { NotificationService } from '../../../notification/services/notification.service';
 import { buildMessagePreview } from '../../utils/message-preview.util';
+import { CHAT_SEND_TYPES, type ChatSendType } from '../../dtos/message.dto';
 import { MessageRepository } from '../../repositories/message.repository';
 import { ParticipantRepository } from '../../repositories/participant.repository';
+import { RoomRepository } from '../../repositories/room.repository';
 import { ChatMediaService } from '../chat-media/chat-media.service';
 import {
   toChatRoom,
@@ -28,10 +31,9 @@ export type SendMessageBody = {
   durationSec?: number | null;
 };
 
-function isChatMediaType(v: unknown): v is ChatMediaType {
+function isUserSendableChatMediaType(v: unknown): v is ChatSendType {
   return (
-    typeof v === 'string' &&
-    (Object.values(ChatMediaType) as string[]).includes(v)
+    typeof v === 'string' && (CHAT_SEND_TYPES as readonly string[]).includes(v)
   );
 }
 
@@ -43,6 +45,8 @@ export class ChatSocketService {
     private readonly prisma: PrismaService,
     private readonly participantRepo: ParticipantRepository,
     private readonly messageRepo: MessageRepository,
+    private readonly roomRepo: RoomRepository,
+    private readonly clubRepo: ClubRepository,
     private readonly chatMediaService: ChatMediaService,
     private readonly notificationService: NotificationService,
   ) {}
@@ -63,10 +67,28 @@ export class ChatSocketService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (roomInfo?.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) {
+        throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+      }
+    }
+
     return chatRoomId;
   }
 
-  async sendMessage(server: Server, userId: number, body: SendMessageBody) {
+  async sendMessage(
+    server: Server | Namespace,
+    userId: number,
+    body: SendMessageBody,
+  ) {
     const chatRoomId = toPositiveInt(body?.chatRoomId);
     if (!chatRoomId) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
@@ -79,7 +101,7 @@ export class ChatSocketService {
     );
 
     const type = body?.type;
-    if (!isChatMediaType(type)) {
+    if (!isUserSendableChatMediaType(type)) {
       throw new AppException('VALIDATION_INVALID_FORMAT', {
         message: '메시지 타입이 올바르지 않습니다.',
       });
@@ -93,17 +115,42 @@ export class ChatSocketService {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
-    if (!peerUserId) {
+    const roomInfo = await this.roomRepo.getRoomTypeInfo(roomId);
+    if (!roomInfo) {
       throw new AppException('CHAT_ROOM_ACCESS_FAILED');
     }
 
-    const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
-      me,
-      peerUserId,
-    );
-    if (isBlocked) {
-      throw new AppException('CHAT_MESSAGE_BLOCKED');
+    // 알림 fan-out 대상 산정 (DIRECT: 상대 1명 / CLUB: 발신자 제외 전원)
+    let recipientUserIds: number[];
+    if (roomInfo.type === 'CLUB') {
+      if (roomInfo.clubId == null) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const member = await this.clubRepo.findActiveClubUser(
+        me,
+        roomInfo.clubId,
+      );
+      if (!member) {
+        throw new AppException('CLUB_FORBIDDEN_NOT_MEMBER');
+      }
+      const ids = await this.participantRepo.getActiveParticipantUserIds(
+        roomId,
+        me,
+      );
+      recipientUserIds = ids.map(Number);
+    } else {
+      const peerUserId = await this.participantRepo.findPeerUserId(roomId, me);
+      if (!peerUserId) {
+        throw new AppException('CHAT_ROOM_ACCESS_FAILED');
+      }
+      const isBlocked = await this.participantRepo.isBlockedBetweenUsers(
+        me,
+        peerUserId,
+      );
+      if (isBlocked) {
+        throw new AppException('CHAT_MESSAGE_BLOCKED');
+      }
+      recipientUserIds = [Number(peerUserId)];
     }
 
     if (type === 'TEXT') {
@@ -149,7 +196,6 @@ export class ChatSocketService {
     const message = await this.messageRepo.createMessage(
       roomId,
       me,
-      peerUserId,
       type,
       type === 'TEXT' ? (body.text ?? null) : null,
       type !== 'TEXT' ? storedMediaRef : null,
@@ -168,12 +214,13 @@ export class ChatSocketService {
       mediaUrl: type !== 'TEXT' ? clientMediaUrl : null,
       durationSec,
       sentAt: message.sentAt.toISOString(),
+      isSystem: false,
     };
 
     server.to(toChatRoom(chatRoomId)).emit('message.new', payload);
 
     void this.notifyNewMessage(server, {
-      receiverUserId: Number(peerUserId),
+      receiverUserIds: recipientUserIds,
       senderUserId: userId,
       chatRoomId,
       messageId: Number(message.id),
@@ -181,13 +228,17 @@ export class ChatSocketService {
       text: type === 'TEXT' ? (body.text ?? null) : null,
     });
 
-    return { ok: true, messageId: Number(message.id) };
+    return {
+      ok: true,
+      messageId: Number(message.id),
+      sentAt: message.sentAt.toISOString(),
+    };
   }
 
   private async notifyNewMessage(
-    server: Server,
+    server: Server | Namespace,
     params: {
-      receiverUserId: number;
+      receiverUserIds: number[];
       senderUserId: number;
       chatRoomId: number;
       messageId: number;
@@ -195,6 +246,8 @@ export class ChatSocketService {
       text: string | null;
     },
   ): Promise<void> {
+    if (params.receiverUserIds.length === 0) return;
+
     try {
       const sender = await this.prisma.user.findFirst({
         where: {
@@ -208,26 +261,35 @@ export class ChatSocketService {
       const title = sender?.nickname ?? '새 메시지';
       const preview = buildMessagePreview(params.messageType, params.text);
 
-      const created = await this.notificationService.createNotification(
-        params.receiverUserId,
-        NotificationType.CHAT,
-        title,
-        preview.textPreview,
-      );
+      // 그룹은 참여자 전원에게 fan-out (발신자 제외는 호출부에서 처리)
+      for (const receiverUserId of params.receiverUserIds) {
+        const created = await this.notificationService.createNotification(
+          receiverUserId,
+          NotificationType.CHAT,
+          title,
+          preview.textPreview,
+          params.senderUserId,
+          {
+            chatRoomId: String(params.chatRoomId),
+            messageId: String(params.messageId),
+            senderUserId: String(params.senderUserId),
+          },
+        );
 
-      server.to(toUserRoom(params.receiverUserId)).emit('notification.new', {
-        notificationId: created.id.toString(),
-        type: created.type,
-        title: created.title,
-        body: created.body,
-        isRead: created.isRead,
-        createdAt: created.createdAt.toISOString(),
-        data: {
-          chatRoomId: params.chatRoomId,
-          messageId: params.messageId,
-          senderUserId: params.senderUserId,
-        },
-      });
+        server.to(toUserRoom(receiverUserId)).emit('notification.new', {
+          notificationId: created.id.toString(),
+          type: created.type,
+          title: created.title,
+          body: created.body,
+          isRead: created.isRead,
+          createdAt: created.createdAt.toISOString(),
+          data: {
+            chatRoomId: params.chatRoomId,
+            messageId: params.messageId,
+            senderUserId: params.senderUserId,
+          },
+        });
+      }
     } catch (e) {
       this.logger.warn(`notifyNewMessage failed: ${String(e)}`);
     }

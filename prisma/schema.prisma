@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 generator dbml {
@@ -40,6 +40,8 @@ enum BlockStatus {
 
 enum AuthProvider {
   KAKAO
+  APPLE
+  LOCAL
 }
 
 enum ChatMediaType {
@@ -47,6 +49,7 @@ enum ChatMediaType {
   PHOTO
   VIDEO
   TEXT
+  SYSTEM // 입장/퇴장 등 시스템 공지 메시지
 }
 
 enum ChatRoomStatus {
@@ -58,32 +61,139 @@ enum NotificationType {
   RECOMMEND
   CHAT
   HEART
+  ARTICLE
+  COMMENT
   PROFILE
   REMIND
   UPDATE
+  CLUB
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
+enum ArticleCategory {
+  NOTICE
+  REVIEW
+  CHECKIN
+  FREE
+}
+
+enum ClubAuthority {
+  GENERAL
+  HOST
+}
+
+enum ClubUserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  KICKED
+  LEFT
+}
+
+enum MeetingJoinPolicy {
+  AUTO
+  APPROVAL_REQUIRED
+}
+
+enum MeetingMemberStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum ReportCategory {
+  INAPPROPRIATE
+  SEXUAL_HARASSMENT
+  MONEY_REQUEST
+  ABUSE
+  SPAM
+  OTHERS
+}
+
+enum ReportTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+enum ModerationSurface {
+  ARTICLE
+  COMMENT
+  USER_PROFILE
+  CLUB
+  CHAT
+}
+
+enum ModerationTargetType {
+  USER
+  CLUB
+  ARTICLE
+  COMMENT
+}
+
+enum ModerationDecision {
+  BLOCK
+  REVIEW
+}
+
+enum ChatRoomType {
+  DIRECT
+  CLUB
+}
+
+enum ClubCategory {
+  SPORTS
+  HOBBY
+  CULTURE_ART
+  VOLUNTEER
+  FOOD
+  STUDY
+  OTHERS
 }
 
 model User {
-  id              BigInt        @id @default(autoincrement())
-  birthdate       DateTime      @db.DateTime(6)
-  age             Int           @default(50) @db.Int
-  email           String        @unique @db.VarChar(255)
-  sex             Sex           @default(M)
-  createdAt       DateTime      @default(now()) @db.DateTime(6)
-  nickname        String        @db.VarChar(20)
-  updatedAt       DateTime      @updatedAt @db.DateTime(6)
-  deletedAt       DateTime?     @db.DateTime(6)
-  idealVoiceUrl   String?       @db.VarChar(512)
-  introVoiceUrl   String        @db.VarChar(512)
-  introText       String        @db.VarChar(255)
-  profileImageUrl String        @db.VarChar(512)
-  status          ActiveStatus  @default(ACTIVE)
-  code            String        @db.Char(10)
+  id              BigInt                @id @default(autoincrement())
+  birthdate       DateTime              @db.Timestamp(6)
+  age             Int                   @default(50) @db.Integer
+  email           String                @unique @db.VarChar(255)
+  sex             Sex                   @default(M)
+  createdAt       DateTime              @default(now()) @db.Timestamp(6)
+  lastActiveAt    DateTime?             @db.Timestamp(6)
+  nickname        String                @db.VarChar(20)
+  updatedAt       DateTime              @updatedAt @db.Timestamp(6)
+  deletedAt       DateTime?             @db.Timestamp(6)
+  idealVoiceUrl   String?               @db.Text
+  introVoiceUrl   String                @db.Text
+  introText       String                @db.Text
+  profileImageUrl String                @db.Text
+  status          ActiveStatus          @default(ACTIVE)
+  code            String?               @db.Char(10)
   provider        AuthProvider?
-  providerUserId  String?       @db.VarChar(64)
-  vibeVector      Json
+  providerUserId  String?               @db.VarChar(64)
+  vibeVector      Unsupported("vector")
 
-  address                Address                  @relation(fields: [code], references: [code])
+  address                Address?                 @relation(fields: [code], references: [code], onDelete: SetNull) // 주소 정보가 사라져도 사용자는 삭제되면 안됨.
   sentHearts             Heart[]                  @relation("SentBy")
   receivedHearts         Heart[]                  @relation("SentTo")
   photos                 UserPhoto[]
@@ -92,34 +202,60 @@ model User {
   personalities          UserPersonality[]
   notifications          Notification[]           @relation("sentTo")
   notificationsFrom      Notification[]           @relation("sentBy")
+  pushDeviceTokens       PushDeviceToken[]
   chatRooms              ChatRoom[]
   chatParticipations     ChatParticipant[]
-  sentMessages           ChatMessage[]            @relation("ChatMessagesSentBy")
-  receivedMessages       ChatMessage[]            @relation("ChatMessagesSentTo")
   userMarketingAgreement UserMarketingAgreement[]
   refreshTokens          RefreshToken[]
+  localAuthAccounts      LocalAuthAccount[]
   blocksInitiated        Block[]                  @relation("UserBlocksBy")
   blocksReceived         Block[]                  @relation("UserBlocks")
   reportsFiled           Report[]                 @relation("UserReportsBy")
-  reportsReceived        Report[]                 @relation("UserReports")
+  visitedLogsTo          UserWatchLog[]           @relation("userVisitedTo")
+  visitedLogsBy          UserWatchLog[]           @relation("userVisitedBy")
+  articles               Article[]
+  comments               Comment[]
+  articleLikes           ArticleLike[]
+  clubs                  Club[]
+  clubUsers              ClubUser[]
+  clubLikes              ClubLike[]
+  userReports            UserReport[]
+  recentSearchKeywords   RecentSearchKeyword[]
+  contentModerationLogs  ContentModerationLog[]
 
   @@unique([provider, providerUserId])
   @@index([status])
   @@index([createdAt])
+  @@index([lastActiveAt])
   @@index([deletedAt])
   @@index([provider])
   @@index([sex, status])
+}
+
+model LocalAuthAccount {
+  id           BigInt   @id @default(autoincrement()) @db.BigInt
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @db.VarChar(255)
+  userId       BigInt   @db.BigInt
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime @updatedAt @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
 }
 
 model RefreshToken {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt
   tokenHash String    @unique @db.VarChar(255)
-  expiresAt DateTime  @db.DateTime(6)
-  revokedAt DateTime? @db.DateTime(6)
-  createdAt DateTime  @default(now()) @db.DateTime(6)
+  expiresAt DateTime  @db.Timestamp(6)
+  revokedAt DateTime? @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저가 사라지면 함께 삭제
 
   @@index([userId])
   @@index([expiresAt])
@@ -128,11 +264,11 @@ model RefreshToken {
 model UserPhoto {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt
-  url       String    @db.VarChar(512)
-  deletedAt DateTime? @db.DateTime(6)
-  createdAt DateTime  @default(now()) @db.DateTime(6)
+  url       String    @db.Text
+  deletedAt DateTime? @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저가 사라지면 사진 함께 삭제
 
   @@index([userId])
   @@index([createdAt])
@@ -140,14 +276,14 @@ model UserPhoto {
 
 model Heart {
   id        BigInt       @id @default(autoincrement())
-  sentById  BigInt
-  sentToId  BigInt
-  createdAt DateTime     @default(now()) @db.DateTime(6)
-  deletedAt DateTime?    @db.DateTime(6)
+  sentById  BigInt?
+  sentToId  BigInt?
+  createdAt DateTime     @default(now()) @db.Timestamp(6)
+  deletedAt DateTime?    @db.Timestamp(6)
   status    ActiveStatus @default(ACTIVE)
 
-  sentBy User @relation(name: "SentBy", fields: [sentById], references: [id], onDelete: Cascade)
-  sentTo User @relation(name: "SentTo", fields: [sentToId], references: [id], onDelete: Cascade)
+  sentBy User? @relation(name: "SentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  sentTo User? @relation(name: "SentTo", fields: [sentToId], references: [id], onDelete: SetNull) // 이건 살려두는 게 맞을 듯. 내가 마음을 눌렀던 사람이 갑자기 목록에서 사라지는 것보다는 '삭제된 사용자'로 남는 게 더 맞음.
 
   @@unique([sentById, sentToId])
   @@index([sentById])
@@ -167,12 +303,12 @@ model UserInterest {
   id         BigInt    @id @default(autoincrement())
   interestId BigInt
   userId     BigInt
-  deletedAt  DateTime? @db.DateTime(6)
-  updatedAt  DateTime  @updatedAt @db.DateTime(6)
-  createdAt  DateTime  @default(now()) @db.DateTime(6)
+  deletedAt  DateTime? @db.Timestamp(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamp(6)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
 
-  interest Interest @relation(fields: [interestId], references: [id])
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade) // 키워드가 사라지면 함께 삭제
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade) //유저가 사라지면 함께 삭제
 
   @@unique([interestId, userId])
   @@index([userId])
@@ -184,18 +320,19 @@ model Personality {
 
   userIdealPersonalities UserIdealPersonality[]
   userPersonalities      UserPersonality[]
+  clubKeywords           ClubKeyword[]
 }
 
 model UserIdealPersonality {
   id            BigInt    @id @default(autoincrement())
   userId        BigInt
   personalityId BigInt
-  deletedAt     DateTime? @db.DateTime(6)
-  updatedAt     DateTime  @updatedAt @db.DateTime(6)
-  createdAt     DateTime  @default(now()) @db.DateTime(6)
+  deletedAt     DateTime? @db.Timestamp(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamp(6)
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  personality Personality @relation(fields: [personalityId], references: [id])
+  personality Personality @relation(fields: [personalityId], references: [id], onDelete: Cascade) // 마찬가지
 
   @@unique([userId, personalityId])
   @@index([userId])
@@ -205,12 +342,12 @@ model UserPersonality {
   id            BigInt    @id @default(autoincrement())
   userId        BigInt
   personalityId BigInt
-  deletedAt     DateTime? @db.DateTime(6)
-  updatedAt     DateTime  @updatedAt @db.DateTime(6)
-  createdAt     DateTime  @default(now()) @db.DateTime(6)
+  deletedAt     DateTime? @db.Timestamp(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamp(6)
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  personality Personality @relation(fields: [personalityId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade) //유저가 사라지면 저장할 필요 없음.
+  personality Personality @relation(fields: [personalityId], references: [id], onDelete: Cascade) //키워드가 사라지면 마찬가지로 삭제.
 
   @@unique([userId, personalityId])
   @@index([userId])
@@ -230,9 +367,10 @@ model Address {
   level       AddressLevel @default(SIGUNGU)
   parentCode  String?      @db.Char(10) // unique 제약은 걸어주지 않습니다. 여러개의 자식이 존재하니..
 
-  parent  Address?  @relation(name: "AddressToParent", fields: [parentCode], references: [code])
+  parent  Address?  @relation(name: "AddressToParent", fields: [parentCode], references: [code], onDelete: SetNull) // 안전하게..
   parents Address[] @relation(name: "AddressToParent")
   users   User[]
+  clubs   Club[]
 
   @@index([parentCode])
   @@index([level])
@@ -243,13 +381,13 @@ model Block {
   id          BigInt      @id @default(autoincrement()) @db.BigInt
   blockedById BigInt      @db.BigInt
   blockedId   BigInt      @db.BigInt
-  blockedAt   DateTime    @db.DateTime(6)
+  blockedAt   DateTime    @db.Timestamp(6)
   reason      String      @db.VarChar(100)
   status      BlockStatus @default(BLOCKED)
-  deletedAt   DateTime?   @db.DateTime(6)
+  deletedAt   DateTime?   @db.Timestamp(6)
 
   blockedBy User @relation(name: "UserBlocksBy", fields: [blockedById], references: [id], onDelete: Cascade)
-  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
+  blocked   User @relation(name: "UserBlocks", fields: [blockedId], references: [id], onDelete: Cascade) // 유저가 삭제되면 차단이 의미 없으므로 둘다 함께 삭제.
 
   @@unique([blockedById, blockedId])
   @@index([blockedById])
@@ -259,22 +397,49 @@ model Block {
 }
 
 model Report {
-  id           BigInt    @id @default(autoincrement()) @db.BigInt
-  reportedById BigInt    @db.BigInt
-  reportedId   BigInt    @db.BigInt
-  reportedAt   DateTime  @db.DateTime(6)
-  reason       String    @db.VarChar(100)
-  category     String?   @db.VarChar(50)
-  chatRoomId   BigInt?   @db.BigInt
-  deletedAt    DateTime? @db.DateTime(6)
+  id           BigInt            @id @default(autoincrement()) @db.BigInt
+  reportedById BigInt?           @db.BigInt
+  targetType   ReportTargetType?
+  targetId     BigInt?           @db.BigInt
+  chatRoomId   BigInt?           @db.BigInt
+  reportedAt   DateTime          @db.Timestamp(6)
+  reason       String            @db.VarChar(100)
+  category     ReportCategory    @default(OTHERS)
+  deletedAt    DateTime?         @db.Timestamp(6)
 
-  reportedBy User @relation(name: "UserReportsBy", fields: [reportedById], references: [id], onDelete: Cascade)
-  reported   User @relation(name: "UserReports", fields: [reportedId], references: [id], onDelete: Cascade)
+  reportedBy User?       @relation(name: "UserReportsBy", fields: [reportedById], references: [id], onDelete: SetNull) //신고한 사람이 삭제되는 경우 신고당한 기록은 남겨둬야 함.
+  userReport UserReport?
+  clubReport ClubReport?
 
-  @@unique([reportedById, reportedId])
   @@index([reportedById])
-  @@index([reportedId])
+  @@index([targetType, targetId])
+  @@index([chatRoomId])
   @@index([reportedAt])
+}
+
+model ContentModerationLog {
+  id                 BigInt                @id @default(autoincrement()) @db.BigInt
+  userId             BigInt?               @db.BigInt
+  surface            ModerationSurface
+  targetType         ModerationTargetType?
+  targetId           BigInt?               @db.BigInt
+  decision           ModerationDecision
+  provider           String                @default("OPENAI") @db.VarChar(30)
+  model              String                @db.VarChar(80)
+  providerResponseId String?               @db.VarChar(100)
+  violatedCategories String[]              @default([])
+  inputTypes         String[]              @default([])
+  categoryScores     Json?
+  contentHash        String?               @db.VarChar(64)
+  requestPath        String?               @db.VarChar(255)
+  createdAt          DateTime              @default(now()) @db.Timestamp(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([decision, surface, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model Notification {
@@ -282,80 +447,99 @@ model Notification {
   userId    BigInt           @db.BigInt // unique 제약은 걸어주지 않습니다. 한사람에게 여러개의 알람이 존재하니..
   type      NotificationType @default(CHAT)
   isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now()) @db.DateTime(6)
-  deletedAt DateTime?        @db.DateTime(6)
+  createdAt DateTime         @default(now()) @db.Timestamp(6)
+  deletedAt DateTime?        @db.Timestamp(6)
   title     String           @db.VarChar(50)
   body      String           @db.VarChar(100)
-  sentById  BigInt?          @db.BigInt            
+  sentById  BigInt?          @db.BigInt
 
-  user User @relation(name: "sentTo", fields: [userId], references: [id], onDelete: Cascade)
-  sentBy    User? @relation(name: "sentBy", fields: [sentById], references: [id], onDelete: Cascade)
+  user   User  @relation(name: "sentTo", fields: [userId], references: [id], onDelete: Cascade) // 유저가 사라지면 알림도 삭제.
+  sentBy User? @relation(name: "sentBy", fields: [sentById], references: [id], onDelete: SetNull) // 보낸 사람이 사라져도 알림 기록은 있어야 함.
 
   @@index([userId, isRead])
   @@index([createdAt])
   @@index([sentById])
 }
 
-model ChatRoom {
-  id           BigInt            @id @default(autoincrement()) @db.BigInt
-  userId       BigInt            @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
-  startedAt    DateTime          @default(now()) @db.DateTime(6)
-  endedAt      DateTime?         @db.DateTime(6)
-  status       ChatRoomStatus    @default(ACTIVE)
-  participants ChatParticipant[]
-  messages     ChatMessage[]
+model PushDeviceToken {
+  id         BigInt       @id @default(autoincrement()) @db.BigInt
+  userId     BigInt       @db.BigInt
+  token      String       @unique @db.VarChar(512)
+  platform   PushPlatform
+  deviceId   String?      @db.VarChar(128)
+  appVersion String?      @db.VarChar(32)
+  lastSeenAt DateTime     @default(now()) @db.Timestamp(6)
+  revokedAt  DateTime?    @db.Timestamp(6)
+  createdAt  DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime     @updatedAt @db.Timestamp(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
+}
+
+model ChatRoom {
+  id           BigInt            @id @default(autoincrement()) @db.BigInt
+  userId       BigInt?           @db.BigInt // unique 제약은 걸어주지 않습니다. 한명의 유저가 여러개의 채팅방을 가질수 있으니..
+  startedAt    DateTime          @default(now()) @db.Timestamp(6)
+  endedAt      DateTime?         @db.Timestamp(6)
+  status       ChatRoomStatus    @default(ACTIVE)
+  type         ChatRoomType      @default(DIRECT)
+  clubId       BigInt?           @db.BigInt
+  participants ChatParticipant[]
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 채팅방은 보존.
+  club Club? @relation(fields: [clubId], references: [id], onDelete: SetNull) //클럽이 사라져도 채팅방은 보존
+
+  @@unique([clubId]) //클럽당 채팅방 1개 (DIRECT은 clubId=null이라 다중 NULL 허용되어 무관)
   @@index([userId])
   @@index([status])
   @@index([startedAt])
 }
 
 model ChatParticipant {
-  id       BigInt    @id @default(autoincrement()) @db.BigInt
-  joinedAt DateTime  @default(now()) @db.DateTime(6)
-  userId   BigInt    @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
-  roomId   BigInt    @db.BigInt
-  endedAt  DateTime? @db.DateTime(6)
+  id         BigInt        @id @default(autoincrement()) @db.BigInt
+  joinedAt   DateTime      @default(now()) @db.Timestamp(6)
+  userId     BigInt?       @db.BigInt //채팅방에 초대된 사람의 id , 일대일 채팅이므로 , 채팅방과 초대된 유저는 유니크 제약이 필요
+  roomId     BigInt        @db.BigInt
+  endedAt    DateTime?     @db.Timestamp(6)
+  role       ClubAuthority @default(GENERAL) //클럽 provisioning 시 ClubUser.authority로 명시 세팅
+  lastReadAt DateTime?     @db.Timestamp(6) //참여자별 읽음 커서 (DIRECT/CLUB 공통)
 
-  room ChatRoom @relation(fields: [roomId], references: [id])
-  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade) //채팅방이 사라지면 참여자 기록도 삭제돼야 함.
+  user User?    @relation(fields: [userId], references: [id], onDelete: SetNull) //유저가 사라져도 남아야 함.
+
+  chatMessages ChatMessage[] @relation("ChatParticipantMessages")
 
   @@unique([roomId, userId])
   @@index([userId])
+  @@index([roomId, endedAt]) //멤버 목록/인원수/읽음 집계용
 }
 
 model ChatMessage {
-  id        BigInt    @id @default(autoincrement()) @db.BigInt
-  sentAt    DateTime  @default(now()) @db.DateTime(6)
-  updatedAt DateTime  @updatedAt @db.DateTime(6)
-  readAt    DateTime? @db.DateTime(6)
-  deletedAt DateTime? @db.DateTime(6)
-  sentById  BigInt    @db.BigInt
-  sentToId  BigInt    @db.BigInt
-  roomId    BigInt    @db.BigInt
+  id            BigInt    @id @default(autoincrement()) @db.BigInt
+  sentAt        DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamp(6)
+  readAt        DateTime? @db.Timestamp(6)
+  deletedAt     DateTime? @db.Timestamp(6)
+  participantId BigInt    @db.BigInt
 
-  room      ChatRoom    @relation(fields: [roomId], references: [id])
-  sentBy    User        @relation(name: "ChatMessagesSentBy", fields: [sentById], references: [id], onDelete: Cascade)
-  sentTo    User        @relation(name: "ChatMessagesSentTo", fields: [sentToId], references: [id], onDelete: Cascade)
-  chatMedia ChatMedia[]
+  participant ChatParticipant @relation(name: "ChatParticipantMessages", fields: [participantId], references: [id], onDelete: Cascade)
+  chatMedia   ChatMedia[]
 
-  @@index([sentById])
-  @@index([sentToId])
-  @@index([sentAt])
-  @@index([roomId, sentAt])
+  @@index([participantId, sentAt])
 }
 
 model ChatMedia {
-  id        BigInt        @id @default(autoincrement()) @db.BigInt
-  messageId BigInt        @db.BigInt
-  url       String?       @db.VarChar(512)
-  type      ChatMediaType @default(TEXT)
-  text      String?       @db.VarChar(512)
+  id          BigInt        @id @default(autoincrement()) @db.BigInt
+  messageId   BigInt        @db.BigInt
+  url         String?       @db.Text
+  type        ChatMediaType @default(TEXT)
+  text        String?       @db.VarChar(512)
   durationSec Int?
 
-  message ChatMessage @relation(fields: [messageId], references: [id])
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade) // 메세지가 사라지면 미디어도 함께 사라져야 함.
 
   @@index([messageId])
 }
@@ -364,22 +548,300 @@ model MarketingAgreement {
   id                     BigInt                   @id @default(autoincrement()) @db.BigInt
   body                   String                   @db.Text
   userMarketingAgreement UserMarketingAgreement[]
-
 }
 
 model UserMarketingAgreement {
   id                   BigInt    @id @default(autoincrement()) @db.BigInt
   marketingAgreementId BigInt    @db.BigInt
   userId               BigInt    @db.BigInt
-  agreedAt             DateTime  @default(now()) @db.DateTime(6)
+  agreedAt             DateTime  @default(now()) @db.Timestamp(6)
   isAgreed             Boolean   @default(true)
-  deletedAt            DateTime? @db.DateTime(6)
+  deletedAt            DateTime? @db.Timestamp(6)
 
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id])
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade) //유저가 사라지면 바로 사라져도 ok.
+  marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id], onDelete: Cascade) //동의 약관이 사라지면 바로 사라져도 ok.
 
   @@unique([marketingAgreementId, userId])
   @@index([userId])
   @@index([agreedAt])
   @@index([isAgreed])
+}
+
+// EUM ver2.
+
+model UserWatchLog {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  visitedAt DateTime @default(now()) @db.Timestamp(6)
+  visitedTo BigInt   @db.BigInt
+  visitedBy BigInt   @db.BigInt
+
+  userVisitedTo User @relation(name: "userVisitedTo", fields: [visitedTo], references: [id], onDelete: Cascade) // 피방문 유저가 삭제되면 로그가 의미 없음.
+  userVisitedBy User @relation(name: "userVisitedBy", fields: [visitedBy], references: [id], onDelete: Cascade) // 방문한 유저가 삭제되어도 의미가 사라짐.
+
+  @@index([visitedTo, visitedAt])
+  @@index([visitedBy, visitedAt])
+}
+
+model Article {
+  id        BigInt          @id @default(autoincrement()) @db.BigInt
+  title     String          @db.VarChar(150)
+  contents  String          @db.Text
+  category  ArticleCategory @default(FREE)
+  userId    BigInt?         @db.BigInt
+  clubId    BigInt          @db.BigInt
+  createdAt DateTime        @default(now()) @db.Timestamp(6)
+  deletedAt DateTime?       @db.Timestamp(6)
+  updatedAt DateTime        @updatedAt @db.Timestamp(6)
+  isPinned  Boolean         @default(false)
+  view      Int             @default(0)
+  likes     Int             @default(0)
+  isPublic  Boolean         @default(true)
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull) // '삭제된 사용자가 남긴 게시물'로 남겨둘 필요 있어 보임.
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽이 삭제되면 내부 게시물도 함께 사라져야 함.
+  comments      Comment[]
+  articleLikes  ArticleLike[]
+  articlePhotos ArticlePhoto[]
+
+  @@index([clubId, createdAt])
+  @@index([clubId, category, createdAt])
+  @@index([clubId, isPinned, createdAt])
+}
+
+model Comment {
+  id              BigInt    @id @default(autoincrement()) @db.BigInt
+  contents        String    @db.Text
+  userId          BigInt?   @db.BigInt
+  articleId       BigInt    @db.BigInt
+  parentCommentId BigInt?   @db.BigInt
+  depth           Int       @db.Integer
+  createdAt       DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt       DateTime? @db.Timestamp(6)
+
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull) // 코멘트는 남아있어야
+  article       Article   @relation(fields: [articleId], references: [id], onDelete: Cascade) // 게시물이 지워지면 함께 삭제
+  parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies       Comment[] @relation("CommentReplies")
+
+  @@index([articleId, createdAt])
+}
+
+model ArticleLike {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  articleId BigInt   @db.BigInt
+  userId    BigInt   @db.BigInt
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade) // 게시물 삭제 시 함께 삭제
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저 삭제 시 좋아요도 삭제
+
+  @@unique([articleId, userId]) // 좋아요는 게시물당 한번만.
+  @@index([articleId])
+}
+
+model ArticlePhoto {
+  id         BigInt    @id @default(autoincrement()) @db.BigInt
+  photoUrl   String    @db.Text
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt  DateTime? @db.Timestamp(6)
+  articleId  BigInt    @db.BigInt
+  clubUserId BigInt?   @db.BigInt
+
+  article  Article   @relation(fields: [articleId], references: [id], onDelete: Cascade) // 동호회 삭제 시 사진 함께 삭제
+  clubUser ClubUser? @relation(fields: [clubUserId], references: [id], onDelete: SetNull) // 업로더가 삭제돼도 사진은 남아있어야  
+
+  @@index([articleId, createdAt])
+}
+
+model Club {
+  id               BigInt                @id @default(autoincrement()) @db.BigInt
+  hostId           BigInt?               @db.BigInt // soft delete 이유로 호스트 id 유니크 조건은 코드 단에서 걸어줍니다.
+  name             String                @db.VarChar(50)
+  introVoiceUrl    String?               @db.Text
+  introText        String?               @db.VarChar(512)
+  category         ClubCategory          @default(OTHERS)
+  capacity         Int                   @db.Integer
+  createdAt        DateTime              @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime?             @updatedAt @db.Timestamp(6)
+  deletedAt        DateTime?             @db.Timestamp(6)
+  code             String?               @db.Char(10)
+  likes            Int                   @db.Integer
+  vibeVector       Unsupported("vector")
+  thumbnailUrl     String?               @db.Text
+  approvalRequired Boolean               @default(false)
+  boardPublic      Boolean               @default(true)
+
+  user    User?    @relation(fields: [hostId], references: [id], onDelete: SetNull) // 호스트가 삭제돼도 클럽은 유지.
+  address Address? @relation(fields: [code], references: [code], onDelete: SetNull) // 지역이 삭제돼도 클럽 유지.
+
+  chatRooms    ChatRoom[]
+  articles     Article[]
+  clubUsers    ClubUser[]
+  clubLikes    ClubLike[]
+  meetings     Meeting[]
+  clubImages   ClubImage[]
+  clubKeywords ClubKeyword[]
+  clubReports  ClubReport[]
+
+  @@index([category, createdAt])
+  @@index([code, createdAt])
+}
+
+model ClubImage {
+  clubImageId BigInt    @id @default(autoincrement()) @db.BigInt
+  clubId      BigInt    @db.BigInt
+  imageUrl    String    @db.Text
+  sortOrder   Int       @db.Integer
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  deletedAt   DateTime? @db.Timestamp(6)
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId, sortOrder])
+  @@index([deletedAt])
+}
+
+model ClubUser {
+  id          BigInt         @id @default(autoincrement()) @db.BigInt
+  userId      BigInt         @db.BigInt
+  clubId      BigInt         @db.BigInt
+  requestedAt DateTime       @default(now()) @db.Timestamp(6)
+  joinedAt    DateTime?      @db.Timestamp(6)
+  leftAt      DateTime?      @db.Timestamp(6)
+  authority   ClubAuthority  @default(GENERAL)
+  status      ClubUserStatus @default(PENDING)
+  joinMessage String         @default("") @db.VarChar(300)
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저가 삭제되면 동호회 유저로 남겨둘 필요 없음
+  club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽이 삭제되면 더이상 동호회 유저가 아님
+  articlePhotos  ArticlePhoto[]
+  clubUserBadges ClubUserBadge[]
+  meetingMembers MeetingMember[]
+
+  @@unique([userId, clubId])
+  @@index([userId, clubId, joinedAt])
+  @@index([clubId, joinedAt])
+  @@index([clubId, authority])
+}
+
+model Badge {
+  id             BigInt          @id @default(autoincrement()) @db.BigInt
+  name           String          @db.VarChar(20)
+  clubUserBadges ClubUserBadge[]
+}
+
+model ClubUserBadge {
+  id         BigInt   @id @default(autoincrement()) @db.BigInt
+  clubUserId BigInt   @db.BigInt
+  badgeId    BigInt   @db.BigInt
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+
+  clubUser ClubUser @relation(fields: [clubUserId], references: [id], onDelete: Cascade) // 유저 삭제 시 뱃지 기록도 삭제
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade) // 뱃지 정보가 삭제되면 따라서 삭제되어야 함
+
+  @@unique([clubUserId, badgeId])
+  @@index([clubUserId, createdAt])
+}
+
+model ClubLike {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  userId    BigInt   @db.BigInt
+  clubId    BigInt   @db.BigInt
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // 유저 삭제 시 좋아요도 삭제
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽 삭제 시 삭제
+
+  @@unique([userId, clubId]) // 좋아요는 한 클럽당 한번씩만.
+  @@index([clubId])
+}
+
+model Meeting {
+  id             BigInt            @id @default(autoincrement()) @db.BigInt
+  name           String            @db.VarChar(50)
+  introText      String            @db.VarChar(200)
+  spot           String            @db.Text
+  capacity       Int               @db.Integer
+  cost           String?           @db.VarChar(50)
+  joinPolicy     MeetingJoinPolicy @default(AUTO)
+  isRegular      Boolean           @default(true)
+  recurrenceType RecurrenceType
+  daysOfWeek     DayOfWeek[]       @default([])
+  dayOfMonth     Int?              @db.Integer
+  hour           Int               @db.Integer
+  minute         Int               @db.Integer
+  createdAt      DateTime          @default(now()) @db.Timestamp(6)
+  deletedAt      DateTime?         @db.Timestamp(6)
+  updatedAt      DateTime?         @updatedAt
+  clubId         BigInt            @db.BigInt
+
+  club           Club            @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽 삭제 시 정기모임도 삭제
+  meetingMembers MeetingMember[]
+
+  @@index([clubId])
+}
+
+model MeetingMember {
+  id          BigInt              @id @default(autoincrement()) @db.BigInt
+  meetingId   BigInt              @db.BigInt
+  clubUserId  BigInt              @db.BigInt
+  status      MeetingMemberStatus @default(ACTIVE) // 참석 상태 (승인정모: PENDING→ACTIVE/REJECTED)
+  requestedAt DateTime            @default(now()) @db.Timestamp(6) // 참석 신청 시각
+  joinedAt    DateTime?           @db.Timestamp(6) // 승인/참석 확정 시각 (PENDING이면 null)
+  deletedAt   DateTime?           @db.Timestamp(6)
+
+  meeting  Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade) // 미팅 삭제 시 함께 삭제
+  clubUser ClubUser @relation(fields: [clubUserId], references: [id], onDelete: Cascade) // 유저 삭제 시 함께 삭제
+
+  @@unique([meetingId, clubUserId])
+  @@index([meetingId, status])
+  @@index([meetingId, joinedAt])
+  @@index([clubUserId, joinedAt])
+}
+
+model ClubKeyword {
+  id        BigInt @id @default(autoincrement()) @db.BigInt
+  clubId    BigInt @db.BigInt
+  keywordId BigInt @db.BigInt
+
+  club        Club        @relation(fields: [clubId], references: [id], onDelete: Cascade) // 클럽 삭제 시 함께 제거
+  personality Personality @relation(fields: [keywordId], references: [id], onDelete: Cascade) //키워드 삭제 시 함께 제거
+
+  @@unique([clubId, keywordId])
+}
+
+model UserReport {
+  id             BigInt  @id @default(autoincrement()) @db.BigInt
+  reportId       BigInt  @db.BigInt
+  reportedUserId BigInt? @db.BigInt
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade) // 상위 테이블이 삭제되는 경우 함께 제거
+  user   User?  @relation(fields: [reportedUserId], references: [id], onDelete: SetNull) // 신고당한 유저가 삭제되면.. 기록은 남기자
+
+  @@unique([reportId])
+  @@index([reportedUserId])
+}
+
+model RecentSearchKeyword {
+  id        BigInt   @id @default(autoincrement()) @db.BigInt
+  userId    BigInt   @db.BigInt
+  keyword   String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, keyword])
+  @@index([userId, createdAt])
+}
+
+model ClubReport {
+  id             BigInt  @id @default(autoincrement()) @db.BigInt
+  reportId       BigInt  @db.BigInt
+  reportedClubId BigInt? @db.BigInt
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade) // 상위 테이블이 삭제되는 경우 함께 제거
+  club   Club?  @relation(fields: [reportedClubId], references: [id], onDelete: SetNull) // 신고당한 클럽이 삭제되어도 남기자
+
+  @@unique([reportId])
+  @@index([reportedClubId])
 }

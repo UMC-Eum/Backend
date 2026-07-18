@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PresenceStore } from './presence.token';
+import type { ActivePresenceUser, PresenceStore } from './presence.token';
 
 type PresenceEntry = {
   socketIds: Set<string>;
@@ -8,6 +8,8 @@ type PresenceEntry = {
 
 @Injectable()
 export class InMemoryPresenceStore implements PresenceStore {
+  // TODO(active-users): 현재 인메모리 presence는 단일 서버 프로세스에서만 정확하다.
+  // ECS task를 여러 개로 늘리기 전 Redis 기반 PresenceStore와 TTL 기반 presence로 교체한다.
   private readonly presenceByUserId = new Map<number, PresenceEntry>();
 
   onConnect(userId: number, socketId: string): void {
@@ -44,17 +46,21 @@ export class InMemoryPresenceStore implements PresenceStore {
     existing.lastSeenAtMs = Date.now();
   }
 
-  getActiveUserIds(withinMs?: number): number[] {
+  getActiveUsers(withinMs?: number): ActivePresenceUser[] {
     const now = Date.now();
-    const ids: number[] = [];
+    const users: ActivePresenceUser[] = [];
 
     for (const [userId, entry] of this.presenceByUserId.entries()) {
       if (withinMs && now - entry.lastSeenAtMs > withinMs) continue;
       if (entry.socketIds.size === 0) continue;
-      ids.push(userId);
+      users.push({ userId, lastActiveAt: new Date(entry.lastSeenAtMs) });
     }
 
-    return ids;
+    return users;
+  }
+
+  getActiveUserIds(withinMs?: number): number[] {
+    return this.getActiveUsers(withinMs).map((user) => user.userId);
   }
 
   getLastSeenAt(userId: number): Date | null {

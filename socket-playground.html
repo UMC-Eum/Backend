@@ -497,11 +497,17 @@
         });
 
         socket.on('message.new', (payload) => {
-          logLine('ok', 'on:message.new', payload);
+          // 입장/퇴장 SYSTEM 공지도 이 이벤트로 옴 (type=SYSTEM, isSystem=true)
+          const label =
+            payload?.isSystem || payload?.type === 'SYSTEM'
+              ? 'on:message.new (SYSTEM)'
+              : 'on:message.new';
+          logLine(payload?.isSystem ? 'warn' : 'ok', label, payload);
         });
 
+        // 방 단위 읽음 커서: {chatRoomId, readerUserId, lastReadAt}
         socket.on('message.read', (payload) => {
-          logLine('ok', 'on:message.read', payload);
+          logLine('ok', 'on:message.read (cursor)', payload);
         });
 
         socket.on('message.deleted', (payload) => {

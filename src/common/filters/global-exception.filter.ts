@@ -14,6 +14,31 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+function getErrorDetailsForLog(error: Error) {
+  const details: Record<string, unknown> = {
+    name: error.name,
+    message: error.message,
+  };
+
+  if (isRecord(error)) {
+    if (typeof error.code === 'string') {
+      details.code = error.code;
+    }
+    if (error.meta !== undefined) {
+      details.meta = error.meta;
+    }
+    if (typeof error.clientVersion === 'string') {
+      details.clientVersion = error.clientVersion;
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    details.stack = error.stack;
+  }
+
+  return details;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   constructor(private readonly logger?: PinoLogger) {}
@@ -31,6 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let code: ExternalErrorCode = 'SYS-001';
     let message = '잠시 문제가 발생했어요. 잠시 후 다시 시도해 주세요.';
     let detailsForLog: unknown;
+    let detailsForClient: unknown;
 
     // 1) AppException
     if (exception instanceof AppException) {
@@ -46,6 +72,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
         if (body.details !== undefined) {
           detailsForLog = body.details;
+          if (exception.internalCode === 'CONTENT_POLICY_VIOLATION') {
+            detailsForClient = body.details;
+          }
         }
       } else if (typeof body === 'string') {
         message = body;
@@ -68,8 +97,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     // 3) 일반 Error
     else if (exception instanceof Error) {
-      detailsForLog =
-        process.env.NODE_ENV === 'production' ? undefined : exception.stack;
+      detailsForLog = getErrorDetailsForLog(exception);
 
       if (process.env.NODE_ENV !== 'production' && exception.message) {
         message = exception.message;
@@ -79,7 +107,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const responseBody: ApiFailResponse = {
       resultType: 'FAIL',
       success: null,
-      error: { code, message },
+      error: {
+        code,
+        message,
+        ...(detailsForClient !== undefined
+          ? { details: detailsForClient }
+          : {}),
+      },
       meta: { timestamp, path },
     };
 

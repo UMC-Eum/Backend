@@ -11,6 +11,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AppException } from './common/errors/app.exception';
 import { setupSwagger } from './swagger';
+import { S3ObjectUrlService } from './common/s3/s3-object-url.service';
+import { ContentModerationInterceptor } from './common/moderation/content-moderation.interceptor';
 
 import { SocketIoAdapter } from './infra/websocket/socket-io.adapter';
 
@@ -27,6 +29,7 @@ function isRequiredError(errors: ValidationError[]): boolean {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
@@ -82,7 +85,10 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalInterceptors(
+    app.get(ContentModerationInterceptor),
+    new ResponseInterceptor(app.get(S3ObjectUrlService)),
+  );
   app.useGlobalFilters(new GlobalExceptionFilter(logger));
   app.useWebSocketAdapter(new SocketIoAdapter(app, configService));
 

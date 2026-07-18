@@ -247,6 +247,23 @@ model LocalAuthAccount {
   @@index([isActive])
 }
 
+model EmailVerification {
+  id           BigInt    @id @default(autoincrement()) @db.BigInt
+  email        String    @db.VarChar(255)
+  codeHash     String    @db.VarChar(255)
+  purpose      String    @db.VarChar(30)
+  attemptCount Int       @default(0) @db.Integer
+  expiresAt    DateTime  @db.Timestamp(6)
+  verifiedAt   DateTime? @db.Timestamp(6)
+  consumedAt   DateTime? @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @db.Timestamp(6)
+
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt])
+  @@index([verifiedAt])
+  @@index([consumedAt])
+}
+
 model RefreshToken {
   id        BigInt    @id @default(autoincrement())
   userId    BigInt

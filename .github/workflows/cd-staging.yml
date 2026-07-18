@@ -27,19 +27,35 @@ jobs:
     environment: staging
 
     env:
-      AWS_REGION: ap-northeast-2
+      AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-      ECR_REGISTRY: 413790913159.dkr.ecr.ap-northeast-2.amazonaws.com
-      ECR_REPOSITORY: eum-backend
-      ECS_CLUSTER: eum-cluster
-      ECS_SERVICE: eum-backend-service
-      ECS_TASK_FAMILY: eum-backend
-      CONTAINER_NAME: eum-backend
-      HEALTH_URL: https://staging.eum-dating.com/api/v1/health
-      WS_URL: https://staging.eum-dating.com
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+      WS_URL: ${{ vars.WS_URL }}
       WS_ACCESS_TOKEN: ${{ secrets.STAGING_WS_ACCESS_TOKEN }}
 
     steps:
+      - name: Validate staging configuration
+        run: |
+          set -euo pipefail
+
+          REQUIRED_VARIABLES=(
+            AWS_REGION AWS_ROLE_ARN ECR_REGISTRY ECR_REPOSITORY
+            ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY CONTAINER_NAME
+            HEALTH_URL WS_URL
+          )
+          for name in "${REQUIRED_VARIABLES[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Staging configuration $name is required"
+              exit 1
+            fi
+          done
+
       - name: Resolve validated commit
         id: commit
         env:
@@ -58,22 +74,11 @@ jobs:
         with:
           ref: ${{ steps.commit.outputs.sha }}
 
-      # AWS_ROLE_ARN을 staging Environment secret에 추가한 뒤에는 OIDC가 사용됩니다.
       - name: Configure AWS credentials with OIDC
-        if: env.AWS_ROLE_ARN != ''
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           role-session-name: github-actions-staging-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      # OIDC 전환 중 배포 중단을 막기 위한 임시 fallback입니다. 전환 후 기존 키를 삭제합니다.
-      - name: Configure AWS credentials with access key (temporary fallback)
-        if: env.AWS_ROLE_ARN == ''
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -83,12 +88,29 @@ jobs:
         id: image
         env:
           COMMIT_SHA: ${{ steps.commit.outputs.sha }}
-        run: echo "uri=${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}"
+          EXISTING_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$COMMIT_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          echo "uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          if [ -n "$EXISTING_DIGEST" ] && [ "$EXISTING_DIGEST" != "None" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing immutable image $IMAGE_URI@$EXISTING_DIGEST"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build image locally
+        if: steps.image.outputs.exists != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -110,6 +132,7 @@ jobs:
           exit-code: '1'
 
       - name: Push immutable image
+        if: steps.image.outputs.exists != 'true'
         run: docker push "${{ steps.image.outputs.uri }}"
 
       - name: Download current task definition
@@ -245,6 +268,57 @@ jobs:
 
       - name: WebSocket smoke test
         run: bash scripts/ws-smoke.sh "$WS_URL"
+
+      - name: Mark image as staging-approved
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          SOURCE_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$COMMIT_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)
+          if [ -z "$SOURCE_DIGEST" ] || [ "$SOURCE_DIGEST" = "None" ]; then
+            echo "::error::Could not resolve the deployed image digest"
+            exit 1
+          fi
+
+          APPROVED_TAG="staging-approved-$COMMIT_SHA"
+          APPROVED_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$APPROVED_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          if [ -n "$APPROVED_DIGEST" ] && [ "$APPROVED_DIGEST" != "None" ]; then
+            if [ "$APPROVED_DIGEST" != "$SOURCE_DIGEST" ]; then
+              echo "::error::$APPROVED_TAG already points to a different digest"
+              exit 1
+            fi
+            echo "$APPROVED_TAG already points to $SOURCE_DIGEST"
+            exit 0
+          fi
+
+          IMAGE_MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageDigest=$SOURCE_DIGEST" \
+            --accepted-media-types \
+              application/vnd.docker.distribution.manifest.v2+json \
+              application/vnd.oci.image.manifest.v1+json \
+            --query 'images[0].imageManifest' \
+            --output text)
+          if [ -z "$IMAGE_MANIFEST" ] || [ "$IMAGE_MANIFEST" = "None" ]; then
+            echo "::error::Could not load the deployed image manifest"
+            exit 1
+          fi
+
+          aws ecr put-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-tag "$APPROVED_TAG" \
+            --image-manifest "$IMAGE_MANIFEST" > /dev/null
+          echo "Marked $SOURCE_DIGEST as $APPROVED_TAG"
 
       - name: Collect ECS diagnostics
         if: failure()

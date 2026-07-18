@@ -1,0 +1,562 @@
+name: CD - Deploy to Production (ECS)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag to deploy (for example, v1.2.3)
+        required: true
+        type: string
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate production release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      sha: ${{ steps.release.outputs.sha }}
+
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate annotated SemVer tag on main
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_REF: ${{ github.ref }}
+          PUSH_TAG: ${{ github.ref_name }}
+          DISPATCH_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$RUN_REF" != "refs/heads/main" ]; then
+              echo "::error::Manual production deployments must run from the main branch"
+              exit 1
+            fi
+            RELEASE_TAG="$DISPATCH_TAG"
+          else
+            RELEASE_TAG="$PUSH_TAG"
+          fi
+
+          if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Production tags must use stable SemVer format vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+
+          TAG_TYPE=$(git cat-file -t "refs/tags/$RELEASE_TAG")
+          if [ "$TAG_TYPE" != "tag" ]; then
+            echo "::error::$RELEASE_TAG must be an annotated tag"
+            exit 1
+          fi
+
+          SHA=$(git rev-list -n 1 "refs/tags/$RELEASE_TAG")
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not resolve a full commit SHA from $RELEASE_TAG"
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::$RELEASE_TAG points to a commit that is not contained in main"
+            exit 1
+          fi
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Validated $RELEASE_TAG at $SHA"
+
+  deploy:
+    name: Deploy to Production ECS
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+      ECS_DEPLOYMENT_ALARMS: ${{ vars.ECS_DEPLOYMENT_ALARMS }}
+      HEALTH_URL: ${{ vars.HEALTH_URL }}
+      WS_URL: ${{ vars.WS_URL }}
+      WS_ACCESS_TOKEN: ${{ secrets.PRODUCTION_WS_ACCESS_TOKEN }}
+      RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+      RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+
+    steps:
+      - name: Validate production configuration
+        run: |
+          set -euo pipefail
+
+          REQUIRED_VARIABLES=(
+            AWS_REGION AWS_ROLE_ARN ECR_REGISTRY ECR_REPOSITORY
+            ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY CONTAINER_NAME
+            ECS_DEPLOYMENT_ALARMS HEALTH_URL WS_URL
+          )
+          for name in "${REQUIRED_VARIABLES[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Production configuration $name is required"
+              exit 1
+            fi
+          done
+
+          if ! [[ "$ECS_DEPLOYMENT_ALARMS" =~ ^[A-Za-z0-9_.:/=-]+(,[A-Za-z0-9_.:/=-]+)*$ ]]; then
+            echo "::error::ECS_DEPLOYMENT_ALARMS must be a comma-separated list without spaces"
+            exit 1
+          fi
+
+      - name: Checkout validated release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+
+      - name: Configure production AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: github-actions-production-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account and deployment alarms
+        run: |
+          set -euo pipefail
+
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          EXPECTED_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          if [ "$ECR_REGISTRY" != "$EXPECTED_REGISTRY" ]; then
+            echo "::error::ECR_REGISTRY does not belong to the authenticated AWS account and region"
+            exit 1
+          fi
+
+          IFS=',' read -r -a ALARM_NAMES <<< "$ECS_DEPLOYMENT_ALARMS"
+          aws cloudwatch describe-alarms \
+            --alarm-names "${ALARM_NAMES[@]}" \
+            --output json > deployment-alarms.json
+          FOUND_ALARMS=$(jq '(.MetricAlarms | length) + (.CompositeAlarms | length)' \
+            deployment-alarms.json)
+          if [ "$FOUND_ALARMS" -ne "${#ALARM_NAMES[@]}" ]; then
+            echo "::error::One or more ECS deployment alarms do not exist"
+            exit 1
+          fi
+          ACTIVE_ALARMS=$(jq \
+            '[.MetricAlarms[], .CompositeAlarms[] | select(.StateValue == "ALARM")] | length' \
+            deployment-alarms.json)
+          if [ "$ACTIVE_ALARMS" -ne 0 ]; then
+            echo "::error::One or more ECS deployment alarms are already in ALARM state"
+            exit 1
+          fi
+
+      - name: Resolve staging-approved image digest
+        id: image
+        run: |
+          set -euo pipefail
+
+          SOURCE_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$RELEASE_SHA" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+          APPROVED_TAG="staging-approved-$RELEASE_SHA"
+          APPROVED_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$APPROVED_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+
+          if [ -z "$SOURCE_DIGEST" ] || [ "$SOURCE_DIGEST" = "None" ]; then
+            echo "::error::No ECR image exists for release commit $RELEASE_SHA"
+            exit 1
+          fi
+          if [ -z "$APPROVED_DIGEST" ] || [ "$APPROVED_DIGEST" = "None" ]; then
+            echo "::error::$RELEASE_SHA has not completed staging deployment and smoke tests"
+            exit 1
+          fi
+          if [ "$SOURCE_DIGEST" != "$APPROVED_DIGEST" ]; then
+            echo "::error::The commit image and staging-approved image have different digests"
+            exit 1
+          fi
+
+          RELEASE_DIGEST=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$RELEASE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>/dev/null || true)
+          if [ -n "$RELEASE_DIGEST" ] && [ "$RELEASE_DIGEST" != "None" ]; then
+            if [ "$RELEASE_DIGEST" != "$SOURCE_DIGEST" ]; then
+              echo "::error::ECR release tag $RELEASE_TAG already points to a different digest"
+              exit 1
+            fi
+          else
+            IMAGE_MANIFEST=$(aws ecr batch-get-image \
+              --repository-name "$ECR_REPOSITORY" \
+              --image-ids "imageDigest=$SOURCE_DIGEST" \
+              --accepted-media-types \
+                application/vnd.docker.distribution.manifest.v2+json \
+                application/vnd.oci.image.manifest.v1+json \
+              --query 'images[0].imageManifest' \
+              --output text)
+            if [ -z "$IMAGE_MANIFEST" ] || [ "$IMAGE_MANIFEST" = "None" ]; then
+              echo "::error::Could not load the staging-approved image manifest"
+              exit 1
+            fi
+            aws ecr put-image \
+              --repository-name "$ECR_REPOSITORY" \
+              --image-tag "$RELEASE_TAG" \
+              --image-manifest "$IMAGE_MANIFEST" > /dev/null
+          fi
+
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}@${SOURCE_DIGEST}"
+          echo "digest=$SOURCE_DIGEST" >> "$GITHUB_OUTPUT"
+          echo "uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Promoting $RELEASE_TAG as $IMAGE_URI"
+
+      - name: Inspect current production service
+        id: current
+        run: |
+          set -euo pipefail
+
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --output json > service-response.json
+
+          if ! jq -e '.failures | length == 0' service-response.json > /dev/null; then
+            echo "::error::Could not describe the production ECS service"
+            jq '.failures' service-response.json
+            exit 1
+          fi
+          jq -e '.services | length == 1' service-response.json > /dev/null
+          jq '.services[0]' service-response.json > service.json
+
+          PRIMARY_COUNT=$(jq '[.deployments[] | select(.status == "PRIMARY")] | length' service.json)
+          PRIMARY_STATE=$(jq -r \
+            '[.deployments[] | select(.status == "PRIMARY")][0].rolloutState // "UNKNOWN"' \
+            service.json)
+          PRIMARY_RUNNING=$(jq -r \
+            '[.deployments[] | select(.status == "PRIMARY")][0].runningCount // -1' \
+            service.json)
+          PRIMARY_DESIRED=$(jq -r \
+            '[.deployments[] | select(.status == "PRIMARY")][0].desiredCount // -1' \
+            service.json)
+          if [ "$PRIMARY_COUNT" -ne 1 ] || [ "$PRIMARY_STATE" != "COMPLETED" ] || \
+             [ "$PRIMARY_RUNNING" != "$PRIMARY_DESIRED" ]; then
+            echo "::error::Production ECS service must be stable before deployment"
+            exit 1
+          fi
+
+          CONTROLLER=$(jq -r '.deploymentController.type' service.json)
+          STRATEGY=$(jq -r '.deploymentConfiguration.strategy // "ROLLING"' service.json)
+          if [ "$CONTROLLER" != "ECS" ] || [ "$STRATEGY" != "ROLLING" ]; then
+            echo "::error::Production must use the ECS rolling deployment strategy"
+            exit 1
+          fi
+          if [ "$(jq -r '.schedulingStrategy' service.json)" != "REPLICA" ]; then
+            echo "::error::Production migration tasks require an ECS REPLICA service"
+            exit 1
+          fi
+
+          PREVIOUS_TD=$(jq -r '.taskDefinition' service.json)
+          if [ -z "$PREVIOUS_TD" ] || [ "$PREVIOUS_TD" = "null" ]; then
+            echo "::error::Could not resolve the current production task definition"
+            exit 1
+          fi
+          if [ "$(basename "$PREVIOUS_TD" | cut -d: -f1)" != "$ECS_TASK_FAMILY" ]; then
+            echo "::error::ECS_TASK_FAMILY does not match the production service"
+            exit 1
+          fi
+
+          MIN_HEALTHY=$(jq -r '.deploymentConfiguration.minimumHealthyPercent' service.json)
+          MAX_PERCENT=$(jq -r '.deploymentConfiguration.maximumPercent' service.json)
+          ALARM_NAMES=$(jq -Rn --arg names "$ECS_DEPLOYMENT_ALARMS" '$names | split(",")')
+          jq -n \
+            --argjson min "$MIN_HEALTHY" \
+            --argjson max "$MAX_PERCENT" \
+            --argjson alarms "$ALARM_NAMES" \
+            '{
+              minimumHealthyPercent: $min,
+              maximumPercent: $max,
+              deploymentCircuitBreaker: {enable: true, rollback: true},
+              alarms: {alarmNames: $alarms, enable: true, rollback: true}
+            }' > deployment-configuration.json
+
+          echo "task_definition=$PREVIOUS_TD" >> "$GITHUB_OUTPUT"
+          echo "Current production task definition: $PREVIOUS_TD"
+
+      - name: Download current production task definition
+        env:
+          PREVIOUS_TD: ${{ steps.current.outputs.task_definition }}
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$PREVIOUS_TD" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render task definition with promoted image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.image.outputs.uri }}
+
+      - name: Run production Prisma migration
+        id: migrate
+        env:
+          RENDERED_TASK_DEF: ${{ steps.render.outputs.task-definition }}
+        run: |
+          set -euo pipefail
+
+          TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://$RENDERED_TASK_DEF" \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)
+          echo "task_definition=$TD_ARN" >> "$GITHUB_OUTPUT"
+
+          jq -n \
+            --slurpfile service service.json \
+            --arg cluster "$ECS_CLUSTER" \
+            --arg task_definition "$TD_ARN" \
+            --arg container "$CONTAINER_NAME" \
+            --arg started_by "github-prod-${GITHUB_RUN_ID}" \
+            '($service[0]) as $svc |
+             {
+               cluster: $cluster,
+               taskDefinition: $task_definition,
+               count: 1,
+               startedBy: $started_by,
+               overrides: {
+                 containerOverrides: [{
+                   name: $container,
+                   command: ["./node_modules/.bin/prisma", "migrate", "deploy"],
+                   cpu: 0,
+                   memoryReservation: 256
+                 }]
+               }
+             }
+             + (if (($svc.capacityProviderStrategy // []) | length) > 0
+                then {capacityProviderStrategy: $svc.capacityProviderStrategy}
+                elif (($svc.launchType // "") | length) > 0
+                then {launchType: $svc.launchType}
+                else {} end)
+             + (if ($svc.networkConfiguration.awsvpcConfiguration // null) != null
+                then {networkConfiguration: {awsvpcConfiguration: $svc.networkConfiguration.awsvpcConfiguration}}
+                else {} end)' > run-task-input.json
+
+          aws ecs run-task \
+            --cli-input-json file://run-task-input.json \
+            --output json > migration-run.json
+
+          TASK_ARN=$(jq -r '.tasks[0].taskArn // empty' migration-run.json)
+          if [ -z "$TASK_ARN" ]; then
+            echo "::error::Failed to start the production migration task"
+            jq '.failures' migration-run.json
+            exit 1
+          fi
+          echo "migration_task=$TASK_ARN" >> "$GITHUB_OUTPUT"
+
+          aws ecs wait tasks-stopped \
+            --cluster "$ECS_CLUSTER" \
+            --tasks "$TASK_ARN"
+
+          aws ecs describe-tasks \
+            --cluster "$ECS_CLUSTER" \
+            --tasks "$TASK_ARN" \
+            --output json > migration-task.json
+          EXIT_CODE=$(jq -r --arg name "$CONTAINER_NAME" \
+            '.tasks[0].containers[] | select(.name == $name) | .exitCode // -1' \
+            migration-task.json)
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Production Prisma migration failed (exit=$EXIT_CODE)"
+            jq '.tasks[0] | {stoppedReason, containers: [.containers[] | {name, exitCode, reason}]}' \
+              migration-task.json
+            exit 1
+          fi
+
+      - name: Deploy with circuit breaker and alarm rollback
+        id: rollout
+        env:
+          TD_ARN: ${{ steps.migrate.outputs.task_definition }}
+        run: |
+          set -euo pipefail
+
+          DEPLOY_CONFIG=$(jq -c . deployment-configuration.json)
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$TD_ARN" \
+            --deployment-configuration "$DEPLOY_CONFIG" > /dev/null
+          echo "service_updated=true" >> "$GITHUB_OUTPUT"
+
+          MAX_ATTEMPTS=80
+          INTERVAL=15
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            DEPLOYMENTS=$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE" \
+              --query 'services[0].deployments' \
+              --output json)
+            EXPECTED=$(jq -c --arg td "$TD_ARN" \
+              '[.[] | select(.taskDefinition == $td)] | first // empty' <<< "$DEPLOYMENTS")
+
+            if [ -z "$EXPECTED" ]; then
+              echo "::error::Expected production deployment disappeared; ECS may have rolled it back"
+              exit 1
+            fi
+
+            STATE=$(jq -r '.rolloutState // "UNKNOWN"' <<< "$EXPECTED")
+            RUNNING=$(jq -r '.runningCount // 0' <<< "$EXPECTED")
+            DESIRED=$(jq -r '.desiredCount // 0' <<< "$EXPECTED")
+            FAILED_TASKS=$(jq -r '.failedTasks // 0' <<< "$EXPECTED")
+            echo "[$i/$MAX_ATTEMPTS] rolloutState=$STATE running=$RUNNING/$DESIRED failedTasks=$FAILED_TASKS"
+
+            case "$STATE" in
+              COMPLETED) exit 0 ;;
+              FAILED)
+                echo "::error::Production deployment failed; automatic rollback was requested"
+                exit 1
+                ;;
+            esac
+            sleep "$INTERVAL"
+          done
+
+          echo "::error::Production deployment did not complete within 20 minutes"
+          exit 1
+
+      - name: Production REST smoke test
+        run: |
+          for i in {1..12}; do
+            if curl -fsS --max-time 5 "$HEALTH_URL" | jq -e \
+              '.status == "ok" or .success.data.status == "ok"' > /dev/null; then
+              echo "Production REST health check passed"
+              exit 0
+            fi
+            echo "attempt $i/12 failed; retrying in 5 seconds"
+            sleep 5
+          done
+          echo "::error::Production REST health check failed after 60 seconds"
+          exit 1
+
+      - name: Production WebSocket smoke test
+        run: bash scripts/ws-smoke.sh "$WS_URL"
+
+      - name: Restore previous task definition
+        if: failure() && steps.rollout.outputs.service_updated == 'true'
+        env:
+          PREVIOUS_TD: ${{ steps.current.outputs.task_definition }}
+        run: |
+          set -euo pipefail
+
+          echo "Restoring previous production task definition: $PREVIOUS_TD"
+          DEPLOY_CONFIG=$(jq -c . deployment-configuration.json)
+          ROLLBACK_CONFIG=$(jq -c \
+            '.alarms.enable = false | .alarms.rollback = false' \
+            deployment-configuration.json)
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$PREVIOUS_TD" \
+            --deployment-configuration "$ROLLBACK_CONFIG" > /dev/null
+
+          MAX_ATTEMPTS=60
+          INTERVAL=15
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            DEPLOYMENTS=$(aws ecs describe-services \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE" \
+              --query 'services[0].deployments' \
+              --output json)
+            PREVIOUS=$(jq -c --arg td "$PREVIOUS_TD" \
+              '[.[] | select(.taskDefinition == $td)] | first // empty' <<< "$DEPLOYMENTS")
+            if [ -n "$PREVIOUS" ]; then
+              STATE=$(jq -r '.rolloutState // "UNKNOWN"' <<< "$PREVIOUS")
+              RUNNING=$(jq -r '.runningCount // 0' <<< "$PREVIOUS")
+              DESIRED=$(jq -r '.desiredCount // 0' <<< "$PREVIOUS")
+              echo "[$i/$MAX_ATTEMPTS] rollbackState=$STATE running=$RUNNING/$DESIRED"
+              if [ "$STATE" = "COMPLETED" ] && [ "$RUNNING" = "$DESIRED" ]; then
+                aws ecs update-service \
+                  --cluster "$ECS_CLUSTER" \
+                  --service "$ECS_SERVICE" \
+                  --deployment-configuration "$DEPLOY_CONFIG" > /dev/null
+                echo "Previous production task definition restored"
+                exit 0
+              fi
+              if [ "$STATE" = "FAILED" ]; then
+                echo "::error::Rollback deployment failed"
+                exit 1
+              fi
+            fi
+            sleep "$INTERVAL"
+          done
+
+          echo "::error::Rollback did not complete within 15 minutes"
+          exit 1
+
+      - name: Collect production ECS diagnostics
+        if: failure()
+        run: |
+          set +e
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].{taskDefinition:taskDefinition,deployments:deployments,events:events[0:10]}' \
+            --output json
+
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster "$ECS_CLUSTER" \
+            --service-name "$ECS_SERVICE" \
+            --desired-status STOPPED \
+            --max-items 10 \
+            --query 'taskArns' \
+            --output text)
+          if [ -n "$TASK_ARNS" ] && [ "$TASK_ARNS" != "None" ]; then
+            aws ecs describe-tasks \
+              --cluster "$ECS_CLUSTER" \
+              --tasks $TASK_ARNS \
+              --query 'tasks[].{taskArn:taskArn,taskDefinitionArn:taskDefinitionArn,stoppedReason:stoppedReason,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+              --output json
+          fi
+
+      - name: Write deployment summary
+        if: success()
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          PREVIOUS_TD: ${{ steps.current.outputs.task_definition }}
+          DEPLOYED_TD: ${{ steps.migrate.outputs.task_definition }}
+          MIGRATION_TASK: ${{ steps.migrate.outputs.migration_task }}
+        run: |
+          {
+            echo "## Production deployment complete"
+            echo
+            echo "- Release: \`$RELEASE_TAG\`"
+            echo "- Commit: \`$RELEASE_SHA\`"
+            echo "- Image digest: \`$IMAGE_DIGEST\`"
+            echo "- Previous task definition: \`$PREVIOUS_TD\`"
+            echo "- Deployed task definition: \`$DEPLOYED_TD\`"
+            echo "- Migration task: \`$MIGRATION_TASK\`"
+            echo "- REST smoke test: passed"
+            echo "- WebSocket smoke test: passed"
+          } >> "$GITHUB_STEP_SUMMARY"

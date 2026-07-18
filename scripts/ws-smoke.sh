@@ -3,10 +3,15 @@ set -euo pipefail
 
 BASE_URL="${1:?usage: ws-smoke.sh <base-url>}"
 ENDPOINT="${BASE_URL%/}/ws/"
+COOKIE_JAR=$(mktemp)
+trap 'rm -f "$COOKIE_JAR"' EXIT
 
 open_session() {
   local response
-  response=$(curl -fsS --max-time 10 --get "$ENDPOINT" \
+  response=$(curl -fsS --max-time 10 \
+    --cookie "$COOKIE_JAR" \
+    --cookie-jar "$COOKIE_JAR" \
+    --get "$ENDPOINT" \
     --data-urlencode 'EIO=4' \
     --data-urlencode 'transport=polling')
 
@@ -20,7 +25,10 @@ open_session() {
 
 poll_session() {
   local sid="$1"
-  curl -fsS --max-time 10 --get "$ENDPOINT" \
+  curl -fsS --max-time 10 \
+    --cookie "$COOKIE_JAR" \
+    --cookie-jar "$COOKIE_JAR" \
+    --get "$ENDPOINT" \
     --data-urlencode 'EIO=4' \
     --data-urlencode 'transport=polling' \
     --data-urlencode "sid=$sid"
@@ -29,7 +37,10 @@ poll_session() {
 connect_namespace() {
   local sid="$1"
   local packet="$2"
-  curl -fsS --max-time 10 -X POST "$ENDPOINT?EIO=4&transport=polling&sid=$sid" \
+  curl -fsS --max-time 10 \
+    --cookie "$COOKIE_JAR" \
+    --cookie-jar "$COOKIE_JAR" \
+    -X POST "$ENDPOINT?EIO=4&transport=polling&sid=$sid" \
     -H 'Content-Type: text/plain;charset=UTF-8' \
     --data-binary "$packet" > /dev/null
 }
@@ -44,7 +55,7 @@ fi
 echo "WebSocket unauthenticated rejection passed"
 
 if [ -z "${WS_ACCESS_TOKEN:-}" ]; then
-  echo "STAGING_WS_ACCESS_TOKEN is not configured; authenticated WebSocket smoke test skipped"
+  echo "WS_ACCESS_TOKEN is not configured; authenticated WebSocket smoke test skipped"
   exit 0
 fi
 

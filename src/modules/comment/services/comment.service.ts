@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NotificationType } from '@prisma/client';
+import { ClubAuthority, NotificationType } from '@prisma/client';
 import { AppException } from '../../../common/errors/app.exception';
 import { ClubRepository } from '../../club/repositories/club.repository';
 import { NotificationService } from '../../notification/services/notification.service';
@@ -327,7 +327,12 @@ export class CommentService {
     user: CommentListEntity['user'],
   ): CommentListAuthorDto | null {
     if (!user) {
-      return null;
+      return {
+        userId: null,
+        nickname: '탈퇴한 사용자',
+        profileImageUrl: null,
+        authority: ClubAuthority.GENERAL,
+      };
     }
 
     const clubUser = user.clubUsers[0];

@@ -85,7 +85,7 @@ export class ListMessagesQueryDto {
 }
 
 export type MessageSender = {
-  userId: number;
+  userId: number | null;
   nickname: string;
   profileImageUrl: string | null;
   isWithdrawn: boolean;
@@ -97,7 +97,7 @@ export type MessageItem = {
   text: string | null;
   mediaUrl: string | null;
   durationSec: number | null;
-  senderUserId: number;
+  senderUserId: number | null;
   sentAt: string;
   readAt: string | null;
   isMine: boolean;

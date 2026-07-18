@@ -730,7 +730,6 @@ export class UserRepository {
   async deleteAccount(userId: number) {
     const deletedAt = new Date();
     const userBigIntId = BigInt(userId);
-    const anonymizedEmail = `deleted-user-${userId}@deleted.local`;
 
     return this.prismaService.$transaction(async (tx) => {
       const user = await tx.user.findFirst({
@@ -745,19 +744,6 @@ export class UserRepository {
       if (!user) {
         return { count: 0 };
       }
-
-      const articleIds = (
-        await tx.article.findMany({
-          where: { userId: userBigIntId },
-          select: { id: true },
-        })
-      ).map((article) => article.id);
-      const participantIds = (
-        await tx.chatParticipant.findMany({
-          where: { userId: userBigIntId },
-          select: { id: true },
-        })
-      ).map((participant) => participant.id);
 
       await tx.refreshToken.deleteMany({ where: { userId: userBigIntId } });
       await tx.pushDeviceToken.deleteMany({ where: { userId: userBigIntId } });
@@ -820,79 +806,23 @@ export class UserRepository {
       });
       await tx.clubUser.deleteMany({ where: { userId: userBigIntId } });
 
-      if (articleIds.length > 0) {
-        await tx.articlePhoto.updateMany({
-          where: { articleId: { in: articleIds } },
-          data: {
-            photoUrl: '',
-            deletedAt,
-          },
-        });
-      }
-      await tx.comment.updateMany({
-        where: { userId: userBigIntId },
-        data: {
-          contents: '',
-          userId: null,
-          deletedAt,
-        },
-      });
-      await tx.article.updateMany({
-        where: { userId: userBigIntId },
-        data: {
-          title: '삭제된 게시물',
-          contents: '',
-          userId: null,
-          deletedAt,
-        },
-      });
-
-      if (participantIds.length > 0) {
-        await tx.chatMedia.deleteMany({
-          where: {
-            message: {
-              participantId: { in: participantIds },
-            },
-          },
-        });
-        await tx.chatMessage.updateMany({
-          where: { participantId: { in: participantIds } },
-          data: {
-            deletedAt,
-          },
-        });
-      }
-      await tx.chatRoom.updateMany({
-        where: { userId: userBigIntId },
-        data: { userId: null },
-      });
+      // 작성한 게시글/댓글과 채팅 메시지는 탈퇴 후에도 보존한다.
+      // 작성자 FK 역시 익명화된 User를 가리키도록 유지하여 조회 시
+      // '탈퇴한 사용자'로 표시하면서 대화와 콘텐츠의 맥락을 잃지 않게 한다.
       await tx.chatParticipant.updateMany({
         where: { userId: userBigIntId },
         data: {
-          userId: null,
           endedAt: deletedAt,
         },
       });
 
-      const result = await tx.user.updateMany({
+      // 콘텐츠의 FK는 ON DELETE SET NULL, 계정 종속 데이터는 ON DELETE CASCADE로
+      // 정리된다. User 행 자체를 제거해 개인정보와 내부 사용자 ID를 남기지 않는다.
+      const result = await tx.user.deleteMany({
         where: {
           id: userBigIntId,
           deletedAt: null,
           status: ActiveStatus.ACTIVE,
-        },
-        data: {
-          email: anonymizedEmail,
-          nickname: '탈퇴한 사용자',
-          age: 0,
-          code: null,
-          introText: '',
-          introVoiceUrl: '',
-          profileImageUrl: '',
-          idealVoiceUrl: null,
-          provider: null,
-          providerUserId: null,
-          status: ActiveStatus.INACTIVE,
-          deletedAt,
         },
       });
 

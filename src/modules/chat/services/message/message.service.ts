@@ -141,7 +141,8 @@ export class MessageService {
       page.map(async (msg) => {
         const media = msg.chatMedia[0] ?? null;
         const isSystem = (media?.type ?? 'TEXT') === 'SYSTEM';
-        const isMine = !isSystem && msg.sentById === me;
+        const isMine =
+          !isSystem && msg.sentById !== null && msg.sentById === me;
         const mediaUrl = await this.chatMediaService.toClientUrl(
           media?.url ?? null,
         );
@@ -156,7 +157,7 @@ export class MessageService {
           text: media?.text ?? null,
           mediaUrl,
           durationSec: media?.durationSec ?? null,
-          senderUserId: Number(msg.sentById),
+          senderUserId: msg.sentById === null ? null : Number(msg.sentById),
           sentAt: msg.sentAt.toISOString(),
           readAt,
           isMine,
@@ -211,7 +212,8 @@ export class MessageService {
       page.map(async (msg) => {
         const media = msg.chatMedia[0] ?? null;
         const isSystem = (media?.type ?? 'TEXT') === 'SYSTEM';
-        const isMine = !isSystem && msg.sentById === me;
+        const isMine =
+          !isSystem && msg.sentById !== null && msg.sentById === me;
         const mediaUrl = await this.chatMediaService.toClientUrl(
           media?.url ?? null,
         );
@@ -223,7 +225,7 @@ export class MessageService {
         // 읽은 인원수(발신자 제외) = lastReadAt >= sentAt 인 다른 활성 참여자 수
         const readCount = members.filter(
           (p) =>
-            p.userId !== msg.sentById &&
+            (msg.sentById === null || p.userId !== msg.sentById) &&
             p.lastReadAt != null &&
             p.lastReadAt >= msg.sentAt,
         ).length;
@@ -234,7 +236,7 @@ export class MessageService {
           text: media?.text ?? null,
           mediaUrl,
           durationSec: media?.durationSec ?? null,
-          senderUserId: Number(msg.sentById),
+          senderUserId: msg.sentById === null ? null : Number(msg.sentById),
           sentAt: msg.sentAt.toISOString(),
           readAt: null,
           isMine,
@@ -243,7 +245,7 @@ export class MessageService {
           sender: isSystem
             ? null
             : {
-                userId: Number(msg.sentById),
+                userId: msg.sentById === null ? null : Number(msg.sentById),
                 nickname: senderIdentity.nickname,
                 profileImageUrl: senderIdentity.profileImageUrl,
                 isWithdrawn: senderIdentity.isWithdrawn,

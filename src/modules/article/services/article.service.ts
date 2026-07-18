@@ -72,13 +72,7 @@ export class ArticleService {
         likeCount: article.likes,
         commentCount: article._count.comments,
         thumbnailUrl: firstPhoto ? firstPhoto.photoUrl : null,
-        author: article.user
-          ? {
-              userId: Number(article.user.id),
-              nickname: article.user.nickname,
-              profileImageUrl: article.user.profileImageUrl,
-            }
-          : null,
+        author: this.toArticleAuthor(article.user),
         createdAt: article.createdAt.toISOString(),
       } as ArticleListItemDto;
     });
@@ -387,13 +381,7 @@ export class ArticleService {
       viewCount: article.view,
       likeCount: article.likes,
       commentCount: article._count.comments,
-      author: article.user
-        ? {
-            userId: Number(article.user.id),
-            nickname: article.user.nickname,
-            profileImageUrl: article.user.profileImageUrl,
-          }
-        : null,
+      author: this.toArticleAuthor(article.user),
       photos: article.articlePhotos.map((photo) => ({
         photoId: Number(photo.id),
         photoUrl: photo.photoUrl,
@@ -475,12 +463,33 @@ export class ArticleService {
     }));
   }
 
+  private toArticleAuthor(
+    user: { id: bigint; nickname: string; profileImageUrl: string } | null,
+  ): ArticleListItemDto['author'] {
+    return user
+      ? {
+          userId: Number(user.id),
+          nickname: user.nickname,
+          profileImageUrl: user.profileImageUrl,
+        }
+      : {
+          userId: null,
+          nickname: '탈퇴한 사용자',
+          profileImageUrl: null,
+        };
+  }
+
   private toDetailAuthor(
     user: { id: bigint; nickname: string; profileImageUrl: string } | null,
     authorAuthorities: ArticleDetailResult['authorAuthorities'],
   ): ArticleDetailAuthorDto | null {
     if (!user) {
-      return null;
+      return {
+        userId: null,
+        nickname: '탈퇴한 사용자',
+        profileImageUrl: null,
+        authority: ClubAuthority.GENERAL,
+      };
     }
 
     return {

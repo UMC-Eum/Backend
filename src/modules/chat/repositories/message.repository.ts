@@ -17,7 +17,7 @@ export type MessageWithMedia = {
   id: bigint;
   sentAt: Date;
   readAt: Date | null;
-  sentById: bigint;
+  sentById: bigint | null;
   senderNickname: string | null;
   senderProfileImageUrl: string | null;
   senderStatus: ActiveStatus | null;
@@ -195,13 +195,13 @@ export class MessageRepository {
       },
     });
 
-    // participant.userId가 null인 경우(hard delete)만 0n fallback. soft-delete 탈퇴 유저는 userId가 유지되며
-    // 응답 단계에서 isWithdrawn으로 '탈퇴한 사용자' 표시를 처리한다. (withdrawn.util)
+    // hard delete된 회원은 participant.userId가 null이다. 참여자와 메시지는 보존하고
+    // 응답 단계에서 '탈퇴한 사용자'로 표시한다. (withdrawn.util)
     return rows.map((r) => ({
       id: r.id,
       sentAt: r.sentAt,
       readAt: r.readAt,
-      sentById: r.participant.userId ?? 0n,
+      sentById: r.participant.userId,
       senderNickname: r.participant.user?.nickname ?? null,
       senderProfileImageUrl: r.participant.user?.profileImageUrl ?? null,
       senderStatus: r.participant.user?.status ?? null,

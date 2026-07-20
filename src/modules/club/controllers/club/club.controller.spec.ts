@@ -175,6 +175,8 @@ describe('ClubController', () => {
       category: ClubCategory.HOBBY,
       introText: '더 즐겁게 모여요',
       introVoice: null,
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: ['https://cdn.example.com/clubs/12/images/1.jpg'],
       capacity: 60,
       updatedAt: '2026-05-01T20:25:00.000Z',
     };

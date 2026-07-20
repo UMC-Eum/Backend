@@ -204,6 +204,13 @@ export class ClubService {
     const updated = await this.clubRepository.updateClub({
       clubId: clubKey,
       data,
+      ...(dto.imageUrls !== undefined
+        ? {
+            imageUrls: dto.imageUrls.map((imageUrl) =>
+              normalizeS3ObjectRef(imageUrl),
+            ),
+          }
+        : {}),
       ...(analysis ? { vibeVector: analysis.vibeVector } : {}),
     });
 
@@ -333,6 +340,9 @@ export class ClubService {
     }
     if (dto.capacity !== undefined) data.capacity = dto.capacity;
     if (dto.category !== undefined) data.category = dto.category;
+    if (dto.thumbnailUrl !== undefined) {
+      data.thumbnailUrl = normalizeS3ObjectRef(dto.thumbnailUrl);
+    }
 
     return data;
   }
@@ -344,6 +354,8 @@ export class ClubService {
       category: row.category,
       introText: row.introText,
       introVoice: row.introVoiceUrl,
+      thumbnailUrl: row.thumbnailUrl,
+      imageUrls: row.clubImages.map((image) => image.imageUrl),
       capacity: row.capacity,
       updatedAt: row.updatedAt?.toISOString() ?? null,
     };

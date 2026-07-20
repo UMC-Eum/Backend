@@ -424,6 +424,7 @@ export class ClubController {
   @ModerateContent({
     surface: 'CLUB',
     textFields: ['name', 'introText'],
+    imageFields: ['thumbnailUrl', 'imageUrls'],
   })
   @ApiBearerAuth('access-token')
   @ApiOperation({
@@ -452,6 +453,17 @@ export class ClubController {
           introVoice: null,
         },
       },
+      updateImages: {
+        summary: '사진 수정',
+        value: {
+          thumbnailUrl:
+            's3://eum-voice-staging/images/42/club/thumbnail-v2.jpg',
+          imageUrls: [
+            's3://eum-voice-staging/images/42/club/1-v2.jpg',
+            's3://eum-voice-staging/images/42/club/2-v2.jpg',
+          ],
+        },
+      },
     },
   })
   @ApiOkResponse({
@@ -466,6 +478,11 @@ export class ClubController {
             category: 'HOBBY',
             introText: '더 즐겁게 모여요',
             introVoice: null,
+            thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail-v2.jpg',
+            imageUrls: [
+              'https://cdn.example.com/clubs/12/images/1-v2.jpg',
+              'https://cdn.example.com/clubs/12/images/2-v2.jpg',
+            ],
             capacity: 60,
             updatedAt: '2026-05-01T20:25:00.000Z',
           },

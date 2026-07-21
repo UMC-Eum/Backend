@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
@@ -30,6 +30,7 @@ type ProfileVisitorsCursor = {
 export class UserService {
   private static readonly DEFAULT_VISITORS_PAGE_SIZE = 20;
   private static readonly MAX_VISITORS_PAGE_SIZE = 50;
+  private readonly logger = new Logger(UserService.name);
 
   constructor(
     private readonly userRepository: UserRepository,
@@ -421,13 +422,20 @@ export class UserService {
 
     if (effectiveProvider === AuthProvider.APPLE) {
       const authorizationCode = payload.appleAuthorizationCode?.trim();
-      if (!authorizationCode) {
-        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
-          message:
-            'Apple 로그인 사용자는 탈퇴 전 Apple 재인증 authorization code가 필요합니다.',
-        });
+      if (authorizationCode) {
+        try {
+          await this.appleAuthService.revokeAuthorizationCode(
+            authorizationCode,
+          );
+        } catch {
+          // Apple recommends completing account deletion even when no
+          // revocable credential is available. Never log the authorization
+          // code or upstream response because both may contain credentials.
+          this.logger.warn(
+            `Apple token revocation failed during account deletion. userId=${userId}`,
+          );
+        }
       }
-      await this.appleAuthService.revokeAuthorizationCode(authorizationCode);
     }
 
     if (effectiveProvider === AuthProvider.KAKAO) {

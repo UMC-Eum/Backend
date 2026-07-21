@@ -469,7 +469,6 @@ export class AppleAuthService {
     birthdate: Date;
     introText: string;
     introVoiceUrl: string;
-    profileImageUrl: string;
     code: string | null;
   }) {
     return (
@@ -477,7 +476,6 @@ export class AppleAuthService {
         AppleAuthService.DEFAULT_BIRTHDATE.getTime() ||
       user.introText.trim() === '' ||
       user.introVoiceUrl === AppleAuthService.DEFAULT_INTRO_VOICE_URL ||
-      user.profileImageUrl === AppleAuthService.DEFAULT_PROFILE_IMAGE_URL ||
       user.code === null ||
       user.code === AppleAuthService.DEFAULT_ADDRESS_CODE
     );

@@ -229,6 +229,31 @@ export class UpdateClubRequestDto {
   @IsOptional()
   @IsEnum(ClubCategory)
   category?: ClubCategory;
+
+  @ApiPropertyOptional({
+    description: '클럽 대표 썸네일 이미지 S3 참조',
+    example: 's3://eum-voice-staging/images/42/club/thumbnail-v2.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  thumbnailUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '클럽 추가 이미지 S3 참조 목록. 제공하면 기존 추가 이미지 목록을 전체 교체합니다. 빈 배열이면 추가 이미지를 모두 제거합니다.',
+    example: [
+      's3://eum-voice-staging/images/42/club/1-v2.jpg',
+      's3://eum-voice-staging/images/42/club/2-v2.jpg',
+    ],
+    isArray: true,
+    maxItems: 4,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  imageUrls?: string[];
 }
 
 export class UpdateClubResponseDto {
@@ -258,6 +283,22 @@ export class UpdateClubResponseDto {
     nullable: true,
   })
   introVoice: string | null;
+
+  @ApiProperty({
+    description: '클럽 대표 썸네일 이미지 URL',
+    example: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+    nullable: true,
+  })
+  thumbnailUrl: string | null;
+
+  @ApiProperty({
+    description: '클럽 추가 이미지 URL 목록',
+    example: [
+      'https://cdn.example.com/clubs/12/images/1.jpg',
+      'https://cdn.example.com/clubs/12/images/2.jpg',
+    ],
+  })
+  imageUrls: string[];
 
   @ApiProperty({ description: '정원', example: 60 })
   capacity: number;

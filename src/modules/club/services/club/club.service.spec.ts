@@ -429,6 +429,13 @@ describe('ClubService', () => {
       category: ClubCategory.HOBBY,
       introVoiceUrl: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [
+        {
+          imageUrl: 'https://cdn.example.com/clubs/12/images/1.jpg',
+          sortOrder: 1,
+        },
+      ],
       capacity: 30,
       updatedAt: new Date('2026-05-01T20:25:00.000Z'),
     });
@@ -441,6 +448,8 @@ describe('ClubService', () => {
       category: ClubCategory.HOBBY,
       introVoice: 'https://cdn.example.com/voice/12.mp3',
       introText: '등산으로 친해져요',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      imageUrls: ['https://cdn.example.com/clubs/12/images/1.jpg'],
       capacity: 30,
       updatedAt: '2026-05-01T20:25:00.000Z',
     });
@@ -468,6 +477,8 @@ describe('ClubService', () => {
       category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '더 즐겁게 모여요',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [],
       capacity: 60,
       updatedAt: null,
     });
@@ -504,6 +515,8 @@ describe('ClubService', () => {
       category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '등산으로 친해져요',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [],
       capacity: 30,
       updatedAt: null,
     });
@@ -528,6 +541,8 @@ describe('ClubService', () => {
       category: ClubCategory.HOBBY,
       introVoiceUrl: null,
       introText: '등산으로 친해져요',
+      thumbnailUrl: 'https://cdn.example.com/clubs/12/thumbnail.jpg',
+      clubImages: [],
       capacity: 30,
       updatedAt: null,
     });
@@ -537,6 +552,61 @@ describe('ClubService', () => {
     expect(updateClub).toHaveBeenCalledWith({
       clubId: 12n,
       data: {},
+    });
+  });
+
+  it('호스트가 클럽 사진을 수정하면 썸네일과 추가 이미지 목록을 교체한다', async () => {
+    findById.mockResolvedValue({
+      id: 12n,
+      hostId: 7n,
+      deletedAt: null,
+    });
+    updateClub.mockResolvedValue({
+      id: 12n,
+      name: '등산 러버즈',
+      category: ClubCategory.HOBBY,
+      introVoiceUrl: null,
+      introText: '등산으로 친해져요',
+      thumbnailUrl: 's3://bucket/images/7/club/thumbnail-v2.jpg',
+      clubImages: [
+        {
+          imageUrl: 's3://bucket/images/7/club/1-v2.jpg',
+          sortOrder: 1,
+        },
+        {
+          imageUrl: 's3://bucket/images/7/club/2-v2.jpg',
+          sortOrder: 2,
+        },
+      ],
+      capacity: 30,
+      updatedAt: null,
+    });
+
+    await expect(
+      service.updateClub(7, 12, {
+        thumbnailUrl: 's3://bucket/images/7/club/thumbnail-v2.jpg',
+        imageUrls: [
+          's3://bucket/images/7/club/1-v2.jpg',
+          's3://bucket/images/7/club/2-v2.jpg',
+        ],
+      }),
+    ).resolves.toMatchObject({
+      thumbnailUrl: 's3://bucket/images/7/club/thumbnail-v2.jpg',
+      imageUrls: [
+        's3://bucket/images/7/club/1-v2.jpg',
+        's3://bucket/images/7/club/2-v2.jpg',
+      ],
+    });
+
+    expect(updateClub).toHaveBeenCalledWith({
+      clubId: 12n,
+      data: {
+        thumbnailUrl: 's3://bucket/images/7/club/thumbnail-v2.jpg',
+      },
+      imageUrls: [
+        's3://bucket/images/7/club/1-v2.jpg',
+        's3://bucket/images/7/club/2-v2.jpg',
+      ],
     });
   });
 

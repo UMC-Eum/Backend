@@ -27,7 +27,10 @@ import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
-import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import {
+  UserIdealPersonalitiesUpdateRequestDto,
+  UserIdealPersonalitiesUpdateResponseDto,
+} from '../../dtos/user-ideal-personalities-update-request.dto';
 import {
   UserClubsResponseDto,
   UserLikedClubsResponseDto,
@@ -225,7 +228,7 @@ export class UserController {
   @Put('me/ideal-personalities')
   @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Update my ideal personalities' })
-  @ApiOkResponse({ schema: { example: null } })
+  @ApiOkResponse({ type: UserIdealPersonalitiesUpdateResponseDto })
   updateIdealPersonalities(
     @CurrentUser('userId') userId: number | null,
     @Body() body: UserIdealPersonalitiesUpdateRequestDto,

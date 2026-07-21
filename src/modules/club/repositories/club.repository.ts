@@ -216,6 +216,22 @@ export class ClubRepository {
         });
       }
 
+      if (params.imageUrls !== undefined) {
+        await tx.clubImage.deleteMany({
+          where: { clubId: params.clubId },
+        });
+
+        if (params.imageUrls.length > 0) {
+          await tx.clubImage.createMany({
+            data: params.imageUrls.map((imageUrl, index) => ({
+              clubId: params.clubId,
+              imageUrl,
+              sortOrder: index + 1,
+            })),
+          });
+        }
+      }
+
       if (vibeVectorLiteral !== undefined) {
         await tx.$executeRaw`
           UPDATE "Club"

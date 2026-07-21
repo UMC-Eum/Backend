@@ -116,10 +116,21 @@ export const UPDATE_CLUB_SELECT = {
   id: true,
   name: true,
   category: true,
+  thumbnailUrl: true,
   introVoiceUrl: true,
   introText: true,
   capacity: true,
   updatedAt: true,
+  clubImages: {
+    where: { deletedAt: null },
+    select: {
+      imageUrl: true,
+      sortOrder: true,
+    },
+    orderBy: {
+      sortOrder: 'asc',
+    },
+  },
 } satisfies Prisma.ClubSelect;
 
 export type UpdatedClubRow = Prisma.ClubGetPayload<{
@@ -129,6 +140,7 @@ export type UpdatedClubRow = Prisma.ClubGetPayload<{
 export interface UpdateClubRepositoryParams {
   clubId: bigint;
   data: Prisma.ClubUpdateInput;
+  imageUrls?: string[];
   vibeVector?: number[];
 }
 

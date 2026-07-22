@@ -187,7 +187,6 @@ export class KakaoAuthService {
     birthdate: Date;
     introText: string;
     introVoiceUrl: string;
-    profileImageUrl: string;
     code: string | null;
   }) {
     return (
@@ -195,7 +194,6 @@ export class KakaoAuthService {
         KakaoAuthService.DEFAULT_BIRTHDATE.getTime() ||
       user.introText.trim() === '' ||
       user.introVoiceUrl === KakaoAuthService.DEFAULT_INTRO_VOICE_URL ||
-      user.profileImageUrl === KakaoAuthService.DEFAULT_PROFILE_IMAGE_URL ||
       user.code === null ||
       user.code === KakaoAuthService.DEFAULT_ADDRESS_CODE
     );

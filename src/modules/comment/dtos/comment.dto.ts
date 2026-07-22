@@ -118,14 +118,17 @@ export class ListCommentsQueryDto {
 }
 
 export class CommentListAuthorDto {
-  @ApiProperty({ example: 7 })
-  userId!: number;
+  @ApiProperty({ example: 7, nullable: true })
+  userId!: number | null;
 
   @ApiProperty({ example: '보이스마스터' })
   nickname!: string;
 
-  @ApiProperty({ example: 'https://cdn.example.com/profile/7.jpg' })
-  profileImageUrl!: string;
+  @ApiProperty({
+    example: 'https://cdn.example.com/profile/7.jpg',
+    nullable: true,
+  })
+  profileImageUrl!: string | null;
 
   @ApiProperty({ enum: ClubAuthority, example: ClubAuthority.HOST })
   authority!: ClubAuthority;

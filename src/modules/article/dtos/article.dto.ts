@@ -3,16 +3,17 @@ import { ArticleCategory, ClubAuthority } from '@prisma/client';
 import { IsBoolean } from 'class-validator';
 
 export class ArticleAuthorDto {
-  @ApiProperty({ example: 42 })
-  userId!: number;
+  @ApiProperty({ example: 42, nullable: true })
+  userId!: number | null;
 
   @ApiProperty({ example: '달콤한목소리' })
   nickname!: string;
 
   @ApiProperty({
     example: 'https://cdn.example.com/profile/42.jpg',
+    nullable: true,
   })
-  profileImageUrl!: string;
+  profileImageUrl!: string | null;
 }
 
 export class ArticleDetailAuthorDto extends ArticleAuthorDto {

@@ -18,6 +18,27 @@ describe('UserIdealPersonalitiesUpdateRequestDto', () => {
     expect(errors).toEqual([]);
   });
 
+  it('allows matchedKeywords without personalityKeywords', async () => {
+    const errors = await validateDto({
+      matchedKeywords: [
+        {
+          category: 'PERSONALITY',
+          id: 1,
+          keyword: '차분함',
+          score: 0.86,
+        },
+        {
+          category: 'INTEREST',
+          id: 13,
+          keyword: '요리',
+          score: 0.75,
+        },
+      ],
+    });
+
+    expect(errors).toEqual([]);
+  });
+
   it('still rejects unrelated unknown fields', async () => {
     const errors = await validateDto({
       personalityKeywords: ['차분함', '신중함'],

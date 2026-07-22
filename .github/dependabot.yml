@@ -9,10 +9,12 @@ updates:
       timezone: Asia/Seoul
     open-pull-requests-limit: 1
     groups:
-      npm-version-updates:
+      prisma-version-updates:
         applies-to: version-updates
         patterns:
-          - '*'
+          - prisma
+          - '@prisma/client'
+          - '@prisma/adapter-pg'
       npm-security-updates:
         applies-to: security-updates
         patterns:
@@ -27,10 +29,6 @@ updates:
       timezone: Asia/Seoul
     open-pull-requests-limit: 1
     groups:
-      github-actions-version-updates:
-        applies-to: version-updates
-        patterns:
-          - '*'
       github-actions-security-updates:
         applies-to: security-updates
         patterns:

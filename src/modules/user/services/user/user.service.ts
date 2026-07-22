@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AuthProvider } from '@prisma/client';
 import { AppException } from '../../../../common/errors/app.exception';
 import { UserMeResponseDto } from '../../dtos/user-me-response.dto';
 import { UserProfileUpdateRequestDto } from '../../dtos/user-profile-update-request.dto';
 import { UserInterestsUpdateRequestDto } from '../../dtos/user-interests-update-request.dto';
 import { UserPersonalitiesUpdateRequestDto } from '../../dtos/user-personalities-update-request.dto';
-import { UserIdealPersonalitiesUpdateRequestDto } from '../../dtos/user-ideal-personalities-update-request.dto';
+import {
+  UserIdealPersonalitiesUpdateRequestDto,
+  UserIdealPersonalitiesUpdateResponseDto,
+} from '../../dtos/user-ideal-personalities-update-request.dto';
 import { DeleteAccountRequestDto } from '../../dtos/delete-account-request.dto';
 import {
   UserClubsResponseDto,
@@ -27,6 +30,7 @@ type ProfileVisitorsCursor = {
 export class UserService {
   private static readonly DEFAULT_VISITORS_PAGE_SIZE = 20;
   private static readonly MAX_VISITORS_PAGE_SIZE = 50;
+  private readonly logger = new Logger(UserService.name);
 
   constructor(
     private readonly userRepository: UserRepository,
@@ -418,13 +422,20 @@ export class UserService {
 
     if (effectiveProvider === AuthProvider.APPLE) {
       const authorizationCode = payload.appleAuthorizationCode?.trim();
-      if (!authorizationCode) {
-        throw new AppException('VALIDATION_REQUIRED_FIELD_MISSING', {
-          message:
-            'Apple 로그인 사용자는 탈퇴 전 Apple 재인증 authorization code가 필요합니다.',
-        });
+      if (authorizationCode) {
+        try {
+          await this.appleAuthService.revokeAuthorizationCode(
+            authorizationCode,
+          );
+        } catch {
+          // Apple recommends completing account deletion even when no
+          // revocable credential is available. Never log the authorization
+          // code or upstream response because both may contain credentials.
+          this.logger.warn(
+            `Apple token revocation failed during account deletion. userId=${userId}`,
+          );
+        }
       }
-      await this.appleAuthService.revokeAuthorizationCode(authorizationCode);
     }
 
     if (effectiveProvider === AuthProvider.KAKAO) {
@@ -477,17 +488,32 @@ export class UserService {
   async updateIdealPersonalities(
     userId: number,
     payload: UserIdealPersonalitiesUpdateRequestDto,
-  ): Promise<null> {
+  ): Promise<UserIdealPersonalitiesUpdateResponseDto> {
     if (!userId) {
       throw new AppException('AUTH_LOGIN_REQUIRED');
     }
 
-    await this.updateIdealPersonalitiesByBodies(
+    const personalityKeywords =
+      payload.matchedKeywords !== undefined
+        ? this.extractPersonalityKeywords(payload.matchedKeywords)
+        : (payload.personalityKeywords ?? []);
+
+    const idealPersonalities = await this.updateIdealPersonalitiesByBodies(
       userId,
-      payload.personalityKeywords,
+      personalityKeywords,
     );
 
-    return null;
+    return { idealPersonalities };
+  }
+
+  private extractPersonalityKeywords(
+    matchedKeywords: NonNullable<
+      UserIdealPersonalitiesUpdateRequestDto['matchedKeywords']
+    >,
+  ): string[] {
+    return matchedKeywords
+      .filter((item) => item.category.trim().toUpperCase() === 'PERSONALITY')
+      .map((item) => item.keyword);
   }
 
   // 키워드 검증 + 에러 처리
@@ -560,7 +586,7 @@ export class UserService {
   private async updateIdealPersonalitiesByBodies(
     userId: number,
     personalities: string[],
-  ): Promise<void> {
+  ): Promise<string[]> {
     const normalized = personalities
       .map((personality) => personality.trim())
       .filter(Boolean);
@@ -568,7 +594,7 @@ export class UserService {
 
     if (uniquePersonalities.length === 0) {
       await this.userRepository.updateIdealPersonalities(userId, []);
-      return;
+      return [];
     }
 
     const entries = await this.userRepository.findAllPersonalities();
@@ -598,6 +624,7 @@ export class UserService {
       return Number(entry!.id);
     });
     await this.userRepository.updateIdealPersonalities(userId, ids);
+    return uniquePersonalities;
   }
 
   private parseVisitorsPageSize(size?: string): number {

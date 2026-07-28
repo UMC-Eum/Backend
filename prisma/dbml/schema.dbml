@@ -67,6 +67,18 @@ Table LocalAuthAccount {
   user User [not null]
 }
 
+Table EmailVerification {
+  id BigInt [pk, increment]
+  email String [not null]
+  codeHash String [not null]
+  purpose String [not null]
+  attemptCount Int [not null, default: 0]
+  expiresAt DateTime [not null]
+  verifiedAt DateTime
+  consumedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+}
+
 Table RefreshToken {
   id BigInt [pk, increment]
   userId BigInt [not null]

@@ -153,6 +153,7 @@ export class ClubService {
     return {
       items: rows.map((row) => ({
         clubId: row.clubId.toString(),
+        addressCode: row.addressCode,
         name: row.name,
         category: row.category,
         introText: row.introText,

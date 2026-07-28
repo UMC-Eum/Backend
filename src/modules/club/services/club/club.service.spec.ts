@@ -137,9 +137,11 @@ describe('ClubService', () => {
     findManyForList.mockResolvedValue([
       {
         id: 12n,
+        code: '1168000000',
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,
+        capacity: 30,
         thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
         likes: 142,
         createdAt: new Date('2026-03-01T00:00:00.000Z'),
@@ -152,9 +154,11 @@ describe('ClubService', () => {
       },
       {
         id: 11n,
+        code: '1168000000',
         name: '러닝 클럽',
         introText: null,
         category: ClubCategory.SPORTS,
+        capacity: 20,
         thumbnailUrl: null,
         likes: 100,
         createdAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -184,10 +188,12 @@ describe('ClubService', () => {
     expect(result.items).toEqual([
       {
         clubId: '12',
+        addressCode: '1168000000',
         hostNickname: '보이스마스터',
         name: '등산 러버즈',
         introText: '등산으로 친해져요',
         category: ClubCategory.HOBBY,
+        capacity: 30,
         thumbnailUrl: 'https://cdn.example.com/clubs/12.jpg',
         likes: 142,
         memberCount: 18,
@@ -380,6 +386,7 @@ describe('ClubService', () => {
     findTodayRecommendedClubs.mockResolvedValue([
       {
         clubId: 12n,
+        addressCode: '1168000000',
         name: '등산 러버즈',
         category: ClubCategory.OTHERS,
         introText: '등산으로 친해져요',
@@ -398,6 +405,7 @@ describe('ClubService', () => {
       items: [
         {
           clubId: '12',
+          addressCode: '1168000000',
           name: '등산 러버즈',
           category: ClubCategory.OTHERS,
           introText: '등산으로 친해져요',

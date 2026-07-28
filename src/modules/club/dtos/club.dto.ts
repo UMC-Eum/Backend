@@ -407,6 +407,13 @@ export class ClubListItemDto {
   clubId: string;
 
   @ApiProperty({
+    description: '동/읍/면 주소 코드',
+    example: '1168000000',
+    nullable: true,
+  })
+  addressCode: string | null;
+
+  @ApiProperty({
     description: '호스트 닉네임',
     example: '보이스마스터',
     nullable: true,
@@ -429,6 +436,9 @@ export class ClubListItemDto {
     example: ClubCategory.HOBBY,
   })
   category: ClubCategory;
+
+  @ApiProperty({ description: '정원', example: 30 })
+  capacity: number;
 
   @ApiProperty({
     description: '클럽 썸네일 URL',
@@ -703,6 +713,13 @@ export class TodayRecommendedClubHostDto {
 export class TodayRecommendedClubItemDto {
   @ApiProperty({ description: '클럽 ID', example: '12' })
   clubId: string;
+
+  @ApiProperty({
+    description: '동/읍/면 주소 코드',
+    example: '1168000000',
+    nullable: true,
+  })
+  addressCode: string | null;
 
   @ApiProperty({ description: '클럽 이름', example: '등산 러버즈' })
   name: string;

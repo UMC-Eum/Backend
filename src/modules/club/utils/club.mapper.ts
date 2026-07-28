@@ -12,6 +12,7 @@ import { ActiveStatus, ClubAuthority, DayOfWeek } from '@prisma/client';
 export function toClubListItemDto(row: ClubListRow): ClubListItemDto {
   return {
     clubId: row.id.toString(),
+    addressCode: row.code,
     hostNickname:
       row.user &&
       row.user.deletedAt === null &&
@@ -21,6 +22,7 @@ export function toClubListItemDto(row: ClubListRow): ClubListItemDto {
     name: row.name,
     introText: row.introText,
     category: row.category,
+    capacity: row.capacity,
     thumbnailUrl: row.thumbnailUrl,
     likes: row.likes,
     memberCount: row._count.clubUsers,

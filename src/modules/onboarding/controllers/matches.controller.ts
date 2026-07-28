@@ -136,6 +136,7 @@ export class MatchesController {
                 thumbnailUrl:
                   'https://cdn.example.com/clubs/dummy-remaining-2.jpg',
                 capacity: 24,
+                memberCount: 18,
                 likes: 55,
                 similarityScore: 0.5109,
               },
@@ -151,6 +152,7 @@ export class MatchesController {
                   '새로운 카페를 찾아다니며 부담 없이 영어로 대화하는 모임입니다. 완벽한 영어보다 꾸준히 말해보는 용기를 중요하게 생각하고, 서로 틀린 표현도 부드럽게 도와주는 분위기입니다.',
                 thumbnailUrl: 'https://cdn.example.com/clubs/dummy-4.jpg',
                 capacity: 16,
+                memberCount: 9,
                 likes: 28,
                 similarityScore: 0.5098,
               },

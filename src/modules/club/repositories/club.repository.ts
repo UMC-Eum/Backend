@@ -526,6 +526,7 @@ export class ClubRepository {
     return this.prisma.$queryRaw<TodayRecommendedClubRow[]>(Prisma.sql`
       SELECT
         c."id" AS "clubId",
+        c."code" AS "addressCode",
         c."name",
         c."category"::text AS "category",
         c."introText",
@@ -567,6 +568,38 @@ export class ClubRepository {
         c."id" DESC
       LIMIT ${limit}
     `);
+  }
+
+  async findActiveMemberCountsByClubIds(
+    clubIds: bigint[],
+  ): Promise<Map<string, number>> {
+    if (clubIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.prisma.club.findMany({
+      where: {
+        id: { in: clubIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            clubUsers: {
+              where: {
+                leftAt: null,
+                status: ClubUserStatus.ACTIVE,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return new Map(
+      rows.map((row) => [row.id.toString(), row._count.clubUsers]),
+    );
   }
 
   private createdClubSelect() {

@@ -68,11 +68,19 @@ Attach a least-privilege policy allowing:
 
 ## 3. Branch protection
 
+Under `Settings` -> `Security` -> `Advanced Security`, verify that Dependency
+graph, Dependabot alerts, and Dependabot security updates are enabled before
+using `Dependency Review`.
+
 Protect `dev`, require pull requests, and require these checks before merge:
 
 - `Quality, Unit Tests & Build`
 - `Database Migration & E2E`
 - `Validate branch name`
+
+`Dependency Review` is intentionally informational. Do not add it as a required
+status check; a failed security review should remain visible without blocking
+the merge.
 
 Restrict direct pushes to `dev`. Keep the staging environment without manual approval; production should use a separate protected environment when its pipeline is introduced.
 

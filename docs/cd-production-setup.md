@@ -52,6 +52,10 @@ Protect `main`, require pull requests, and require the CI checks already used by
 - `Quality, Unit Tests & Build`
 - `Database Migration & E2E`
 
+`Dependency Review` and `Full Production Dependency Audit` are intentionally
+informational. Do not add them as required status checks; failed security checks
+remain visible on the release PR without blocking the merge.
+
 Create an active tag ruleset targeting `v*.*.*`. Restrict tag creation to the
 release operators and prevent updates, deletions, and force pushes. Production
 workflow validation additionally rejects lightweight tags, prerelease strings,

@@ -214,15 +214,16 @@ GET /api/v1/health/fastapi
 
 * Install (`npm ci`)
 * Prisma generate
-* PR dependency review (runtime 의존성 변경으로 새로 유입되는 `high` 이상 취약점 차단)
+* PR dependency review (runtime 의존성 변경으로 새로 유입되는 `high` 이상 취약점 표시)
 * Lint / typecheck / unit tests + coverage artifact / production build
 * 빈 PostgreSQL(pgvector) DB에 Prisma migration 적용 후 e2e test
 
 **Dependency security audit** (`.github/workflows/dependency-audit.yml`):
 
 * 매주 월요일 09:00(KST) 및 수동 실행 시 전체 production dependency audit
-* `dev` → `main` 릴리스 PR에서 전체 `npm audit --omit=dev --audit-level=high` 통과 필수
-* 일반 PR은 기존 전체 취약점이 아니라 해당 PR이 새로 추가한 취약점만 차단
+* `dev` → `main` 릴리스 PR에서 전체 `npm audit --omit=dev --audit-level=high` 실행
+* 일반 PR은 기존 전체 취약점이 아니라 해당 PR이 새로 추가한 취약점만 검사
+* 보안 검사는 실패 상태를 표시하지만 Ruleset의 필수 체크로 등록하지 않아 머지를 차단하지 않음
 
 **CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd-staging.yml`):
 

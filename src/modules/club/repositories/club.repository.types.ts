@@ -19,9 +19,11 @@ export interface ListClubsRepositoryParams {
 
 export const CLUB_LIST_SELECT = {
   id: true,
+  code: true,
   name: true,
   introText: true,
   category: true,
+  capacity: true,
   thumbnailUrl: true,
   likes: true,
   createdAt: true,
@@ -154,6 +156,7 @@ export interface TopHostRow {
 
 export interface TodayRecommendedClubRow {
   clubId: bigint;
+  addressCode: string | null;
   name: string;
   category: ClubCategory;
   introText: string | null;

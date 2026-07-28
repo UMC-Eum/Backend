@@ -28,6 +28,13 @@ export class UserClubItemDto {
   code!: string | null;
 
   @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  addressCode!: string | null;
+
+  @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',
     nullable: true,
   })
@@ -79,6 +86,13 @@ export class UserLikedClubItemDto {
     description: '동호회 지역 코드',
   })
   code!: string | null;
+
+  @ApiPropertyOptional({
+    example: '1168000000',
+    nullable: true,
+    description: '동호회 지역 코드',
+  })
+  addressCode!: string | null;
 
   @ApiPropertyOptional({
     example: '테스트용 동호회입니다.',

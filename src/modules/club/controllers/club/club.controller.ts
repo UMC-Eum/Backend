@@ -192,13 +192,16 @@ export class ClubController {
             items: [
               {
                 clubId: '1',
+                addressCode: '1168000000',
                 hostNickname: '보이스마스터',
                 name: '새벽 등산 모임',
                 introText: '함께 새벽 산행할 분들 모집해요.',
                 category: 'HOBBY',
+                capacity: 30,
                 thumbnailUrl: 'https://cdn.example.com/clubs/1.jpg',
                 likes: 32,
                 memberCount: 12,
+                createdAt: '2026-05-01T20:25:00.000Z',
               },
             ],
           },
@@ -260,6 +263,7 @@ export class ClubController {
             items: [
               {
                 clubId: '12',
+                addressCode: '1168000000',
                 name: '등산 러버즈',
                 category: 'HOBBY',
                 introText: '등산으로 친해져요',

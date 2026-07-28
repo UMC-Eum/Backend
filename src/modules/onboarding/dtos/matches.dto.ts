@@ -95,6 +95,9 @@ export class RecommendedClubDto {
   @ApiProperty({ description: '정원', example: 24 })
   capacity: number;
 
+  @ApiProperty({ description: '활성 멤버 수', example: 18 })
+  memberCount: number;
+
   @ApiProperty({ description: '좋아요 수', example: 55 })
   likes: number;
 

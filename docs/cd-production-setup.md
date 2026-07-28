@@ -46,11 +46,19 @@ contain only values intentionally shared with staging.
 
 ## 2. GitHub tag and main protection
 
-Protect `main`, require pull requests, and require the CI checks already used by
-`dev`:
+Protect `main`, require pull requests, and require these checks:
 
 - `Quality, Unit Tests & Build`
 - `Database Migration & E2E`
+- `Dependency Review`
+- `Full Production Dependency Audit`
+- `Validate branch name`
+
+`Dependency Review` blocks High-or-higher vulnerabilities introduced by the
+release diff. `Full Production Dependency Audit` runs only for the repository's
+`dev` to `main` release PR and blocks the release while any High-or-higher
+production dependency vulnerability remains. Keep the full audit required on
+`main` only; feature PRs targeting `dev` intentionally do not run it.
 
 Create an active tag ruleset targeting `v*.*.*`. Restrict tag creation to the
 release operators and prevent updates, deletions, and force pushes. Production

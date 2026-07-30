@@ -211,10 +211,10 @@ describe('ClubController', () => {
     };
     listTopHosts.mockResolvedValue(response);
 
-    await expect(controller.listTopHosts({ limit: 10 })).resolves.toBe(
+    await expect(controller.listTopHosts(7, { limit: 10 })).resolves.toBe(
       response,
     );
-    expect(listTopHosts).toHaveBeenCalledWith(10);
+    expect(listTopHosts).toHaveBeenCalledWith(7, 10);
   });
 
   it('오늘의 동호회 추천 조회를 service에 위임한다', async () => {
@@ -241,9 +241,9 @@ describe('ClubController', () => {
     listTodayRecommendedClubs.mockResolvedValue(response);
 
     await expect(
-      controller.listTodayRecommendedClubs({ limit: 10 }),
+      controller.listTodayRecommendedClubs(7, { limit: 10 }),
     ).resolves.toBe(response);
-    expect(listTodayRecommendedClubs).toHaveBeenCalledWith(10);
+    expect(listTodayRecommendedClubs).toHaveBeenCalledWith(7, 10);
   });
 
   it('클럽 상세 조회를 service에 위임한다', async () => {

@@ -19,6 +19,7 @@ describe('ClubService', () => {
   const findTodayRecommendedClubs = jest.fn();
   const findDetailById = jest.fn();
   const findClubUserState = jest.fn();
+  const hasActiveBlockBetween = jest.fn();
   const hasClubLike = jest.fn();
   const createClubLike = jest.fn();
   const deleteClubLike = jest.fn();
@@ -80,6 +81,7 @@ describe('ClubService', () => {
     findTodayRecommendedClubs.mockReset();
     findDetailById.mockReset();
     findClubUserState.mockReset();
+    hasActiveBlockBetween.mockReset();
     hasClubLike.mockReset();
     createClubLike.mockReset();
     deleteClubLike.mockReset();
@@ -103,6 +105,7 @@ describe('ClubService', () => {
             findTodayRecommendedClubs,
             findDetailById,
             findClubUserState,
+            hasActiveBlockBetween,
             hasClubLike,
             createClubLike,
             deleteClubLike,
@@ -178,6 +181,7 @@ describe('ClubService', () => {
 
     expect(findProfileById).toHaveBeenCalledWith(7);
     expect(findManyForList).toHaveBeenCalledWith({
+      viewerId: 7n,
       keyword: undefined,
       category: undefined,
       code: '1168000000',
@@ -368,7 +372,7 @@ describe('ClubService', () => {
       },
     ]);
 
-    await expect(service.listTopHosts(10)).resolves.toEqual({
+    await expect(service.listTopHosts(7, 10)).resolves.toEqual({
       hosts: [
         {
           hostId: '42',
@@ -379,7 +383,7 @@ describe('ClubService', () => {
         },
       ],
     });
-    expect(findTopHosts).toHaveBeenCalledWith(10);
+    expect(findTopHosts).toHaveBeenCalledWith(7n, 10);
   });
 
   it('오늘의 동호회 추천 목록을 DTO로 변환한다', async () => {
@@ -401,7 +405,7 @@ describe('ClubService', () => {
       },
     ]);
 
-    await expect(service.listTodayRecommendedClubs(10)).resolves.toEqual({
+    await expect(service.listTodayRecommendedClubs(7, 10)).resolves.toEqual({
       items: [
         {
           clubId: '12',
@@ -422,7 +426,7 @@ describe('ClubService', () => {
         },
       ],
     });
-    expect(findTodayRecommendedClubs).toHaveBeenCalledWith(10);
+    expect(findTodayRecommendedClubs).toHaveBeenCalledWith(7n, 10);
   });
 
   it('호스트가 name만 수정하면 업데이트 결과를 반환한다', async () => {

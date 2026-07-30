@@ -265,6 +265,18 @@ export class ClubRepository {
     });
   }
 
+  async hasActiveBlockBetween(
+    viewerId: bigint,
+    targetUserId: bigint,
+  ): Promise<boolean> {
+    const block = await this.prisma.block.findFirst({
+      where: this.activeBlockBetweenWhere(viewerId, targetUserId),
+      select: { id: true },
+    });
+
+    return Boolean(block);
+  }
+
   // 동호회에 대한 유저의 상태를 반환한다. (가입 여부, 권한, 탈퇴 여부 등)
   async findClubUserState(
     clubId: bigint,
@@ -385,6 +397,17 @@ export class ClubRepository {
   ): Prisma.ClubWhereInput {
     const and: Prisma.ClubWhereInput[] = [{ deletedAt: null }];
 
+    and.push({
+      OR: [
+        { hostId: null },
+        {
+          user: {
+            is: this.visibleUserWhere(params.viewerId),
+          },
+        },
+      ],
+    });
+
     if (params.keyword) {
       and.push({
         OR: [
@@ -439,7 +462,7 @@ export class ClubRepository {
     return [{ likes: 'desc' }, { id: 'desc' }];
   }
 
-  async findTopHosts(limit: number): Promise<TopHostRow[]> {
+  async findTopHosts(viewerId: bigint, limit: number): Promise<TopHostRow[]> {
     const rows = await this.prisma.club.groupBy({
       by: ['hostId'],
 
@@ -448,6 +471,10 @@ export class ClubRepository {
 
         hostId: {
           not: null,
+        },
+
+        user: {
+          is: this.visibleUserWhere(viewerId),
         },
       },
 
@@ -521,6 +548,7 @@ export class ClubRepository {
   }
 
   async findTodayRecommendedClubs(
+    viewerId: bigint,
     limit: number,
   ): Promise<TodayRecommendedClubRow[]> {
     return this.prisma.$queryRaw<TodayRecommendedClubRow[]>(Prisma.sql`
@@ -559,6 +587,16 @@ export class ClubRepository {
         AND c."hostId" IS NOT NULL
         AND u."deletedAt" IS NULL
         AND u."status" = ${ActiveStatus.ACTIVE}::"ActiveStatus"
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "Block" b
+          WHERE b."status" = 'BLOCKED'::"BlockStatus"
+            AND b."deletedAt" IS NULL
+            AND (
+              (b."blockedById" = ${viewerId} AND b."blockedId" = u."id")
+              OR (b."blockedById" = u."id" AND b."blockedId" = ${viewerId})
+            )
+        )
         AND COALESCE(active_members."memberCount", 0) < c."capacity"
       ORDER BY
         "recommendationScore" DESC,
@@ -568,6 +606,33 @@ export class ClubRepository {
         c."id" DESC
       LIMIT ${limit}
     `);
+  }
+
+  async findVisibleClubIdsByClubIds(
+    clubIds: bigint[],
+    viewerId: bigint,
+  ): Promise<Set<string>> {
+    if (clubIds.length === 0) {
+      return new Set();
+    }
+
+    const rows = await this.prisma.club.findMany({
+      where: {
+        id: { in: clubIds },
+        deletedAt: null,
+        OR: [
+          { hostId: null },
+          {
+            user: {
+              is: this.visibleUserWhere(viewerId),
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    return new Set(rows.map((row) => row.id.toString()));
   }
 
   async findActiveMemberCountsByClubIds(
@@ -652,6 +717,45 @@ export class ClubRepository {
       ),
       (id) => BigInt(id),
     );
+  }
+
+  private visibleUserWhere(viewerId: bigint): Prisma.UserWhereInput {
+    return {
+      blocksReceived: {
+        none: {
+          blockedById: viewerId,
+          status: 'BLOCKED',
+          deletedAt: null,
+        },
+      },
+      blocksInitiated: {
+        none: {
+          blockedId: viewerId,
+          status: 'BLOCKED',
+          deletedAt: null,
+        },
+      },
+    };
+  }
+
+  private activeBlockBetweenWhere(
+    viewerId: bigint,
+    targetUserId: bigint,
+  ): Prisma.BlockWhereInput {
+    return {
+      status: 'BLOCKED',
+      deletedAt: null,
+      OR: [
+        {
+          blockedById: viewerId,
+          blockedId: targetUserId,
+        },
+        {
+          blockedById: targetUserId,
+          blockedId: viewerId,
+        },
+      ],
+    };
   }
 
   async findActiveClubUser(

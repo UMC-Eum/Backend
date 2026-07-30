@@ -112,6 +112,7 @@ export class ClubService {
       : undefined;
 
     const rows = await this.clubRepository.findManyForList({
+      viewerId: BigInt(userId),
       keyword: query.keyword?.trim() || undefined,
       category: query.category,
       code: user.address?.code ?? undefined,
@@ -132,8 +133,11 @@ export class ClubService {
     };
   }
 
-  async listTopHosts(limit: number): Promise<ListTopHostsResponseDto> {
-    const rows = await this.clubRepository.findTopHosts(limit);
+  async listTopHosts(
+    userId: number,
+    limit: number,
+  ): Promise<ListTopHostsResponseDto> {
+    const rows = await this.clubRepository.findTopHosts(BigInt(userId), limit);
     return {
       hosts: rows.map((row) => ({
         hostId: row.hostId.toString(),
@@ -146,9 +150,13 @@ export class ClubService {
   }
 
   async listTodayRecommendedClubs(
+    userId: number,
     limit: number,
   ): Promise<ListTodayRecommendedClubsResponseDto> {
-    const rows = await this.clubRepository.findTodayRecommendedClubs(limit);
+    const rows = await this.clubRepository.findTodayRecommendedClubs(
+      BigInt(userId),
+      limit,
+    );
 
     return {
       items: rows.map((row) => ({
@@ -261,6 +269,13 @@ export class ClubService {
 
     const club = await this.clubRepository.findDetailById(clubKey);
     if (!club) {
+      throw new AppException('CLUB_NOT_FOUND');
+    }
+    if (
+      club.hostId &&
+      club.hostId !== userKey &&
+      (await this.clubRepository.hasActiveBlockBetween(userKey, club.hostId))
+    ) {
       throw new AppException('CLUB_NOT_FOUND');
     }
 

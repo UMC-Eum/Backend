@@ -2,6 +2,16 @@
 
 Repository workflows enforce CI before deployment, scan the container image, and enable ECS circuit-breaker rollback. The following one-time GitHub and AWS settings complete the setup.
 
+The staging Trivy vulnerability scan reports all `HIGH` and `CRITICAL` findings
+without blocking deployment. Findings produce an Actions warning, a job
+summary, and a best-effort JSON artifact retained for 30 days. Artifact upload
+failures do not block deployment. Artifact names follow
+`trivy-staging-<sha>-<run-id>-<run-attempt>` so reruns remain distinct. A
+separate `HIGH`/`CRITICAL` secret scan remains blocking. Failures to execute
+Trivy or parse the vulnerability JSON still stop the workflow, and migration,
+ECS rollout, and smoke-test failures remain deployment gates. Vulnerability
+findings do not affect the staging approval marker or production eligibility.
+
 ## 1. GitHub Actions variables and staging environment
 
 Under `Settings` -> `Secrets and variables` -> `Actions` -> `Variables`, add
@@ -101,7 +111,8 @@ This is intentionally blocked without `ALLOW_PRODUCTION_SEED=true` because `pris
 ## 6. Staging approval marker
 
 The final successful CD step adds `staging-approved-<commit-sha>` to the exact
-ECR manifest deployed to staging. Production CD requires both the original
+ECR manifest deployed to staging after migration, rollout, and smoke tests pass,
+regardless of Trivy findings. Production CD requires both the original
 `<commit-sha>` tag and this approval tag to resolve to the same digest. Do not
 create approval tags manually.
 

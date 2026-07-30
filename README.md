@@ -1,4 +1,3 @@
-````md
 # EUM Backend
 
 EUM 백엔드 서버입니다.  
@@ -51,7 +50,7 @@ npm run start:dev              # 개발 모드 (watch) — 기본 포트 3000
 
 ```bash
 npm install
-````
+```
 
 > `postinstall`로 `prisma generate`가 자동 실행됩니다.
 
@@ -61,6 +60,7 @@ npm install
 
 프로젝트 루트에 `.env` 파일을 생성해주세요.
 `.env.example` 파일의 골격을 참고해주세요.
+
 > ⚠️ `.env` 파일은 Git에 커밋하지 않습니다.
 
 온보딩 AI 위임을 위해 아래 환경변수를 추가로 설정해야 합니다.
@@ -103,16 +103,19 @@ npm run start:dev
    ```env
    DATABASE_URL=postgresql://<user>:<pw>@<rds-endpoint>:5432/<db>?sslmode=no-verify
    ```
+
 2. 연결 확인 (선택):
 
    ```bash
    npx prisma db pull --print >/dev/null
    ```
+
 3. 마이그레이션 적용 — **공용 RDS면 반드시 `deploy`** 사용 (`dev`는 drift 시 reset 제안, `reset`은 데이터 삭제):
 
    ```bash
    npm run prisma:migrate:deploy
    ```
+
 4. 서버 기동:
 
    ```bash
@@ -164,9 +167,9 @@ docker compose up -d backend
 
 ## 🧩 Prisma
 
-* Prisma 설정 파일: `prisma/schema.prisma`
-* Prisma Client 생성: `npm run prisma:generate`
-* 생성된 Prisma Client(예: `@prisma/client` 기반 생성물)는 **커밋하지 않고**, 필요 시 install/build 단계에서 생성합니다.
+- Prisma 설정 파일: `prisma/schema.prisma`
+- Prisma Client 생성: `npm run prisma:generate`
+- 생성된 Prisma Client(예: `@prisma/client` 기반 생성물)는 **커밋하지 않고**, 필요 시 install/build 단계에서 생성합니다.
 
 > Prisma 관련 변경 후에는 `npm run prisma:generate`를 한 번 실행하는 것을 권장합니다.
 
@@ -176,10 +179,10 @@ docker compose up -d backend
 
 Swagger를 통해 API 문서를 확인할 수 있습니다.
 
-* **Swagger UI**
+- **Swagger UI**
   👉 [http://localhost:3000/api/v1/docs](http://localhost:3000/api/v1/docs)
 
-* **OpenAPI JSON**
+- **OpenAPI JSON**
   👉 [http://localhost:3000/api/v1/docs-json](http://localhost:3000/api/v1/docs-json)
 
 ---
@@ -212,42 +215,47 @@ GET /api/v1/health/fastapi
 
 **CI** — PR 또는 `main`/`dev` 브랜치 push 시 자동 실행 (`.github/workflows/ci.yml`):
 
-* Install (`npm ci`)
-* Prisma generate
-* PR dependency review (runtime 의존성 변경으로 새로 유입되는 `high` 이상 취약점 표시)
-* Lint / typecheck / unit tests + coverage artifact / production build
-* 빈 PostgreSQL(pgvector) DB에 Prisma migration 적용 후 e2e test
+- Install (`npm ci`)
+- Prisma generate
+- PR dependency review (runtime 의존성 변경으로 새로 유입되는 `high` 이상 취약점 표시)
+- Lint / typecheck / unit tests + coverage artifact / production build
+- 빈 PostgreSQL(pgvector) DB에 Prisma migration 적용 후 e2e test
 
 **Dependency security audit** (`.github/workflows/dependency-audit.yml`):
 
-* 매주 월요일 09:00(KST) 및 수동 실행 시 전체 production dependency audit
-* `dev` → `main` 릴리스 PR에서 전체 `npm audit --omit=dev --audit-level=high` 실행
-* 일반 PR은 기존 전체 취약점이 아니라 해당 PR이 새로 추가한 취약점만 검사
-* 보안 검사는 실패 상태를 표시하지만 Ruleset의 필수 체크로 등록하지 않아 머지를 차단하지 않음
+- 매주 월요일 09:00(KST) 및 수동 실행 시 전체 production dependency audit
+- `dev` → `main` 릴리스 PR에서 전체 `npm audit --omit=dev --audit-level=high` 실행
+- 일반 PR은 기존 전체 취약점이 아니라 해당 PR이 새로 추가한 취약점만 검사
+- 보안 검사는 실패 상태를 표시하지만 Ruleset의 필수 체크로 등록하지 않아 머지를 차단하지 않음
 
 **CD** — `dev` push의 CI가 성공하면 검증된 commit SHA를 staging ECS로 자동 배포 (`.github/workflows/cd-staging.yml`):
 
-* GitHub OIDC와 staging Environment의 `AWS_ROLE_ARN`으로 AWS 인증
-* Docker image build 후 Trivy `HIGH`/`CRITICAL` 검사, 통과한 immutable `:<sha>`만 ECR push
-* 현재 task definition 기반으로 새 이미지 태그를 적용해 새 revision 등록
-* ECS one-off task(EC2 launch type)로 Prisma migration binary 실행 — exit code 0이 아니면 배포 중단
-* ECS circuit breaker + 자동 rollback으로 동일 revision 배포
-* 새 task definition의 `rolloutState`를 최대 15분간 추적하여 rollback을 성공으로 오인하지 않도록 검증
-* REST health 및 Socket.IO `/chats` 인증 smoke test
-* 모든 검증 성공 후 동일 ECR digest에 `staging-approved-<sha>` 태그 추가
-* 실패 시 ECS deployment, service event, stopped task 진단 정보 출력
+- GitHub OIDC와 staging Environment의 `AWS_ROLE_ARN`으로 AWS 인증
+- Docker image build 후 모든 Trivy `HIGH`/`CRITICAL` 취약점을 정보성으로 검사하고 immutable `:<sha>`를 ECR push
+- 발견된 취약점은 Actions warning, Job Summary, JSON artifact로 기록
+- JSON artifact 업로드 실패는 staging 배포를 차단하지 않음
+- 별도 Trivy secret 검사에서 `HIGH`/`CRITICAL`이 발견되면 배포 중단
+- 현재 task definition 기반으로 새 이미지 태그를 적용해 새 revision 등록
+- ECS one-off task(EC2 launch type)로 Prisma migration binary 실행 — exit code 0이 아니면 배포 중단
+- ECS circuit breaker + 자동 rollback으로 동일 revision 배포
+- 새 task definition의 `rolloutState`를 최대 15분간 추적하여 rollback을 성공으로 오인하지 않도록 검증
+- REST health 및 Socket.IO `/chats` 인증 smoke test
+- migration / rollout / smoke test 성공 후 동일 ECR digest에 `staging-approved-<sha>` 태그 추가
+- 실패 시 ECS deployment, service event, stopped task 진단 정보 출력
 
 > 동시 배포 방지: `concurrency: cd-staging` (취소 없이 직렬화).
 > GitHub Environment, OIDC Role 및 branch protection 설정은 [`docs/cd-staging-setup.md`](docs/cd-staging-setup.md)를 참고하세요.
 
 **Production CD** — main에 포함된 annotated `vMAJOR.MINOR.PATCH` 태그를 검증 후 production ECS에 배포 (`.github/workflows/cd-production.yml`):
 
-* production에서 이미지를 다시 빌드하지 않고 staging 승인 SHA의 ECR digest를 그대로 승격
-* GitHub `production` Environment의 main/tag 제한과 별도 AWS OIDC role 사용
-* Prisma migration 성공 후 ECS rolling deployment 수행
-* ECS circuit breaker와 CloudWatch alarm rollback 적용
-* REST/Socket.IO smoke 실패 시 배포 직전 task definition으로 복구
-* 이전 태그 재배포를 위한 수동 `workflow_dispatch` 지원
+- production에서 이미지를 다시 빌드하지 않고 staging 승인 SHA의 ECR digest를 그대로 승격
+- Production에서는 Trivy를 다시 실행하거나 별도 취약점 게이트를 적용하지 않으며 신규 AWS IAM 권한도 요구하지 않음
+- Staging Trivy 취약점 결과는 정보성으로 유지하며 production 승격을 차단하지 않음
+- GitHub `production` Environment의 main/tag 제한과 별도 AWS OIDC role 사용
+- Prisma migration 성공 후 ECS rolling deployment 수행
+- ECS circuit breaker와 CloudWatch alarm rollback 적용
+- REST/Socket.IO smoke 실패 시 배포 직전 task definition으로 복구
+- 이전 태그 재배포를 위한 수동 `workflow_dispatch` 지원
 
 > Production Environment 변수, tag ruleset, ECR immutability, OIDC/IAM, 릴리스 및 롤백 절차는 [`docs/cd-production-setup.md`](docs/cd-production-setup.md)를 참고하세요.
 
@@ -287,12 +295,12 @@ docker-compose.yml           # 로컬 backend 이미지 단독 실행용
 
 ## 🧑‍💻 Notes
 
-* 모든 API는 **Global Prefix `/api/v1`** 를 사용합니다.
-* HTTP 요청/응답 로그는 **pino 기반으로 자동 기록**됩니다.
-* Swagger는 크로스 브라우저 호환성을 위해 prefix 내부(`/api/v1/docs`)에 위치합니다.
-* Prisma 및 도메인 비즈니스 로직은 이후 단계에서 추가됩니다.
-* 로컬 DB는 `pgvector/pgvector:pg17` 컨테이너 기준으로 `DATABASE_URL`이 `5432`를 사용합니다.
-* CI 환경에서는 PostgreSQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `5432/6379`입니다.
+- 모든 API는 **Global Prefix `/api/v1`** 를 사용합니다.
+- HTTP 요청/응답 로그는 **pino 기반으로 자동 기록**됩니다.
+- Swagger는 크로스 브라우저 호환성을 위해 prefix 내부(`/api/v1/docs`)에 위치합니다.
+- Prisma 및 도메인 비즈니스 로직은 이후 단계에서 추가됩니다.
+- 로컬 DB는 `pgvector/pgvector:pg17` 컨테이너 기준으로 `DATABASE_URL`이 `5432`를 사용합니다.
+- CI 환경에서는 PostgreSQL/Redis 서비스 컨테이너를 사용하며, 내부 포트는 `5432/6379`입니다.
 
 ---
 
@@ -317,13 +325,11 @@ npm run prisma:studio           # Prisma Studio 실행
 
 ## 👥 Contribution
 
-* 초기 세팅 PR 이후 기능 단위로 PR을 생성해주세요.
-* 커밋 메시지는 Conventional Commits를 권장합니다.
+- 초기 세팅 PR 이후 기능 단위로 PR을 생성해주세요.
+- 커밋 메시지는 Conventional Commits를 권장합니다.
 
 ---
 
 ## 📎 License
 
 Private project.
-
-```

@@ -2,7 +2,12 @@
 
 Production releases promote the exact container digest that passed staging.
 Pushing an annotated stable SemVer tag such as `v1.2.3` starts validation. The
-AWS deployment job starts automatically after validation succeeds.
+AWS deployment job starts automatically after validation succeeds. Staging
+Trivy findings are informational and do not prevent the approved image from
+being promoted to production. Production does not run Trivy again and has no
+separate vulnerability gate. This policy does not add any production AWS IAM
+permissions. The staging approval marker confirms migration, rollout, smoke
+tests, and the blocking staging secret scan; it is not a vulnerability approval.
 
 ## 1. GitHub Actions variables and production environment
 
@@ -68,9 +73,11 @@ or reset `main`.
 ## 3. ECR immutable tags
 
 In the `eum-backend` ECR repository, set tag mutability to `Immutable`. Staging
-adds a unique `staging-approved-<commit-sha>` tag after all staging checks pass;
-production adds a unique `vX.Y.Z` alias to the same manifest. The production
-task definition uses `repository@sha256:<digest>`, not a mutable image tag.
+adds a unique `staging-approved-<commit-sha>` tag after migration, rollout, and
+smoke tests and the blocking secret scan pass, regardless of vulnerability
+findings. Production adds a unique `vX.Y.Z` alias to the same manifest. The
+production task definition uses `repository@sha256:<digest>`, not a mutable
+image tag.
 
 The first automated production candidate must complete staging after the
 approval-marker workflow change is deployed. Older images without an approval

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { ReportCategory } from '@prisma/client';
+import { ReportCategory, ReportTargetType } from '@prisma/client';
 import { JwtTokenService } from '../../../auth/services/jwt-token.service';
 import { PrismaService } from '../../../../infra/prisma/prisma.service';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
@@ -10,6 +10,7 @@ import { ReportController } from './report.controller';
 describe('ReportController', () => {
   let controller: ReportController;
   const reportService = {
+    createUnifiedReport: jest.fn(),
     createReport: jest.fn(),
     createClubReport: jest.fn(),
     createArticleReport: jest.fn(),
@@ -55,6 +56,28 @@ describe('ReportController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('통합 신고 요청을 서비스로 위임한다', async () => {
+    const dto = {
+      targetType: ReportTargetType.PROFILE,
+      targetId: '40',
+      reasonCode: ReportCategory.SPAM,
+      detail: '스팸입니다.',
+      targetUserId: '40',
+      chatRoomId: '123',
+    };
+    reportService.createUnifiedReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.SPAM,
+      reason: '스팸입니다.',
+      targetType: ReportTargetType.PROFILE,
+      targetId: 40,
+    });
+
+    await controller.createUnifiedReport(7, dto);
+
+    expect(reportService.createUnifiedReport).toHaveBeenCalledWith('7', dto);
   });
 
   it('동호회 신고 요청을 서비스로 위임한다', async () => {

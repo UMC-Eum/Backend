@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { BlockRepository } from '../../repositories/block.repository';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
+import { BlockFilterInterceptor } from '../../../../common/interceptors/block-filter.interceptor';
 
 interface PaginationParams {
   userId: string;
@@ -32,7 +33,9 @@ export class BlockService {
         message: ERROR_DEFINITIONS.SOCIAL_BLOCK_ALREADY_EXISTS.message,
         details: { targetUserId: targetUserId },
       });
-    } else return result;
+    }
+    BlockFilterInterceptor.invalidateUsers([userId, targetUserId]);
+    return result;
   }
   async unActivateBlock(blockId: string) {
     const result = await this.blockRepository.patchBlock(blockId);
@@ -42,6 +45,21 @@ export class BlockService {
         message: ERROR_DEFINITIONS.SOCIAL_BLOCK_NOT_FOUND.message,
         details: { field: 'blockId' },
       });
+    return result;
+  }
+
+  async unblockTargetUser(userId: string, targetUserId: string) {
+    const result = await this.blockRepository.patchBlockByTargetUser(
+      userId,
+      targetUserId,
+    );
+    if (result == null) {
+      throw new AppException('SOCIAL_BLOCK_NOT_FOUND', {
+        message: ERROR_DEFINITIONS.SOCIAL_BLOCK_NOT_FOUND.message,
+        details: { field: 'targetUserId' },
+      });
+    }
+    BlockFilterInterceptor.invalidateUsers([userId, targetUserId]);
     return result;
   }
   async getBlock(params: PaginationParams) {

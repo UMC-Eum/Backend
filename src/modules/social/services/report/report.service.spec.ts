@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ReportCategory } from '@prisma/client';
+import { ReportCategory, ReportTargetType } from '@prisma/client';
 import { ReportService } from './report.service';
 import { ReportRepository } from '../../repositories/report.repository';
 import { NotificationService } from '../../../notification/services/notification.service';
@@ -8,9 +8,15 @@ describe('ReportService', () => {
   let service: ReportService;
   const reportRepository = {
     createReport: jest.fn(),
+    createUnifiedReport: jest.fn(),
+    findActiveUserById: jest.fn(),
     findActiveClubById: jest.fn(),
+    findActiveArticleById: jest.fn(),
     findActiveArticleByClubId: jest.fn(),
+    findActiveCommentById: jest.fn(),
     findActiveCommentByArticleId: jest.fn(),
+    countActiveTargetReports: jest.fn(),
+    blindReportedTarget: jest.fn(),
     countActiveClubReports: jest.fn(),
     countActiveUserReports: jest.fn(),
     deactivateClub: jest.fn(),
@@ -47,6 +53,72 @@ describe('ReportService', () => {
     expect(service).toBeDefined();
   });
 
+  it('통합 프로필 신고를 생성한다', async () => {
+    reportRepository.findActiveUserById.mockResolvedValue({ id: 40n });
+    reportRepository.createUnifiedReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.SPAM,
+      reason: '스팸입니다.',
+      targetType: ReportTargetType.PROFILE,
+      targetId: 40,
+    });
+    reportRepository.countActiveTargetReports.mockResolvedValue(1);
+
+    const result = await service.createUnifiedReport('7', {
+      targetType: ReportTargetType.PROFILE,
+      targetId: '40',
+      reasonCode: ReportCategory.SPAM,
+      detail: '스팸입니다.',
+      targetUserId: '40',
+      chatRoomId: '123',
+    });
+
+    expect(reportRepository.findActiveUserById).toHaveBeenCalledWith('40');
+    expect(reportRepository.createUnifiedReport).toHaveBeenCalledWith({
+      userId: '7',
+      targetType: ReportTargetType.PROFILE,
+      targetId: '40',
+      reason: '스팸입니다.',
+      category: ReportCategory.SPAM,
+      targetUserId: '40',
+      chatRoomId: '123',
+    });
+    expect(reportRepository.countActiveTargetReports).toHaveBeenCalledWith(
+      ReportTargetType.PROFILE,
+      '40',
+    );
+    expect(reportRepository.blindReportedTarget).not.toHaveBeenCalled();
+    expect(result.targetId).toBe(40);
+  });
+
+  it('통합 게시글 신고가 3번 이상이면 블라인드 처리한다', async () => {
+    reportRepository.findActiveArticleById.mockResolvedValue({
+      id: 345n,
+      clubId: 12n,
+      userId: 88n,
+    });
+    reportRepository.createUnifiedReport.mockResolvedValue({
+      reportId: 1,
+      category: ReportCategory.ABUSE,
+      reason: '욕설입니다.',
+      targetType: ReportTargetType.ARTICLE,
+      targetId: 345,
+    });
+    reportRepository.countActiveTargetReports.mockResolvedValue(3);
+
+    await service.createUnifiedReport('7', {
+      targetType: ReportTargetType.ARTICLE,
+      targetId: '345',
+      reasonCode: ReportCategory.ABUSE,
+      detail: '욕설입니다.',
+    });
+
+    expect(reportRepository.blindReportedTarget).toHaveBeenCalledWith(
+      ReportTargetType.ARTICLE,
+      '345',
+    );
+  });
+
   it('동호회 신고를 생성한다', async () => {
     reportRepository.findActiveClubById.mockResolvedValue({
       id: 12n,
@@ -59,6 +131,7 @@ describe('ReportService', () => {
       clubId: 12,
     });
     reportRepository.countActiveClubReports.mockResolvedValue(3);
+    reportRepository.countActiveTargetReports.mockResolvedValue(3);
 
     const result = await service.createClubReport('7', '12', {
       category: ReportCategory.SPAM,
@@ -100,6 +173,7 @@ describe('ReportService', () => {
       clubId: 12,
     });
     reportRepository.countActiveClubReports.mockResolvedValue(5);
+    reportRepository.countActiveTargetReports.mockResolvedValue(5);
 
     await service.createClubReport('7', '12', {
       category: ReportCategory.SPAM,
@@ -167,6 +241,7 @@ describe('ReportService', () => {
       articleId: 345,
     });
     reportRepository.countActiveUserReports.mockResolvedValue(4);
+    reportRepository.countActiveTargetReports.mockResolvedValue(2);
 
     const result = await service.createArticleReport('7', '12', '345', {
       category: ReportCategory.ABUSE,
@@ -230,6 +305,7 @@ describe('ReportService', () => {
       articleId: 345,
       commentId: 678,
     });
+    reportRepository.countActiveTargetReports.mockResolvedValue(2);
     const result = await service.createCommentReport('7', '12', '345', '678', {
       category: ReportCategory.ABUSE,
       reason: '욕설입니다.',

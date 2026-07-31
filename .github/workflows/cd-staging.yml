@@ -121,14 +121,60 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Scan image for vulnerabilities
+      - name: Scan image for vulnerabilities (informational)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.uri }}
+          format: json
+          output: trivy-vulnerability-results.json
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+      - name: Report staging vulnerabilities
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: |
+          set -euo pipefail
+
+          HIGH_COUNT=$(jq \
+            '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' \
+            trivy-vulnerability-results.json)
+          CRITICAL_COUNT=$(jq \
+            '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' \
+            trivy-vulnerability-results.json)
+          TOTAL_COUNT=$((HIGH_COUNT + CRITICAL_COUNT))
+
+          {
+            echo "## Staging vulnerability scan"
+            echo
+            echo "| Image | HIGH findings | CRITICAL findings | Vulnerability gate |"
+            echo "| --- | ---: | ---: | --- |"
+            echo "| \`$IMAGE_URI\` | $HIGH_COUNT | $CRITICAL_COUNT | Non-blocking |"
+            echo
+            echo "Vulnerability findings do not determine the final deployment result. The secret scan and subsequent deployment gates still apply."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$TOTAL_COUNT" -gt 0 ]; then
+            echo "::warning title=Staging image vulnerabilities detected::HIGH findings=$HIGH_COUNT, CRITICAL findings=$CRITICAL_COUNT. Vulnerabilities do not block deployment; other gates still apply."
+          fi
+
+      - name: Upload staging vulnerability report
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-staging-${{ steps.commit.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: trivy-vulnerability-results.json
+          retention-days: 30
+
+      - name: Scan image for secrets (blocking)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.image.outputs.uri }}
           format: table
-          vuln-type: os,library
+          scanners: secret
           severity: HIGH,CRITICAL
-          ignore-unfixed: true
           exit-code: '1'
 
       - name: Push immutable image

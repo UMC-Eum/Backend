@@ -1,14 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationType, ReportCategory } from '@prisma/client';
+import {
+  NotificationType,
+  ReportCategory,
+  ReportTargetType,
+} from '@prisma/client';
 import { ReportRepository } from '../../repositories/report.repository';
 import { AppException } from '../../../../common/errors/app.exception';
 import { ERROR_DEFINITIONS } from '../../../../common/errors/error-codes';
-import { CreateReportRequestDto } from '../../dtos/report.dto';
+import {
+  CreateReportRequestDto,
+  CreateUnifiedReportRequestDto,
+} from '../../dtos/report.dto';
 import { NotificationService } from '../../../notification/services/notification.service';
 
 @Injectable()
 export class ReportService {
   private static readonly CLUB_REPORT_DEACTIVATION_THRESHOLD = 5;
+  private static readonly CONTENT_REPORT_BLIND_THRESHOLD = 3;
 
   constructor(
     readonly reportRepository: ReportRepository,
@@ -37,6 +45,33 @@ export class ReportService {
     } else return result;
   }
 
+  async createUnifiedReport(
+    userId: string,
+    dto: CreateUnifiedReportRequestDto,
+  ) {
+    await this.assertUnifiedReportTarget(dto);
+
+    const result = await this.reportRepository.createUnifiedReport({
+      userId,
+      targetType: dto.targetType,
+      targetId: dto.targetId,
+      reason: dto.detail,
+      category: dto.reasonCode,
+      targetUserId: dto.targetUserId,
+      chatRoomId: dto.chatRoomId,
+    });
+
+    if (result.reason === 'Already reported.') {
+      throw new AppException('SOCIAL_REPORT_EXISTS', {
+        message: ERROR_DEFINITIONS.SOCIAL_REPORT_EXISTS.message,
+        details: { field: 'targetId' },
+      });
+    }
+
+    await this.handleContentReportThreshold(dto.targetType, dto.targetId);
+    return result;
+  }
+
   async createClubReport(
     userId: string,
     clubId: string,
@@ -60,6 +95,7 @@ export class ReportService {
       });
     }
 
+    await this.handleContentReportThreshold(ReportTargetType.CLUB, clubId);
     await this.handleClubReportThreshold(String(userId), clubId, club.hostId);
     return result;
   }
@@ -96,6 +132,10 @@ export class ReportService {
       String(userId),
       articleId,
       article.userId,
+    );
+    await this.handleContentReportThreshold(
+      ReportTargetType.ARTICLE,
+      articleId,
     );
     return result;
   }
@@ -138,7 +178,61 @@ export class ReportService {
       });
     }
 
+    await this.handleContentReportThreshold(
+      ReportTargetType.COMMENT,
+      commentId,
+    );
     return result;
+  }
+
+  private async assertUnifiedReportTarget(
+    dto: CreateUnifiedReportRequestDto,
+  ): Promise<void> {
+    if (dto.targetType === ReportTargetType.CLUB) {
+      const club = await this.reportRepository.findActiveClubById(dto.targetId);
+      if (!club) throw new AppException('CLUB_NOT_FOUND');
+      return;
+    }
+
+    if (dto.targetType === ReportTargetType.ARTICLE) {
+      const article = await this.reportRepository.findActiveArticleById(
+        dto.targetId,
+      );
+      if (!article) throw new AppException('ARTICLE_NOT_FOUND');
+      return;
+    }
+
+    if (dto.targetType === ReportTargetType.COMMENT) {
+      const comment = await this.reportRepository.findActiveCommentById(
+        dto.targetId,
+      );
+      if (!comment) throw new AppException('COMMENT_NOT_FOUND');
+      return;
+    }
+
+    if (
+      dto.targetType === ReportTargetType.USER ||
+      dto.targetType === ReportTargetType.PROFILE ||
+      dto.targetType === ReportTargetType.VOICE
+    ) {
+      const user = await this.reportRepository.findActiveUserById(
+        dto.targetUserId ?? dto.targetId,
+      );
+      if (!user) throw new AppException('SOCIAL_TARGET_USER_NOT_FOUND');
+    }
+  }
+
+  private async handleContentReportThreshold(
+    targetType: ReportTargetType,
+    targetId: string,
+  ): Promise<void> {
+    const reportCount = await this.reportRepository.countActiveTargetReports(
+      targetType,
+      targetId,
+    );
+    if (reportCount >= ReportService.CONTENT_REPORT_BLIND_THRESHOLD) {
+      await this.reportRepository.blindReportedTarget(targetType, targetId);
+    }
   }
 
   private async handleClubReportThreshold(

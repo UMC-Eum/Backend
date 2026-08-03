@@ -7,6 +7,7 @@ import {
 import { ClubListSort } from '../dtos/club.dto';
 
 export interface ListClubsRepositoryParams {
+  viewerId: bigint;
   keyword?: string;
   category?: ClubCategory;
   code?: string;

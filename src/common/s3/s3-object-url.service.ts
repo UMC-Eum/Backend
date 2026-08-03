@@ -155,12 +155,13 @@ export class S3ObjectUrlService {
   }
 
   async transformClientUrlFields<T>(value: T): Promise<T> {
-    return this.transform(value, null) as Promise<T>;
+    return this.transform(value, null, new WeakSet<object>()) as Promise<T>;
   }
 
   private async transform(
     value: unknown,
     key: string | null,
+    visited: WeakSet<object>,
   ): Promise<unknown> {
     if (typeof value === 'string') {
       return key && CLIENT_URL_FIELDS.has(key)
@@ -172,14 +173,21 @@ export class S3ObjectUrlService {
       return value;
     }
 
+    if (visited.has(value)) {
+      return '[Circular]';
+    }
+    visited.add(value);
+
     if (Array.isArray(value)) {
-      return Promise.all(value.map((item) => this.transform(item, null)));
+      return Promise.all(
+        value.map((item) => this.transform(item, null, visited)),
+      );
     }
 
     const entries = await Promise.all(
       Object.entries(value).map(async ([entryKey, entryValue]) => [
         entryKey,
-        await this.transform(entryValue, entryKey),
+        await this.transform(entryValue, entryKey, visited),
       ]),
     );
 

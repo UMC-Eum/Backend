@@ -156,6 +156,37 @@ export class BlockRepository {
     };
   }
 
+  async patchBlockByTargetUser(
+    userId: string,
+    targetUserId: string,
+  ): Promise<BlockDto | null> {
+    const blockedById = BigInt(userId);
+    const blockedId = BigInt(targetUserId);
+    const block = await this.prisma.block.findFirst({
+      where: {
+        blockedById,
+        blockedId,
+        status: BlockStatus.BLOCKED,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!block) {
+      return null;
+    }
+
+    const response = await this.prisma.block.update({
+      where: { id: block.id },
+      data: { status: BlockStatus.UNBLOCKED, blockedAt: new Date() },
+    });
+
+    return {
+      blockId: Number(response.id),
+      status: response.status,
+      blockedAt: response.blockedAt.toISOString(),
+    };
+  }
+
   async getBlock(params: {
     userId: string;
     cursor?: string;

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AgreementType } from '@prisma/client';
 import { AgreementRepository } from '../repositories/agreement.repository';
 import {
   AgreementResponseDto,
@@ -18,18 +19,22 @@ export class AgreementService {
   async upsertUserMarketingAgreement(
     userId: number,
     marketingAgreementId: number,
+    agreementType: AgreementType,
+    agreementVersion: string,
     isAgreed: boolean,
   ) {
     const agreement =
-      await this.agreementRepository.findMarketingAgreementById(
+      await this.agreementRepository.findMarketingAgreementByContract(
         marketingAgreementId,
+        agreementType,
+        agreementVersion,
       );
     if (!agreement) {
       throw new AppException('AGREE_DOESNOT_EXIST');
     }
     return await this.agreementRepository.upsertUserMarketingAgreement(
       userId,
-      marketingAgreementId,
+      agreement,
       isAgreed,
     );
   }

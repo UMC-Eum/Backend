@@ -15,6 +15,7 @@ import { RequiredUserId } from '../../../auth/decorators';
 import { AccessTokenGuard } from '../../../auth/guards/access-token.guard';
 import {
   CreateReportRequestDto,
+  CreateUnifiedReportRequestDto,
   CreateUserReportRequestDto,
   ReportCreatedResponseDto,
 } from '../../dtos/report.dto';
@@ -23,11 +24,28 @@ import { ParsePositiveIntPipe } from '../../../../common/pipes/parse-positive-in
 @ApiTags('Report')
 @ApiBearerAuth('access-token')
 @UseGuards(AccessTokenGuard)
-@Controller('report')
+@Controller()
 export class ReportController {
   public constructor(private readonly reportService: ReportService) {}
 
-  @Post()
+  @Post('reports')
+  @ApiOperation({ summary: '콘텐츠 통합 신고 생성' })
+  @ApiBody({ type: CreateUnifiedReportRequestDto })
+  @ApiCreatedResponse({
+    description: '신고 접수 완료',
+    type: ReportCreatedResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiNotFoundResponse({ description: '신고 대상을 찾을 수 없음' })
+  @ApiConflictResponse({ description: '이미 신고한 대상' })
+  async createUnifiedReport(
+    @RequiredUserId() userId: number,
+    @Body() dto: CreateUnifiedReportRequestDto,
+  ): Promise<ReportCreatedResponseDto> {
+    return this.reportService.createUnifiedReport(String(userId), dto);
+  }
+
+  @Post('report')
   @ApiOperation({ summary: '사용자 신고 생성' })
   @ApiBody({ type: CreateUserReportRequestDto })
   @ApiCreatedResponse({ description: '신고 접수 완료' })
@@ -45,7 +63,7 @@ export class ReportController {
     );
   }
 
-  @Post('clubs/:clubId')
+  @Post('report/clubs/:clubId')
   @ApiOperation({ summary: '동호회 신고 생성' })
   @ApiParam({ name: 'clubId', example: 12 })
   @ApiBody({ type: CreateReportRequestDto })
@@ -68,7 +86,7 @@ export class ReportController {
     );
   }
 
-  @Post('clubs/:clubId/articles/:articleId')
+  @Post('report/clubs/:clubId/articles/:articleId')
   @ApiOperation({ summary: '동호회 게시글 신고 생성' })
   @ApiParam({ name: 'clubId', example: 12 })
   @ApiParam({ name: 'articleId', example: 345 })
@@ -94,7 +112,7 @@ export class ReportController {
     );
   }
 
-  @Post('clubs/:clubId/articles/:articleId/comments/:commentId')
+  @Post('report/clubs/:clubId/articles/:articleId/comments/:commentId')
   @ApiOperation({ summary: '동호회 게시글 댓글 신고 생성' })
   @ApiParam({ name: 'clubId', example: 12 })
   @ApiParam({ name: 'articleId', example: 345 })

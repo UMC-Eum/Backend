@@ -89,4 +89,17 @@ describe('S3ObjectUrlService', () => {
     );
     expect(getSignedUrlMock).toHaveBeenCalledTimes(2);
   });
+
+  it('does not recurse forever on circular response objects', async () => {
+    const service = new S3ObjectUrlService(configService as never);
+    const payload: { imageUrl: string; self?: unknown } = {
+      imageUrl: 'https://cdn.example.com/images/1.jpg',
+    };
+    payload.self = payload;
+
+    await expect(service.transformClientUrlFields(payload)).resolves.toEqual({
+      imageUrl: 'https://cdn.example.com/images/1.jpg',
+      self: '[Circular]',
+    });
+  });
 });

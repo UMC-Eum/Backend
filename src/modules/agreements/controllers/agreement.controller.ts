@@ -86,10 +86,17 @@ export class AgreementController {
     @Body() body: CreateUserAgreementRequestDto,
   ) {
     for (const agreement of body.marketingAgreements) {
-      const { marketingAgreementId, isAgreed } = agreement;
+      const {
+        marketingAgreementId,
+        agreementType,
+        agreementVersion,
+        isAgreed,
+      } = agreement;
       await this.agreementService.upsertUserMarketingAgreement(
         userId,
         marketingAgreementId,
+        agreementType,
+        agreementVersion,
         isAgreed,
       );
     }

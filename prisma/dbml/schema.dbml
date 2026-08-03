@@ -323,6 +323,9 @@ Table ChatMedia {
 Table MarketingAgreement {
   id BigInt [pk, increment]
   body String [not null]
+  type AgreementType [not null, default: 'MARKETING']
+  version String [not null, default: '1.0.0']
+  isRequired Boolean [not null, default: false]
   userMarketingAgreement UserMarketingAgreement [not null]
 }
 
@@ -330,6 +333,8 @@ Table UserMarketingAgreement {
   id BigInt [pk, increment]
   marketingAgreementId BigInt [not null]
   userId BigInt [not null]
+  agreementType AgreementType [not null, default: 'MARKETING']
+  agreementVersion String [not null, default: '1.0.0']
   agreedAt DateTime [default: `now()`, not null]
   isAgreed Boolean [not null, default: true]
   deletedAt DateTime
@@ -698,6 +703,14 @@ Enum ReportTargetType {
   CLUB
   ARTICLE
   COMMENT
+  PROFILE
+  VOICE
+}
+
+Enum AgreementType {
+  POLICY
+  PERSONAL_INFORMATION
+  MARKETING
 }
 
 Enum ModerationSurface {

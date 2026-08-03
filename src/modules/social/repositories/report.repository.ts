@@ -12,6 +12,11 @@ import {
 } from '../dtos/report.dto';
 
 const COMMENT_REPORT_TARGET: ReportTargetType = 'COMMENT';
+const USER_RELATED_REPORT_TARGETS = new Set<ReportTargetType>([
+  ReportTargetType.USER,
+  ReportTargetType.PROFILE,
+  ReportTargetType.VOICE,
+]);
 
 @Injectable()
 export class ReportRepository {
@@ -35,6 +40,16 @@ export class ReportRepository {
     });
   }
 
+  findActiveArticleById(articleId: string) {
+    return this.prisma.article.findFirst({
+      where: {
+        id: BigInt(articleId),
+        deletedAt: null,
+      },
+      select: { id: true, clubId: true, userId: true },
+    });
+  }
+
   findActiveCommentByArticleId(articleId: string, commentId: string) {
     return this.prisma.comment.findFirst({
       where: {
@@ -46,6 +61,29 @@ export class ReportRepository {
         },
       },
       select: { id: true, articleId: true, userId: true },
+    });
+  }
+
+  findActiveCommentById(commentId: string) {
+    return this.prisma.comment.findFirst({
+      where: {
+        id: BigInt(commentId),
+        deletedAt: null,
+        article: {
+          deletedAt: null,
+        },
+      },
+      select: { id: true, articleId: true, userId: true },
+    });
+  }
+
+  findActiveUserById(userId: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        id: BigInt(userId),
+        deletedAt: null,
+      },
+      select: { id: true },
     });
   }
 
@@ -77,6 +115,112 @@ export class ReportRepository {
         report: { deletedAt: null },
       },
     });
+  }
+
+  countActiveTargetReports(targetType: ReportTargetType, targetId: string) {
+    return this.prisma.report.count({
+      where: {
+        targetType,
+        targetId: BigInt(targetId),
+        deletedAt: null,
+      },
+    });
+  }
+
+  async blindReportedTarget(
+    targetType: ReportTargetType,
+    targetId: string,
+  ): Promise<void> {
+    const id = BigInt(targetId);
+    if (targetType === ReportTargetType.ARTICLE) {
+      await this.prisma.article.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      return;
+    }
+
+    if (targetType === ReportTargetType.COMMENT) {
+      await this.prisma.comment.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      return;
+    }
+  }
+
+  async createUnifiedReport(params: {
+    userId: string;
+    targetType: ReportTargetType;
+    targetId: string;
+    reason: string;
+    category: ReportCategory;
+    targetUserId?: string;
+    chatRoomId?: string;
+  }): Promise<ReportCreatedResponseDto> {
+    const exist = await this.findExistingTargetReport(
+      params.userId,
+      params.targetType,
+      params.targetId,
+    );
+    if (exist != null) {
+      return {
+        reportId: Number(exist.id),
+        category: params.category,
+        reason: 'Already reported.',
+        targetType: params.targetType,
+        targetId: Number(params.targetId),
+      };
+    }
+
+    const relatedUserId = this.resolveReportedUserId(params);
+    const result = await this.createTargetReport({
+      userId: params.userId,
+      targetType: params.targetType,
+      targetId: params.targetId,
+      reason: params.reason,
+      category: params.category,
+      chatRoomId: params.chatRoomId,
+      createLegacyTarget: relatedUserId
+        ? async (tx, reportId) => {
+            await tx.userReport.create({
+              data: {
+                reportId,
+                reportedUserId: BigInt(relatedUserId),
+              },
+            });
+          }
+        : undefined,
+    });
+
+    if (!result.created) {
+      return {
+        reportId: Number(result.report.id),
+        category: params.category,
+        reason: 'Already reported.',
+        targetType: params.targetType,
+        targetId: Number(params.targetId),
+      };
+    }
+
+    return {
+      reportId: Number(result.report.id),
+      category: params.category,
+      reason: params.reason,
+      targetType: params.targetType,
+      targetId: Number(params.targetId),
+    };
+  }
+
+  private resolveReportedUserId(params: {
+    targetType: ReportTargetType;
+    targetId: string;
+    targetUserId?: string;
+  }): string | undefined {
+    if (!USER_RELATED_REPORT_TARGETS.has(params.targetType)) {
+      return params.targetUserId;
+    }
+    return params.targetUserId ?? params.targetId;
   }
 
   async createReport(

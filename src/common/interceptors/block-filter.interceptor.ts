@@ -15,13 +15,19 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 
 @Injectable()
 export class BlockFilterInterceptor implements NestInterceptor {
-  private blockCacheMap = new Map<
+  private static blockCacheMap = new Map<
     string,
     { data: string[]; timestamp: number }
   >();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5분 캐시
 
   constructor(private readonly prismaService: PrismaService) {}
+
+  static invalidateUsers(userIds: Array<string | number | bigint>): void {
+    userIds.forEach((userId) => {
+      this.blockCacheMap.delete(userId.toString());
+    });
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
@@ -64,7 +70,8 @@ export class BlockFilterInterceptor implements NestInterceptor {
     }
 
     // 캐시에서 조회
-    const cachedBlockData = this.blockCacheMap.get(currentUserId);
+    const cachedBlockData =
+      BlockFilterInterceptor.blockCacheMap.get(currentUserId);
     if (cachedBlockData) {
       const { data, timestamp } = cachedBlockData;
       const now = Date.now();
@@ -115,7 +122,7 @@ export class BlockFilterInterceptor implements NestInterceptor {
     const finalBlockedUserIds = Array.from(blockedUserIds);
 
     // 캐시에 저장
-    this.blockCacheMap.set(currentUserId, {
+    BlockFilterInterceptor.blockCacheMap.set(currentUserId, {
       data: finalBlockedUserIds,
       timestamp: Date.now(),
     });
@@ -182,6 +189,7 @@ export class BlockFilterInterceptor implements NestInterceptor {
     const userIdFields = [
       'userId',
       'authorId',
+      'hostId',
       'senderId',
       'sentById',
       'sentToId',
@@ -247,9 +255,12 @@ export class BlockFilterInterceptor implements NestInterceptor {
 
   private cleanExpiredCache(): void {
     const now = Date.now();
-    for (const [userId, cacheData] of this.blockCacheMap.entries()) {
+    for (const [
+      userId,
+      cacheData,
+    ] of BlockFilterInterceptor.blockCacheMap.entries()) {
       if (now - cacheData.timestamp > this.CACHE_TTL) {
-        this.blockCacheMap.delete(userId);
+        BlockFilterInterceptor.blockCacheMap.delete(userId);
       }
     }
   }

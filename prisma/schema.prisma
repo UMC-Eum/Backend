@@ -135,6 +135,14 @@ enum ReportTargetType {
   CLUB
   ARTICLE
   COMMENT
+  PROFILE
+  VOICE
+}
+
+enum AgreementType {
+  POLICY
+  PERSONAL_INFORMATION
+  MARKETING
 }
 
 enum ModerationSurface {
@@ -564,16 +572,24 @@ model ChatMedia {
 model MarketingAgreement {
   id                     BigInt                   @id @default(autoincrement()) @db.BigInt
   body                   String                   @db.Text
+  type                   AgreementType            @default(MARKETING)
+  version                String                   @default("1.0.0") @db.VarChar(20)
+  isRequired             Boolean                  @default(false)
   userMarketingAgreement UserMarketingAgreement[]
+
+  @@index([type])
+  @@index([isRequired])
 }
 
 model UserMarketingAgreement {
-  id                   BigInt    @id @default(autoincrement()) @db.BigInt
-  marketingAgreementId BigInt    @db.BigInt
-  userId               BigInt    @db.BigInt
-  agreedAt             DateTime  @default(now()) @db.Timestamp(6)
-  isAgreed             Boolean   @default(true)
-  deletedAt            DateTime? @db.Timestamp(6)
+  id                   BigInt        @id @default(autoincrement()) @db.BigInt
+  marketingAgreementId BigInt        @db.BigInt
+  userId               BigInt        @db.BigInt
+  agreementType        AgreementType @default(MARKETING)
+  agreementVersion     String        @default("1.0.0") @db.VarChar(20)
+  agreedAt             DateTime      @default(now()) @db.Timestamp(6)
+  isAgreed             Boolean       @default(true)
+  deletedAt            DateTime?     @db.Timestamp(6)
 
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade) //유저가 사라지면 바로 사라져도 ok.
   marketingAgreement MarketingAgreement @relation(fields: [marketingAgreementId], references: [id], onDelete: Cascade) //동의 약관이 사라지면 바로 사라져도 ok.

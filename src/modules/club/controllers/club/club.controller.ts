@@ -289,10 +289,14 @@ export class ClubController {
       },
     },
   })
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
   listTodayRecommendedClubs(
+    @RequiredUserId() userId: number,
     @Query() query: ListTodayRecommendedClubsQueryDto,
   ): Promise<ListTodayRecommendedClubsResponseDto> {
-    return this.clubService.listTodayRecommendedClubs(query.limit);
+    return this.clubService.listTodayRecommendedClubs(userId, query.limit);
   }
 
   @Get('top-hosts')
@@ -332,10 +336,14 @@ export class ClubController {
       },
     },
   })
+  @UseGuards(AccessTokenGuard)
+  @ApiBearerAuth('access-token')
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
   listTopHosts(
+    @RequiredUserId() userId: number,
     @Query() query: ListTopHostsQueryDto,
   ): Promise<ListTopHostsResponseDto> {
-    return this.clubService.listTopHosts(query.limit);
+    return this.clubService.listTopHosts(userId, query.limit);
   }
 
   @Post(':clubId/like')

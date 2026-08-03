@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AgreementType, MarketingAgreement } from '@prisma/client';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -15,20 +16,26 @@ export class AgreementRepository {
   // POST v1/users/me/agreements
   upsertUserMarketingAgreement(
     userId: number,
-    marketingAgreementId: number,
+    agreement: MarketingAgreement,
     isAgreed: boolean,
   ) {
     return this.prisma.userMarketingAgreement.upsert({
       where: {
         marketingAgreementId_userId: {
           userId: BigInt(userId),
-          marketingAgreementId: BigInt(marketingAgreementId),
+          marketingAgreementId: agreement.id,
         },
       },
-      update: { isAgreed },
+      update: {
+        isAgreed,
+        agreementType: agreement.type,
+        agreementVersion: agreement.version,
+      },
       create: {
         userId: BigInt(userId),
-        marketingAgreementId: BigInt(marketingAgreementId),
+        marketingAgreementId: agreement.id,
+        agreementType: agreement.type,
+        agreementVersion: agreement.version,
         isAgreed,
       },
     });
@@ -37,7 +44,21 @@ export class AgreementRepository {
   findMarketingAgreementById(agreementId: number) {
     return this.prisma.marketingAgreement.findUnique({
       where: {
-        id: agreementId,
+        id: BigInt(agreementId),
+      },
+    });
+  }
+
+  findMarketingAgreementByContract(
+    agreementId: number,
+    agreementType: AgreementType,
+    agreementVersion: string,
+  ) {
+    return this.prisma.marketingAgreement.findFirst({
+      where: {
+        id: BigInt(agreementId),
+        type: agreementType,
+        version: agreementVersion,
       },
     });
   }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ReportCategory } from '@prisma/client';
+import { ReportCategory, ReportTargetType } from '@prisma/client';
 import {
   IsEnum,
   IsNotEmpty,
@@ -51,6 +51,59 @@ export class CreateUserReportRequestDto extends CreateReportRequestDto {
   chatRoomId?: string;
 }
 
+export class CreateUnifiedReportRequestDto {
+  @ApiProperty({
+    enum: ReportTargetType,
+    example: ReportTargetType.PROFILE,
+    description: '신고 대상 타입',
+  })
+  @IsEnum(ReportTargetType)
+  targetType!: ReportTargetType;
+
+  @ApiProperty({
+    example: '40',
+    description: '신고 대상 ID',
+  })
+  @IsString()
+  @IsNotEmpty()
+  targetId!: string;
+
+  @ApiProperty({
+    enum: ReportCategory,
+    example: ReportCategory.SPAM,
+    description: '신고 사유 코드',
+  })
+  @IsEnum(ReportCategory)
+  reasonCode!: ReportCategory;
+
+  @ApiProperty({
+    example: '불쾌한 콘텐츠가 포함되어 있습니다.',
+    description: '신고 상세 내용',
+    maxLength: 100,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  detail!: string;
+
+  @ApiPropertyOptional({
+    example: '40',
+    description:
+      '신고 대상 사용자 ID. 프로필/음성/채팅 맥락 신고에 사용합니다.',
+  })
+  @IsOptional()
+  @IsString()
+  targetUserId?: string;
+
+  @ApiPropertyOptional({
+    example: '123',
+    description: '관련된 채팅방 ID',
+  })
+  @IsOptional()
+  @IsString()
+  chatRoomId?: string;
+}
+
 export class ReportCreatedResponseDto {
   @ApiProperty({ example: 123 })
   reportId!: number;
@@ -60,6 +113,15 @@ export class ReportCreatedResponseDto {
 
   @ApiProperty({ example: '스팸성 홍보 내용이 반복적으로 게시됩니다.' })
   reason!: string;
+
+  @ApiPropertyOptional({
+    enum: ReportTargetType,
+    example: ReportTargetType.USER,
+  })
+  targetType?: ReportTargetType;
+
+  @ApiPropertyOptional({ example: 40 })
+  targetId?: number;
 
   @ApiPropertyOptional({ example: 12 })
   clubId?: number;
